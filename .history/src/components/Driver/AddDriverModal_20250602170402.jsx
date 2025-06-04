@@ -1,0 +1,51 @@
+import React, { useState } from "react";
+
+const AddDriverModal = ({ open, onClose, onAdd }) => {
+  const [form, setForm] = useState({
+    name: "",
+    phone: "",
+    license_no: "",
+    hire_date: "",
+    status: "대기",
+    address: "",
+  });
+
+  if (!open) return null;
+
+  const handleChange = (e) => {
+    setForm({ ...form, [e.target.name]: e.target.value });
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onAdd(form);
+    setForm({ name: "", phone: "", license_no: "", hire_date: "", status: "대기", address: "" });
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+        <h2 className="text-xl font-bold mb-4">운전자 추가</h2>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+          <input name="name" value={form.name} onChange={handleChange} placeholder="이름" className="border rounded p-2" required />
+          <input name="phone" value={form.phone} onChange={handleChange} placeholder="연락처" className="border rounded p-2" required />
+          <input name="license_no" value={form.license_no} onChange={handleChange} placeholder="면허번호" className="border rounded p-2" required />
+          <input name="hire_date" value={form.hire_date} onChange={handleChange} placeholder="입사일 (YYYY-MM-DD)" className="border rounded p-2" required />
+          <select name="status" value={form.status} onChange={handleChange} className="border rounded p-2">
+            <option value="운행중">운행중</option>
+            <option value="대기">대기</option>
+            <option value="휴식">휴식</option>
+          </select>
+          <input name="address" value={form.address} onChange={handleChange} placeholder="주소" className="border rounded p-2" />
+          <div className="flex gap-2 mt-4">
+            <button type="submit" className="bg-blue-500 text-white px-4 py-2 rounded">추가</button>
+            <button type="button" onClick={onClose} className="bg-gray-200 px-4 py-2 rounded">취소</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+export default AddDriverModal;
