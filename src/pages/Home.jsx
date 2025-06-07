@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import TopNav from "../components/TopNav/TopNav";
 import Sidebar from "../components/SideBar/SideBar";
-import InfoCard from "../components/Card/IndoCard";
+// import InfoCard from '../components/Card/IndoCard'; // 미사용 import 주석처리
 import Dashboard from "./Dashboard";
 import Drivers from "./Drivers";
 import OperatingSchedule from "./OperatingSchedule";

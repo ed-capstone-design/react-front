@@ -7,7 +7,6 @@ import Drivers from './pages/Drivers';
 import OperatingSchedule from './pages/OperatingSchedule';
 import Insight from './pages/Insight';
 import UserDetailPage from './pages/UserDetailPage';
-import { Link } from 'react-router-dom'; // Link 컴포넌트 import
 import './App.css';
 import DriveDetail from './pages/DriveDetail';
 

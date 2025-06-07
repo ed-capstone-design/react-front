@@ -1,7 +1,7 @@
 import React from "react";
 import KakaoMap from "../components/Map/Map";
 import DriverListPanel from "../components/Driver/DriverListPanel";
-import AlertSummaryWidget from "../components/Notification/AlertSummaryWidget";
+// import AlertSummaryWidget from '../components/Notification/AlertSummaryWidget'; // 미사용 import 주석처리
 import { DriverProvider } from "../components/Driver/DriverContext";
 import { NotificationProvider } from "../components/Notification/contexts/NotificationContext";
 

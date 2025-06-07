@@ -4,9 +4,9 @@ import {
   IoAlert, 
   IoWarning, 
   IoInformationCircle, 
-  IoCheckmarkCircle,
+  // IoCheckmarkCircle, // 미사용이므로 주석처리
   IoTrendingUpOutline,
-  IoCarOutline,
+  // IoCarOutline, // 미사용이므로 주석처리
   IoPersonOutline,
   IoTimeOutline
 } from "react-icons/io5";

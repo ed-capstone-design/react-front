@@ -4,10 +4,28 @@ const KakaoMap = ({ markers = [], width = "100%", height = "400px", style = {} }
   const mapRef = useRef(null);
 
   useEffect(() => {
-    // Kakao Map 스크립트가 이미 로드되어 있다고 가정
-    const { kakao } = window;
-    if (!kakao) return;
+    // 카카오맵 스크립트 동적 로드
+    const kakaoMapKey = process.env.REACT_APP_KAKAO_MAP_API_KEY;
+    if (!window.kakao) {
+      const script = document.createElement("script");
+      script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${kakaoMapKey}&autoload=false`;
+      script.async = true;
+      document.head.appendChild(script);
+      script.onload = () => {
+        window.kakao.maps.load(() => {
+          renderMap();
+        });
+      };
+    } else {
+      window.kakao.maps.load(() => {
+        renderMap();
+      });
+    }
+    // eslint-disable-next-line
+  }, [markers]);
 
+  const renderMap = () => {
+    const { kakao } = window;
     const mapContainer = mapRef.current;
     // 평균 좌표 계산
     let centerLat = 37.54699;
@@ -36,7 +54,7 @@ const KakaoMap = ({ markers = [], width = "100%", height = "400px", style = {} }
 
       kakaoMarker.setMap(map);
     });
-  }, [markers]);
+  };
 
   return (
     <div

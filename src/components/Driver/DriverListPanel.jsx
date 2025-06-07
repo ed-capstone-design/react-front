@@ -14,7 +14,7 @@ const DriverListPanel = ({ onDriverClick }) => {
     // 상태별로 필터링
     const 운행중 = drivers.filter((d) => d.status === "운행중");
     const 대기 = drivers.filter((d) => d.status === "대기");
-    const 휴식 = drivers.filter((d) => d.status === "휴식");
+    // const 휴식 = drivers.filter((d) => d.status === "휴식"); // 미사용 변수 주석처리
 
     // 운전자 수정
     const handleUpdate = (driver) => {

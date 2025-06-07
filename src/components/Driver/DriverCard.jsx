@@ -1,5 +1,5 @@
 import React from 'react';
-import { IoCarSport, IoLogOut, IoBed } from 'react-icons/io5';
+import { IoCarSport, IoLogOut } from 'react-icons/io5'; // IoBed import 주석 처리
 
 const statusIcon = {
   '운행중': <IoCarSport size={20} color="#22c55e" className="inline-block mr-2 align-middle" title="운행중" />,

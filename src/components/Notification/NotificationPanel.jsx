@@ -14,7 +14,7 @@ import { useNotifications } from "./contexts/NotificationContext";
 
 const NotificationPanel = ({ open, onClose }) => {
   const { 
-    notifications, 
+    // notifications, 
     unreadCount, 
     priorityCounts, 
     typeCounts, 

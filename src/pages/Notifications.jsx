@@ -19,9 +19,7 @@ const Notifications = () => {
     unreadCount, 
     priorityCounts, 
     typeCounts, 
-    getFilteredNotifications,
     markAsRead,
-    removeNotification 
   } = useNotifications();
 
   const [selectedPeriod, setSelectedPeriod] = useState("today");

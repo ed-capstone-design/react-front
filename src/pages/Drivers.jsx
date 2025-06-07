@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import UserDetailModal from "../components/UserDetailModal";
-import { Link } from "react-router-dom"; // 라우터를 쓰지 않더라도 구조상 import, 실제로는 콜백 사용
+// import UserDetailModal from './UserDetailModal'; // 미사용 import 주석처리
+// import { Link } from 'react-router-dom'; // 미사용 import 주석처리
 
 const initialDrivers = [
   { name: "홍길동", phone: "010-1234-5678", route: "101번", email: "hong@example.com", status: "활성", joinDate: "2024-01-01" },
@@ -8,10 +8,8 @@ const initialDrivers = [
 ];
 
 const Drivers = ({ onUserNameClick, onEditUserDetail }) => {
-  const [modalOpen, setModalOpen] = useState(false);
-  const [selectedDriver, setSelectedDriver] = useState(null);
-  const [drivers, setDrivers] = useState(initialDrivers);
   const [addOpen, setAddOpen] = useState(false);
+  const [drivers, setDrivers] = useState(initialDrivers);
 
   // 운전자 추가
   const handleAdd = (driver) => {
@@ -19,17 +17,6 @@ const Drivers = ({ onUserNameClick, onEditUserDetail }) => {
       ...prev,
       { ...driver, status: "활성", joinDate: new Date().toISOString().slice(0, 10) }
     ]);
-  };
-
-  // 운전자 수정
-  const handleEdit = (driver) => {
-    setDrivers(prev => prev.map(d => d.email === driver.email ? driver : d));
-  };
-
-  // 운전자 삭제
-  const handleDelete = (email) => {
-    setDrivers(prev => prev.filter(d => d.email !== email));
-    setModalOpen(false);
   };
 
   return (
