@@ -1,6 +1,6 @@
 import React from "react";
 import { IoCarSportOutline, IoPeopleOutline, IoStatsChartOutline } from "react-icons/io5";
-import { useNotifications } from "../components/Notification/contexts/NotificationContext";
+import { NotificationProvider, useNotifications } from "../components/Notification/contexts/NotificationContext";
 
 const stats = [
   { icon: <IoCarSportOutline className="text-blue-500 text-3xl" />, label: "총 운행", value: "1,240회" },
@@ -8,7 +8,7 @@ const stats = [
   { icon: <IoStatsChartOutline className="text-purple-500 text-3xl" />, label: "평균 만족도", value: "4.7점" },
 ];
 
-const Dashboard = ({ onNotificationCardClick }) => {
+const DashboardContent = ({ onNotificationCardClick }) => {
   const { notifications } = useNotifications();
   const today = new Date().toISOString().slice(0, 10);
   const todayNotis = notifications.filter(n => n.date === today);
@@ -84,5 +84,11 @@ const Dashboard = ({ onNotificationCardClick }) => {
     </div>
   );
 };
+
+const Dashboard = ({ onNotificationCardClick }) => (
+  <NotificationProvider>
+    <DashboardContent onNotificationCardClick={onNotificationCardClick} />
+  </NotificationProvider>
+);
 
 export default Dashboard;

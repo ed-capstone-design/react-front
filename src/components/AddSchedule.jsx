@@ -1,21 +1,29 @@
 import React, { useState } from "react";
 
 const AddSchedule = ({ open, onClose, onAdd }) => {
-  const [route, setRoute] = useState("");
-  const [start, setStart] = useState("");
-  const [end, setEnd] = useState("");
-  const [status, setStatus] = useState("대기");
+  const [driverId, setDriverId] = useState("");
+  const [busId, setBusId] = useState("");
+  const [dispatchDate, setDispatchDate] = useState("");
+  const [scheduledDeparture, setScheduledDeparture] = useState("");
 
   if (!open) return null;
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!route || !start || !end) return;
-    onAdd && onAdd({ route, start, end, status });
-    setRoute("");
-    setStart("");
-    setEnd("");
-    setStatus("대기");
+    if (!driverId || !busId || !dispatchDate || !scheduledDeparture) return;
+    onAdd && onAdd({
+      driverId: Number(driverId),
+      busId: Number(busId),
+      dispatchDate,
+      scheduledDeparture,
+      actualDeparture: null,
+      actualArrival: null,
+      // 상태, 경고수, 운행점수는 기본값으로 전달하지 않음
+    });
+    setDriverId("");
+    setBusId("");
+    setDispatchDate("");
+    setScheduledDeparture("");
     onClose && onClose();
   };
 
@@ -35,46 +43,44 @@ const AddSchedule = ({ open, onClose, onAdd }) => {
         </button>
         <h2 className="text-xl font-bold mb-6 text-blue-700">스케줄 추가</h2>
         <div className="mb-4">
-          <label className="block mb-1 font-semibold">노선</label>
+          <label className="block mb-1 font-semibold">운전자 ID</label>
           <input
-            type="text"
+            type="number"
             className="w-full border rounded px-3 py-2"
-            value={route}
-            onChange={(e) => setRoute(e.target.value)}
-            placeholder="예: 101번"
+            value={driverId}
+            onChange={(e) => setDriverId(e.target.value)}
             required
           />
         </div>
         <div className="mb-4">
-          <label className="block mb-1 font-semibold">출발 시간</label>
+          <label className="block mb-1 font-semibold">버스 ID</label>
           <input
-            type="time"
+            type="number"
             className="w-full border rounded px-3 py-2"
-            value={start}
-            onChange={(e) => setStart(e.target.value)}
+            value={busId}
+            onChange={(e) => setBusId(e.target.value)}
             required
           />
         </div>
         <div className="mb-4">
-          <label className="block mb-1 font-semibold">도착 시간</label>
+          <label className="block mb-1 font-semibold">배차일</label>
           <input
-            type="time"
+            type="date"
             className="w-full border rounded px-3 py-2"
-            value={end}
-            onChange={(e) => setEnd(e.target.value)}
+            value={dispatchDate}
+            onChange={(e) => setDispatchDate(e.target.value)}
             required
           />
         </div>
-        <div className="mb-6">
-          <label className="block mb-1 font-semibold">상태</label>
-          <select
+        <div className="mb-4">
+          <label className="block mb-1 font-semibold">예정 출발</label>
+          <input
+            type="time"
             className="w-full border rounded px-3 py-2"
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-          >
-            <option value="대기">대기</option>
-            <option value="운행중">운행중</option>
-          </select>
+            value={scheduledDeparture}
+            onChange={(e) => setScheduledDeparture(e.target.value)}
+            required
+          />
         </div>
         <button
           type="submit"
@@ -97,5 +103,4 @@ const AddSchedule = ({ open, onClose, onAdd }) => {
 };
 
 export default AddSchedule;
-
 

@@ -1,17 +1,26 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import axios from "axios";
 import AddSchedule from "../components/AddSchedule";
-
-const initialSchedules = [
-  { route: "101번", start: "08:00", end: "09:00", status: "운행중" },
-  { route: "202번", start: "09:00", end: "10:00", status: "대기" },
-];
 
 const OperatingSchedule = ({ onDriveDetail }) => {
   const [modalOpen, setModalOpen] = useState(false);
-  const [schedules, setSchedules] = useState(initialSchedules);
+  const [schedules, setSchedules] = useState([]);
 
-  const handleAddSchedule = (newSchedule) => {
-    setSchedules((prev) => [...prev, newSchedule]);
+  // DB에서 운행 스케줄 불러오기 (dispatch 테이블 기준)
+  useEffect(() => {
+    axios.get("/api/dispatch")
+      .then(res => setSchedules(res.data))
+      .catch(() => setSchedules([]));
+  }, []);
+
+  // 스케줄 추가 (dispatch 테이블 기준)
+  const handleAddSchedule = async (newSchedule) => {
+    try {
+      const res = await axios.post("/api/dispatch", newSchedule);
+      setSchedules(prev => [...prev, res.data]);
+    } catch {
+      alert("스케줄 추가 실패");
+    }
   };
 
   return (
@@ -21,29 +30,40 @@ const OperatingSchedule = ({ onDriveDetail }) => {
         <table className="w-full text-left">
           <thead>
             <tr>
-              <th className="py-3 px-4 text-gray-600 font-semibold">노선</th>
-              <th className="py-3 px-4 text-gray-600 font-semibold">출발 시간</th>
-              <th className="py-3 px-4 text-gray-600 font-semibold">도착 시간</th>
+              <th className="py-3 px-4 text-gray-600 font-semibold">배차일</th>
+              <th className="py-3 px-4 text-gray-600 font-semibold">운전자 ID</th>
+              <th className="py-3 px-4 text-gray-600 font-semibold">버스 ID</th>
+              <th className="py-3 px-4 text-gray-600 font-semibold">예정 출발</th>
+              <th className="py-3 px-4 text-gray-600 font-semibold">실제 출발</th>
+              <th className="py-3 px-4 text-gray-600 font-semibold">실제 도착</th>
               <th className="py-3 px-4 text-gray-600 font-semibold">상태</th>
+              <th className="py-3 px-4 text-gray-600 font-semibold">경고수</th>
+              <th className="py-3 px-4 text-gray-600 font-semibold">운행점수</th>
             </tr>
           </thead>
           <tbody>
             {schedules.map((item, idx) => (
-              <tr key={idx} className="hover:bg-blue-50 transition rounded">
-                <td className="py-3 px-4">{item.route}</td>
-                <td className="py-3 px-4">{item.start}</td>
-                <td className="py-3 px-4">{item.end}</td>
+              <tr key={item.dispatchId || idx} className="hover:bg-blue-50 transition rounded">
+                <td className="py-3 px-4">{item.dispatchDate}</td>
+                <td className="py-3 px-4">{item.driverId}</td>
+                <td className="py-3 px-4">{item.busId}</td>
+                <td className="py-3 px-4">{item.scheduledDeparture}</td>
+                <td className="py-3 px-4">{item.actualDeparture}</td>
+                <td className="py-3 px-4">{item.actualArrival}</td>
                 <td className="py-3 px-4">
-                  <button
-                    className={`px-4 py-1 rounded-full text-white font-bold shadow-sm transition
-                      ${item.status === "운행중"
-                        ? "bg-green-300 text-green-700 hover:bg-green-500"
-                        : "bg-gray-400 hover:bg-gray-500"}`}
-                    onClick={() => onDriveDetail(item.route)}
-                  >
+                  <span className={`px-4 py-1 rounded-full text-white font-bold shadow-sm transition
+                    ${item.status === "COMPLETED"
+                      ? "bg-green-300 text-green-700 hover:bg-green-500"
+                      : item.status === "SCHEDULED"
+                      ? "bg-blue-300 text-blue-700 hover:bg-blue-500"
+                      : item.status === "DELAYED"
+                      ? "bg-yellow-300 text-yellow-700 hover:bg-yellow-500"
+                      : "bg-gray-400 hover:bg-gray-500"}`}>
                     {item.status}
-                  </button>
+                  </span>
                 </td>
+                <td className="py-3 px-4">{item.warningCount}</td>
+                <td className="py-3 px-4">{item.drivingScore}</td>
               </tr>
             ))}
           </tbody>

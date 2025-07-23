@@ -2,10 +2,11 @@ import React, { useEffect, useRef } from "react";
 
 const KakaoMap = ({ markers = [], width = "100%", height = "400px", style = {} }) => {
   const mapRef = useRef(null);
+  const mapObj = useRef(null);
 
   useEffect(() => {
-    // 카카오맵 스크립트 동적 로드
     const kakaoMapKey = process.env.REACT_APP_KAKAO_MAP_API_KEY;
+    // 스크립트가 이미 있으면 추가하지 않음
     if (!window.kakao) {
       const script = document.createElement("script");
       script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${kakaoMapKey}&autoload=false`;
@@ -13,21 +14,28 @@ const KakaoMap = ({ markers = [], width = "100%", height = "400px", style = {} }
       document.head.appendChild(script);
       script.onload = () => {
         window.kakao.maps.load(() => {
-          renderMap();
+          if (mapRef.current) renderMap();
         });
       };
     } else {
       window.kakao.maps.load(() => {
-        renderMap();
+        if (mapRef.current) renderMap();
       });
+    }
+    // eslint-disable-next-line
+  }, []);
+
+  useEffect(() => {
+    if (window.kakao && mapObj.current) {
+      renderMarkers();
     }
     // eslint-disable-next-line
   }, [markers]);
 
   const renderMap = () => {
+    if (!window.kakao || !mapRef.current) return;
     const { kakao } = window;
-    const mapContainer = mapRef.current;
-    // 평균 좌표 계산
+    // 마커가 없을 때 기본 좌표 사용
     let centerLat = 37.54699;
     let centerLng = 127.09598;
     if (markers.length > 0) {
@@ -38,8 +46,19 @@ const KakaoMap = ({ markers = [], width = "100%", height = "400px", style = {} }
       center: new kakao.maps.LatLng(centerLat, centerLng),
       level: 4,
     };
-    const map = new kakao.maps.Map(mapContainer, mapOption);
+    mapObj.current = new kakao.maps.Map(mapRef.current, mapOption);
+    renderMarkers();
+  };
 
+  const renderMarkers = () => {
+    const { kakao } = window;
+    if (!mapObj.current) return;
+    // 기존 마커 모두 제거
+    if (mapObj.current.markers) {
+      mapObj.current.markers.forEach(marker => marker.setMap(null));
+    }
+    mapObj.current.markers = [];
+    if (markers.length === 0) return; // 마커 없으면 아무것도 표시하지 않음
     markers.forEach((marker) => {
       const markerPosition = new kakao.maps.LatLng(marker.lat, marker.lng);
       const imageSrc = marker.imageSrc || "https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/marker_red.png";
@@ -52,7 +71,8 @@ const KakaoMap = ({ markers = [], width = "100%", height = "400px", style = {} }
         image: markerImage,
       });
 
-      kakaoMarker.setMap(map);
+      kakaoMarker.setMap(mapObj.current);
+      mapObj.current.markers.push(kakaoMarker);
     });
   };
 

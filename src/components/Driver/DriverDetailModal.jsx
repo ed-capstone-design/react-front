@@ -21,7 +21,7 @@ const DriverDetailModal = ({ open, driver, onClose, onUpdate, onDelete }) => {
 
   const handleDelete = () => {
     if (window.confirm("정말 삭제하시겠습니까?")) {
-      onDelete(driver.id);
+      onDelete(driver.driverId);
       onClose();
     }
   };
@@ -31,16 +31,17 @@ const DriverDetailModal = ({ open, driver, onClose, onUpdate, onDelete }) => {
       <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
         <h2 className="text-xl font-bold mb-4">운전자 상세/수정</h2>
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-          <input name="name" value={form.name || ""} onChange={handleChange} placeholder="이름" className="border rounded p-2" required />
+          <input name="driverName" value={form.driverName || ""} onChange={handleChange} placeholder="이름" className="border rounded p-2" required />
           <input name="phone" value={form.phone || ""} onChange={handleChange} placeholder="연락처" className="border rounded p-2" required />
-          <input name="license_no" value={form.license_no || ""} onChange={handleChange} placeholder="면허번호" className="border rounded p-2" required />
-          <input name="hire_date" value={form.hire_date || ""} onChange={handleChange} placeholder="입사일 (YYYY-MM-DD)" className="border rounded p-2" required />
+          <input name="licenseNumber" value={form.licenseNumber || ""} onChange={handleChange} placeholder="면허번호" className="border rounded p-2" required />
+          <input name="careerYears" value={form.careerYears || ""} onChange={handleChange} placeholder="경력(년)" className="border rounded p-2" />
+          <input name="grade" value={form.grade || ""} onChange={handleChange} placeholder="등급" className="border rounded p-2" />
+          <input name="driverImagePath" value={form.driverImagePath || ""} onChange={handleChange} placeholder="이미지 경로" className="border rounded p-2" />
           <select name="status" value={form.status || "대기"} onChange={handleChange} className="border rounded p-2">
             <option value="운행중">운행중</option>
             <option value="대기">대기</option>
             <option value="휴식">휴식</option>
           </select>
-          <input name="address" value={form.address || ""} onChange={handleChange} placeholder="주소" className="border rounded p-2" />
           <div className="flex gap-2 mt-4">
             <button type="submit" className="bg-blue-500 text-white px-4 py-2 rounded">수정</button>
             <button type="button" onClick={handleDelete} className="bg-red-500 text-white px-4 py-2 rounded">삭제</button>

@@ -31,7 +31,7 @@ const Sidebar = ({ menu = [], open, onClose, position = "right", selected, onMen
                       ? "bg-white text-sky-700 font-semibold shadow-sm"
                       : "text-sky-700 hover:bg-sky-100 hover:text-sky-900"
                   }`}
-                onClick={() => onMenuClick(item.key)}
+                onClick={() => onMenuClick(item)}
               >
                 <span className="text-xl">{item.icon}</span>
                 {item.name}

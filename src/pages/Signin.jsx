@@ -14,8 +14,10 @@ const Signin = () => {
       return;
     }
     setError("");
+    // 실제 인증 로직 대신 임시 토큰 저장
+    localStorage.setItem('token', 'dummy_token');
     alert("로그인 성공!");
-    navigate("/home");
+    navigate("/dashboard");
   };
 
   return (
