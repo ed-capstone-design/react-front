@@ -1,4 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import axios from "axios";
+
+// axios 기본 URL 설정
+axios.defaults.baseURL = "http://localhost:8080";
 
 const Signup = () => {
   const [userid, setUserid] = useState("");
@@ -7,8 +12,18 @@ const Signup = () => {
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  // 이미 로그인된 사용자라면 대시보드로 리다이렉트
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      navigate("/dashboard");
+    }
+  }, [navigate]);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!userid || !email || !password || !confirm) {
       setError("모든 항목을 입력해주세요.");
@@ -20,9 +35,33 @@ const Signup = () => {
       setSuccess("");
       return;
     }
+    
     setError("");
-    setSuccess("회원가입이 완료되었습니다!");
-    // 실제 회원가입 로직 추가 가능
+    setSuccess("");
+    setLoading(true);
+    
+    try {
+      await axios.post("/api/auth/register", {
+        username: userid,
+        email: email,
+        password: password
+      });
+      
+      setSuccess("회원가입이 완료되었습니다! 로그인 페이지로 이동합니다.");
+      
+      // 2초 후 로그인 페이지로 이동
+      setTimeout(() => {
+        navigate("/signin");
+      }, 2000);
+    } catch (error) {
+      if (error.response) {
+        setError(error.response.data.message || "회원가입에 실패했습니다.");
+      } else {
+        setError("서버 연결에 실패했습니다.");
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -74,9 +113,10 @@ const Signup = () => {
           {success && <div className="text-green-600 mb-4 text-sm">{success}</div>}
           <button
             type="submit"
-            className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition"
+            disabled={loading}
+            className="w-full py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold rounded-lg transition"
           >
-            회원가입
+            {loading ? "회원가입 중..." : "회원가입"}
           </button>
         </form>
       </div>

@@ -2,6 +2,9 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import AddDriverModal from "../components/Driver/AddDriverModal";
 
+// axios 기본 URL 설정
+axios.defaults.baseURL = "http://localhost:8080";
+
 const Drivers = () => {
   const [addOpen, setAddOpen] = useState(false);
   const [drivers, setDrivers] = useState([]);

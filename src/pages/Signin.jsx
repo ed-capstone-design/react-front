@@ -1,23 +1,56 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import axios from "axios";
+
+// axios 기본 URL 설정
+axios.defaults.baseURL = "http://localhost:8080";
 
 const Signin = () => {
   const [userid, setUserid] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  // 이미 로그인된 사용자라면 대시보드로 리다이렉트
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      navigate("/dashboard");
+    }
+  }, [navigate]);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!userid || !password) {
       setError("아이디와 비밀번호를 입력해주세요.");
       return;
     }
+    
     setError("");
-    // 실제 인증 로직 대신 임시 토큰 저장
-    localStorage.setItem('token', 'dummy_token');
-    alert("로그인 성공!");
-    navigate("/dashboard");
+    setLoading(true);
+    
+    try {
+      const response = await axios.post("/api/auth/login", {
+        username: userid,
+        password: password
+      });
+      
+      // 토큰 저장
+      localStorage.setItem('token', response.data.token);
+      localStorage.setItem('username', response.data.username);
+      
+      alert("로그인 성공!");
+      navigate("/dashboard");
+    } catch (error) {
+      if (error.response) {
+        setError(error.response.data.message || "로그인에 실패했습니다.");
+      } else {
+        setError("서버 연결에 실패했습니다.");
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -51,9 +84,10 @@ const Signin = () => {
           )}
           <button
             type="submit"
-            className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition"
+            disabled={loading}
+            className="w-full py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold rounded-lg transition"
           >
-            로그인
+            {loading ? "로그인 중..." : "로그인"}
           </button>
         </form>
         <div className="mt-6 text-center">

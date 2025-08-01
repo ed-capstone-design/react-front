@@ -1,6 +1,9 @@
 import React, { useState, createContext, useEffect } from "react";
 import axios from "axios";
 
+// axios 기본 URL 설정
+axios.defaults.baseURL = "http://localhost:8080";
+
 export const DriverContext = createContext();
 DriverContext.displayName = "DriverContext";
 

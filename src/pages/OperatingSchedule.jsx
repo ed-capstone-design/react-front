@@ -2,6 +2,9 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import AddSchedule from "../components/AddSchedule";
 
+// axios 기본 URL 설정
+axios.defaults.baseURL = "http://localhost:8080";
+
 const OperatingSchedule = ({ onDriveDetail }) => {
   const [modalOpen, setModalOpen] = useState(false);
   const [schedules, setSchedules] = useState([]);

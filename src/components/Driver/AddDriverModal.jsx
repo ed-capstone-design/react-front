@@ -1,6 +1,9 @@
 import React, { useState } from "react";
 import axios from "axios";
 
+// axios 기본 URL 설정
+axios.defaults.baseURL = "http://localhost:8080";
+
 const AddDriverModal = ({ open, onClose, onAdd }) => {
   const [form, setForm] = useState({
     driverName: "",
