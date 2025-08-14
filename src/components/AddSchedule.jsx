@@ -1,10 +1,36 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import axios from "axios";
 
 const AddSchedule = ({ open, onClose, onAdd }) => {
   const [driverId, setDriverId] = useState("");
   const [busId, setBusId] = useState("");
   const [dispatchDate, setDispatchDate] = useState("");
   const [scheduledDeparture, setScheduledDeparture] = useState("");
+  const [drivers, setDrivers] = useState([]);
+  const [buses, setBuses] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      fetchData();
+    }
+  }, [open]);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const [driversRes, busesRes] = await Promise.all([
+        axios.get("/api/drivers"),
+        axios.get("/api/buses")
+      ]);
+      setDrivers(driversRes.data);
+      setBuses(busesRes.data);
+    } catch (error) {
+      console.error("데이터 로딩 실패:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   if (!open) return null;
 
@@ -43,24 +69,44 @@ const AddSchedule = ({ open, onClose, onAdd }) => {
         </button>
         <h2 className="text-xl font-bold mb-6 text-blue-700">스케줄 추가</h2>
         <div className="mb-4">
-          <label className="block mb-1 font-semibold">운전자 ID</label>
-          <input
-            type="number"
-            className="w-full border rounded px-3 py-2"
-            value={driverId}
-            onChange={(e) => setDriverId(e.target.value)}
-            required
-          />
+          <label className="block mb-1 font-semibold">운전자</label>
+          {loading ? (
+            <div className="text-gray-400 text-sm py-2">운전자 목록 로딩 중...</div>
+          ) : (
+            <select
+              className="w-full border rounded px-3 py-2"
+              value={driverId}
+              onChange={(e) => setDriverId(e.target.value)}
+              required
+            >
+              <option value="">운전자를 선택하세요</option>
+              {drivers.map(driver => (
+                <option key={driver.driverId} value={driver.driverId}>
+                  {driver.name} (ID: {driver.driverId})
+                </option>
+              ))}
+            </select>
+          )}
         </div>
         <div className="mb-4">
-          <label className="block mb-1 font-semibold">버스 ID</label>
-          <input
-            type="number"
-            className="w-full border rounded px-3 py-2"
-            value={busId}
-            onChange={(e) => setBusId(e.target.value)}
-            required
-          />
+          <label className="block mb-1 font-semibold">버스</label>
+          {loading ? (
+            <div className="text-gray-400 text-sm py-2">버스 목록 로딩 중...</div>
+          ) : (
+            <select
+              className="w-full border rounded px-3 py-2"
+              value={busId}
+              onChange={(e) => setBusId(e.target.value)}
+              required
+            >
+              <option value="">버스를 선택하세요</option>
+              {buses.map(bus => (
+                <option key={bus.busId} value={bus.busId}>
+                  {bus.plateNumber} ({bus.busNumber}번)
+                </option>
+              ))}
+            </select>
+          )}
         </div>
         <div className="mb-4">
           <label className="block mb-1 font-semibold">배차일</label>

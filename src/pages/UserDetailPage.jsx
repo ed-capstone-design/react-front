@@ -1,36 +1,115 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { IoPersonCircle } from "react-icons/io5";
+import axios from "axios";
+import { useToast } from "../components/Toast/ToastProvider";
+
+// axios 기본 URL 설정
+axios.defaults.baseURL = "http://localhost:8080";
 
 const UserDetailPage = () => {
-  const [name, setName] = useState("홍길동");
-  const [email, setEmail] = useState("hong@example.com");
-  const [joinDate, setJoinDate] = useState("2024-01-01");
-  const [status, setStatus] = useState("활성");
-  const [routes, setRoutes] = useState("101번, 202번");
+  const { id } = useParams(); // URL에서 사용자 ID 가져오기
+  const navigate = useNavigate();
+  const toast = useToast();
+  
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [joinDate, setJoinDate] = useState("");
+  const [status, setStatus] = useState("");
+  const [routes, setRoutes] = useState("");
+  const [dispatchHistory, setDispatchHistory] = useState([]);
 
-  const dispatchHistory = [
-    { date: "2024-05-01", route: "101번", time: "08:00~09:00", status: "운행완료" },
-    { date: "2024-05-02", route: "202번", time: "09:00~10:00", status: "운행완료" },
-    { date: "2024-05-03", route: "101번", time: "08:00~09:00", status: "운행중" },
-  ];
+    // 사용자 데이터 불러오기
+  const fetchUserData = async (userId) => {
+    setLoading(true);
+    try {
+      // 운전자 정보 가져오기
+      const response = await axios.get(`/api/drivers/${userId}`);
+      const driver = response.data;
+      
+      setName(driver.name || "");
+      setEmail(driver.email || "");
+      setJoinDate(driver.joinDate ? driver.joinDate.split('T')[0] : "");
+      setStatus(driver.status || "");
+      setRoutes(driver.routes || "");
 
-  const handleSubmit = (e) => {
+      // 배차 이력 가져오기
+      const dispatchResponse = await axios.get("/api/dispatch");
+      const userDispatches = dispatchResponse.data.filter(d => d.driverId === parseInt(userId));
+      setDispatchHistory(userDispatches);
+      
+    } catch (error) {
+      console.error("사용자 정보 로딩 실패:", error);
+      toast.error("사용자 정보를 불러올 수 없습니다.");
+      setError("사용자 정보를 불러올 수 없습니다.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (id) {
+      fetchUserData(id);
+    } else {
+      // ID가 없으면 새 사용자 생성 모드
+      setLoading(false);
+    }
+  }, [id]); // fetchUserData를 의존성에서 제외하고 id만 포함
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    alert("저장되었습니다!");
+    setSaving(true);
+    
+    try {
+      const updateData = {
+        driverName: name,
+        status: status,
+        // 다른 필요한 필드들...
+      };
+      
+      if (id) {
+        // 기존 사용자 수정
+        await axios.put(`/api/drivers/${id}`, updateData);
+        toast.success("사용자 정보가 수정되었습니다!");
+      } else {
+        // 새 사용자 생성 (실제로는 회원가입 페이지에서 해야 함)
+        await axios.post("/api/drivers", updateData);
+        toast.success("새 사용자가 생성되었습니다!");
+      }
+    } catch (error) {
+      console.error("저장 실패:", error);
+      toast.error("저장에 실패했습니다.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   // 삭제 처리 함수
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (window.confirm('정말로 사용자를 삭제하시겠습니까?')) {
-      alert('사용자가 삭제되었습니다.');
-      setName("");
-      setEmail("");
-      setJoinDate("");
-      setStatus("비활성");
-      setRoutes("");
-      // TODO: 실제 삭제 처리(예: 페이지 이동, API 호출 등)
+      try {
+        await axios.delete(`/api/drivers/${id}`);
+        toast.success('사용자가 삭제되었습니다.');
+        navigate("/drivers");
+      } catch (error) {
+        console.error("삭제 실패:", error);
+        toast.error("삭제에 실패했습니다.");
+      }
     }
   };
+
+  if (loading) {
+    return (
+      <div className="max-w-2xl mx-auto py-10 px-4">
+        <div className="bg-white border border-gray-100 rounded-lg shadow-sm p-8 text-center">
+          <div className="text-gray-400">로딩중...</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-2xl mx-auto py-10 px-4">
@@ -103,18 +182,21 @@ const UserDetailPage = () => {
         </div>
         {/* 삭제/저장 버튼 - 둘 다 작게 */}
         <div className="flex gap-2 justify-end mt-2 mb-4">
-          <button
-            className="w-28 py-1 text-sm bg-red-500 hover:bg-red-600 text-white font-semibold rounded transition"
-            onClick={handleDelete}
-            type="button"
-          >
-            사용자 삭제
-          </button>
+          {id && (
+            <button
+              className="w-28 py-1 text-sm bg-red-500 hover:bg-red-600 text-white font-semibold rounded transition"
+              onClick={handleDelete}
+              type="button"
+            >
+              사용자 삭제
+            </button>
+          )}
           <button
             type="submit"
-            className="w-28 py-1 text-sm bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded transition"
+            disabled={saving}
+            className="w-28 py-1 text-sm bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded transition disabled:bg-blue-300"
           >
-            저장
+            {saving ? "저장중..." : "저장"}
           </button>
         </div>
       </form>
@@ -122,30 +204,43 @@ const UserDetailPage = () => {
       {/* 배차 내역 */}
       <div className="bg-white border border-gray-100 rounded-lg shadow-sm p-8">
         <h3 className="text-xl font-bold text-gray-900 mb-4">배차 내역</h3>
-        <table className="w-full text-left border-separate border-spacing-y-2">
-          <thead>
-            <tr>
-              <th className="py-2 px-4 text-gray-600">날짜</th>
-              <th className="py-2 px-4 text-gray-600">노선</th>
-              <th className="py-2 px-4 text-gray-600">시간</th>
-              <th className="py-2 px-4 text-gray-600">상태</th>
-            </tr>
-          </thead>
-          <tbody>
-            {dispatchHistory.map((item, idx) => (
-              <tr key={idx} className="hover:bg-blue-50 transition rounded">
-                <td className="py-2 px-4 rounded-l">{item.date}</td>
-                <td className="py-2 px-4">{item.route}</td>
-                <td className="py-2 px-4">{item.time}</td>
-                <td className="py-2 px-4 rounded-r">
-                  <span className={`px-2 py-1 rounded text-xs font-bold ${item.status === "운행중" ? "bg-green-50 text-green-700" : "bg-gray-50 text-gray-500"}`}>
-                    {item.status}
-                  </span>
-                </td>
+        {dispatchHistory.length === 0 ? (
+          <p className="text-gray-400 text-center py-8">배차 이력이 없습니다.</p>
+        ) : (
+          <table className="w-full text-left border-separate border-spacing-y-2">
+            <thead>
+              <tr>
+                <th className="py-2 px-4 text-gray-600">배차ID</th>
+                <th className="py-2 px-4 text-gray-600">날짜</th>
+                <th className="py-2 px-4 text-gray-600">버스</th>
+                <th className="py-2 px-4 text-gray-600">상태</th>
+                <th className="py-2 px-4 text-gray-600">점수</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {dispatchHistory.map((dispatch) => (
+                <tr key={dispatch.dispatchId} className="hover:bg-blue-50 transition rounded">
+                  <td className="py-2 px-4 rounded-l">{dispatch.dispatchId}</td>
+                  <td className="py-2 px-4">{dispatch.dispatchDate}</td>
+                  <td className="py-2 px-4">{dispatch.busId}번</td>
+                  <td className="py-2 px-4">
+                    <span className={`px-2 py-1 rounded text-xs font-bold ${
+                      dispatch.status === "COMPLETED" ? "bg-green-50 text-green-700" :
+                      dispatch.status === "SCHEDULED" ? "bg-blue-50 text-blue-700" :
+                      dispatch.status === "DELAYED" ? "bg-orange-50 text-orange-700" :
+                      "bg-gray-50 text-gray-500"
+                    }`}>
+                      {dispatch.status === "COMPLETED" ? "완료" :
+                       dispatch.status === "SCHEDULED" ? "예정" :
+                       dispatch.status === "DELAYED" ? "지연" : "대기"}
+                    </span>
+                  </td>
+                  <td className="py-2 px-4 rounded-r">{dispatch.drivingScore || "-"}점</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
+import { useToast } from "../components/Toast/ToastProvider";
 
 // axios 기본 URL 설정
 axios.defaults.baseURL = "http://localhost:8080";
@@ -11,9 +12,19 @@ const Signin = () => {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const toast = useToast();
 
   // 이미 로그인된 사용자라면 대시보드로 리다이렉트
   useEffect(() => {
+    // 개발용 더미 토큰 설정 (테스트용)
+    if (!localStorage.getItem('token')) {
+      localStorage.setItem('token', 'dummy_jwt_token');
+      localStorage.setItem('adminId', '1');
+      localStorage.setItem('adminName', '테스트관리자');
+      localStorage.setItem('operatorId', '1');
+      axios.defaults.headers.common['Authorization'] = 'Bearer dummy_jwt_token';
+    }
+    
     const token = localStorage.getItem('token');
     if (token) {
       navigate("/dashboard");
@@ -32,15 +43,21 @@ const Signin = () => {
     
     try {
       const response = await axios.post("/api/auth/login", {
-        username: userid,
-        password: password
+        adminName: userid,
+        adminPassword: password
       });
       
-      // 토큰 저장
+      // Admin 정보 저장
       localStorage.setItem('token', response.data.token);
-      localStorage.setItem('username', response.data.username);
+      localStorage.setItem('adminId', response.data.adminId);
+      localStorage.setItem('adminName', response.data.adminName);
+      localStorage.setItem('operatorId', response.data.operatorId);
+      
+      // axios 헤더에 토큰 설정
+      axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
       
       alert("로그인 성공!");
+      toast.success("로그인되었습니다!");
       navigate("/dashboard");
     } catch (error) {
       if (error.response) {

@@ -9,6 +9,7 @@ const menu = [
   { name: "대시보드", key: "dashboard", path: "/dashboard" },
   { name: "운전자 관리", key: "drivers", path: "/drivers" },
   { name: "운행 스케줄", key: "operating-schedule", path: "/operating-schedule" },
+  { name: "알림 관리", key: "notifications", path: "/notifications" },
   { name: "인사이트", key: "insight", path: "/insight" },
 ];
 
