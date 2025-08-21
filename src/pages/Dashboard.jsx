@@ -8,6 +8,18 @@ import { NotificationProvider, useNotifications } from "../components/Notificati
 axios.defaults.baseURL = "http://localhost:8080";
 
 const DashboardContent = () => {
+  // API 연동 확인 상태
+  const [apiStatus, setApiStatus] = useState(null); // null: 미확인, true: 성공, false: 실패
+
+  // API 연동 확인 함수
+  const checkApiConnection = async () => {
+    try {
+      await axios.get("/api/ping"); // 서버에 /api/ping 엔드포인트 필요
+      setApiStatus(true);
+    } catch {
+      setApiStatus(false);
+    }
+  };
   const { notifications, unreadCount } = useNotifications();
   const navigate = useNavigate();
   const [stats, setStats] = useState([
@@ -93,6 +105,31 @@ const DashboardContent = () => {
 
   return (
     <div className="max-w-6xl mx-auto py-12 px-4">
+      {/* API 연동 확인 버튼 및 상태 표시 */}
+      <div style={{ marginBottom: 24 }}>
+        <button
+          onClick={checkApiConnection}
+          style={{
+            padding: '8px 16px',
+            borderRadius: 6,
+            background: '#eee',
+            border: '1px solid #ccc',
+            cursor: 'pointer',
+            marginRight: 12
+          }}
+        >
+          API 연동 확인
+        </button>
+        {apiStatus === true && (
+          <span style={{ color: 'green', fontWeight: 'bold' }}>● 서버 연결됨</span>
+        )}
+        {apiStatus === false && (
+          <span style={{ color: 'red', fontWeight: 'bold' }}>● 서버 연결 실패</span>
+        )}
+        {apiStatus === null && (
+          <span style={{ color: '#888' }}>상태 미확인</span>
+        )}
+      </div>
       <h2 className="text-3xl font-bold mb-10 text-gray-900 tracking-tight">대시보드</h2>
       {/* 상단 통계 + 알림 카드 4개 그리드 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">

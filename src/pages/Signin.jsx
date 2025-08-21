@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { useToast } from "../components/Toast/ToastProvider";
+import { useToken } from "../components/Token/TokenProvider";
 
 // axios 기본 URL 설정
 axios.defaults.baseURL = "http://localhost:8080";
@@ -13,19 +14,12 @@ const Signin = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const toast = useToast();
+  const { getToken, setToken } = useToken();
 
   // 이미 로그인된 사용자라면 대시보드로 리다이렉트
   useEffect(() => {
-    // 개발용 더미 토큰 설정 (테스트용)
-    if (!localStorage.getItem('token')) {
-      localStorage.setItem('token', 'dummy_jwt_token');
-      localStorage.setItem('adminId', '1');
-      localStorage.setItem('adminName', '테스트관리자');
-      localStorage.setItem('operatorId', '1');
-      axios.defaults.headers.common['Authorization'] = 'Bearer dummy_jwt_token';
-    }
-    
-    const token = localStorage.getItem('token');
+    // 실제 토큰이 있으면 대시보드로 이동
+    const token = getToken();
     if (token) {
       navigate("/dashboard");
     }
@@ -37,25 +31,20 @@ const Signin = () => {
       setError("아이디와 비밀번호를 입력해주세요.");
       return;
     }
+
+    
     
     setError("");
     setLoading(true);
     
     try {
       const response = await axios.post("/api/auth/login", {
-        adminName: userid,
-        adminPassword: password
+        username: userid,
+        password: password
       });
-      
-      // Admin 정보 저장
-      localStorage.setItem('token', response.data.token);
-      localStorage.setItem('adminId', response.data.adminId);
-      localStorage.setItem('adminName', response.data.adminName);
-      localStorage.setItem('operatorId', response.data.operatorId);
-      
-      // axios 헤더에 토큰 설정
+      // JwtResponse: { token, adminId, adminName, operatorId }
+      setToken(response.data.token);
       axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
-      
       alert("로그인 성공!");
       toast.success("로그인되었습니다!");
       navigate("/dashboard");

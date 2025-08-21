@@ -21,7 +21,7 @@ export const DriverProvider = ({ children }) => {
   const addDriver = async (driver) => {
     // driver: { driverName, driverPassword, licenseNumber, operatorId, careerYears, avgDrivingScore, grade, driverImagePath }
     try {
-      const res = await axios.post("/api/drivers", driver);
+      const res = await axios.post("/api/drivers/management", driver);
       setDrivers(prev => [...prev, res.data]);
     } catch (e) {
       alert("운전자 추가 실패");

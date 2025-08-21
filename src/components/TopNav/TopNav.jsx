@@ -2,17 +2,16 @@ import React from "react";
 import { IoCarSport, IoLogOut, IoMenu, IoPersonCircle, IoNotificationsOutline } from "react-icons/io5";
 import { useNotifications } from "../Notification/contexts/NotificationContext";
 import { useNavigate } from "react-router-dom";
+import { useToken } from "../Token/TokenProvider";
 
 const TopNav = ({ onSidebarOpen, onLogoClick, userName = "박윤영", onNotificationClick }) => {
   const { unreadCount } = useNotifications();
   const navigate = useNavigate();
+  const { removeToken } = useToken();
 
   const handleLogout = () => {
-    // 로그아웃 로직 (예: 로컬 스토리지 정리, 사용자 상태 초기화 등)
-    localStorage.removeItem('token'); // 인증 토큰 제거
-    localStorage.removeItem('user'); // 사용자 정보 제거
-    
-    // 로그인 페이지로 리다이렉트
+    removeToken(); // 인증 토큰 제거
+    // 필요시 사용자 정보도 추가적으로 제거
     navigate('/signin');
   };
 

@@ -1,4 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { TokenProvider, useToken } from './components/Token/TokenProvider';
 import Signin from './pages/Signin';
 import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
@@ -14,64 +15,68 @@ import './App.css';
 
 // 보호된 라우트 컴포넌트
 const ProtectedRoute = ({ children }) => {
-  const token = localStorage.getItem('token');
+  const { getToken } = useToken();
+  const token = getToken();
   return token ? children : <Navigate to="/signin" replace />;
 };
 
 // 루트 경로 리다이렉트 컴포넌트
 const RootRedirect = () => {
-  const token = localStorage.getItem('token');
+  const { getToken } = useToken();
+  const token = getToken();
   return <Navigate to={token ? "/dashboard" : "/signin"} replace />;
 };
 
 function App() {
   return (
-    <ToastProvider>
-      <Router>
-        <div className="App">
-          <Routes>
-          <Route path="/" element={<RootRedirect />} />
-          <Route path="/signin" element={<Signin />} />
-          <Route path="/signup" element={<Signup />} />
-          <Route path="/dashboard" element={
-            <ProtectedRoute>
-              <Layout><Dashboard /></Layout>
-            </ProtectedRoute>
-          } />
-          <Route path="/drivers" element={
-            <ProtectedRoute>
-              <Layout><Drivers /></Layout>
-            </ProtectedRoute>
-          } />
-          <Route path="/operating-schedule" element={
-            <ProtectedRoute>
-              <Layout><OperatingSchedule /></Layout>
-            </ProtectedRoute>
-          } />
-          <Route path="/insight" element={
-            <ProtectedRoute>
-              <Layout><Insight /></Layout>
-            </ProtectedRoute>
-          } />
-          <Route path="/notifications" element={
-            <ProtectedRoute>
-              <Layout><Notifications /></Layout>
-            </ProtectedRoute>
-          } />
-          <Route path="/userdetailpage" element={
-            <ProtectedRoute>
-              <Layout><UserDetailPage /></Layout>
-            </ProtectedRoute>
-          } />
-          <Route path="/drivedetail/:id" element={
-            <ProtectedRoute>
-              <Layout><DriveDetail /></Layout>
-            </ProtectedRoute>
-          } />
-        </Routes>
-      </div>
-    </Router>
-    </ToastProvider>
+    <TokenProvider>
+      <ToastProvider>
+        <Router>
+          <div className="App">
+            <Routes>
+              <Route path="/" element={<RootRedirect />} />
+              <Route path="/signin" element={<Signin />} />
+              <Route path="/signup" element={<Signup />} />
+              <Route path="/dashboard" element={
+                <ProtectedRoute>
+                  <Layout><Dashboard /></Layout>
+                </ProtectedRoute>
+              } />
+              <Route path="/drivers" element={
+                <ProtectedRoute>
+                  <Layout><Drivers /></Layout>
+                </ProtectedRoute>
+              } />
+              <Route path="/operating-schedule" element={
+                <ProtectedRoute>
+                  <Layout><OperatingSchedule /></Layout>
+                </ProtectedRoute>
+              } />
+              <Route path="/insight" element={
+                <ProtectedRoute>
+                  <Layout><Insight /></Layout>
+                </ProtectedRoute>
+              } />
+              <Route path="/notifications" element={
+                <ProtectedRoute>
+                  <Layout><Notifications /></Layout>
+                </ProtectedRoute>
+              } />
+              <Route path="/userdetailpage" element={
+                <ProtectedRoute>
+                  <Layout><UserDetailPage /></Layout>
+                </ProtectedRoute>
+              } />
+              <Route path="/drivedetail/:id" element={
+                <ProtectedRoute>
+                  <Layout><DriveDetail /></Layout>
+                </ProtectedRoute>
+              } />
+            </Routes>
+          </div>
+        </Router>
+      </ToastProvider>
+    </TokenProvider>
   );
 }
 export default App;
