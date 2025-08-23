@@ -3,29 +3,19 @@ import { IoCarSportOutline, IoPeopleOutline, IoStatsChartOutline } from "react-i
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { NotificationProvider, useNotifications } from "../components/Notification/contexts/NotificationContext";
+import { useSchedule } from "../components/Schedule/ScheduleContext";
 
 // axios 기본 URL 설정
 axios.defaults.baseURL = "http://localhost:8080";
 
 const DashboardContent = () => {
-  // API 연동 확인 상태
-  const [apiStatus, setApiStatus] = useState(null); // null: 미확인, true: 성공, false: 실패
-
-  // API 연동 확인 함수
-  const checkApiConnection = async () => {
-    try {
-      await axios.get("/api/ping"); // 서버에 /api/ping 엔드포인트 필요
-      setApiStatus(true);
-    } catch {
-      setApiStatus(false);
-    }
-  };
   const { notifications, unreadCount } = useNotifications();
+  const { fetchSchedulesByDate } = useSchedule();
   const navigate = useNavigate();
   const [stats, setStats] = useState([
-    { icon: <IoCarSportOutline className="text-blue-500 text-3xl" />, label: "총 운행", value: "로딩중..." },
+    { icon: <IoCarSportOutline className="text-blue-500 text-3xl" />, label: "오늘 스케줄", value: "로딩중..." },
     { icon: <IoPeopleOutline className="text-green-500 text-3xl" />, label: "운전자 수", value: "로딩중..." },
-    { icon: <IoStatsChartOutline className="text-purple-500 text-3xl" />, label: "평균 만족도", value: "로딩중..." },
+    { icon: <IoStatsChartOutline className="text-purple-500 text-3xl" />, label: "완료 운행", value: "로딩중..." },
   ]);
   const [recentDrives, setRecentDrives] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -38,32 +28,26 @@ const DashboardContent = () => {
 
   const fetchDashboardStats = async () => {
     try {
-      // 1. 총 운행 수 (dispatch 테이블에서)
-      const dispatchResponse = await axios.get("/api/dispatch");
-      const totalDispatches = dispatchResponse.data.length;
-      const completedDispatches = dispatchResponse.data.filter(d => d.status === "COMPLETED").length;
+      // 1. 오늘 스케줄 조회 (최적화)
+      const today = new Date().toISOString().split('T')[0];
+      const todaySchedules = await fetchSchedulesByDate(today);
+      const completedToday = todaySchedules.filter(d => d.status === "COMPLETED").length;
 
       // 2. 운전자 수 (driver 테이블에서)
       const driversResponse = await axios.get("/api/drivers");
       const totalDrivers = driversResponse.data.length;
 
-      // 3. 평균 만족도 계산 (평균 운전 점수)
-      const drivers = driversResponse.data;
-      const avgScore = drivers.length > 0 
-        ? (drivers.reduce((sum, d) => sum + (d.avgDrivingScore || 0), 0) / drivers.length).toFixed(1)
-        : "0.0";
-
       setStats([
-        { icon: <IoCarSportOutline className="text-blue-500 text-3xl" />, label: "총 운행", value: `${completedDispatches}회` },
+        { icon: <IoCarSportOutline className="text-blue-500 text-3xl" />, label: "오늘 스케줄", value: `${todaySchedules.length}건` },
         { icon: <IoPeopleOutline className="text-green-500 text-3xl" />, label: "운전자 수", value: `${totalDrivers}명` },
-        { icon: <IoStatsChartOutline className="text-purple-500 text-3xl" />, label: "평균 점수", value: `${avgScore}점` },
+        { icon: <IoStatsChartOutline className="text-purple-500 text-3xl" />, label: "완료 운행", value: `${completedToday}건` },
       ]);
     } catch (error) {
       console.error("통계 데이터 로딩 실패:", error);
       setStats([
-        { icon: <IoCarSportOutline className="text-blue-500 text-3xl" />, label: "총 운행", value: "오류" },
+        { icon: <IoCarSportOutline className="text-blue-500 text-3xl" />, label: "오늘 스케줄", value: "오류" },
         { icon: <IoPeopleOutline className="text-green-500 text-3xl" />, label: "운전자 수", value: "오류" },
-        { icon: <IoStatsChartOutline className="text-purple-500 text-3xl" />, label: "평균 점수", value: "오류" },
+        { icon: <IoStatsChartOutline className="text-purple-500 text-3xl" />, label: "완료 운행", value: "오류" }
       ]);
     } finally {
       setLoading(false);
@@ -72,8 +56,10 @@ const DashboardContent = () => {
 
   const fetchRecentDrives = async () => {
     try {
-      const response = await axios.get("/api/dispatch");
-      const recent = response.data
+      // 오늘 스케줄만 가져와서 최근 운행으로 표시
+      const today = new Date().toISOString().split('T')[0];
+      const todaySchedules = await fetchSchedulesByDate(today);
+      const recent = todaySchedules
         .filter(d => d.status === "COMPLETED" || d.status === "SCHEDULED")
         .slice(0, 2); // 최근 2개만
       setRecentDrives(recent);
@@ -105,31 +91,6 @@ const DashboardContent = () => {
 
   return (
     <div className="max-w-6xl mx-auto py-12 px-4">
-      {/* API 연동 확인 버튼 및 상태 표시 */}
-      <div style={{ marginBottom: 24 }}>
-        <button
-          onClick={checkApiConnection}
-          style={{
-            padding: '8px 16px',
-            borderRadius: 6,
-            background: '#eee',
-            border: '1px solid #ccc',
-            cursor: 'pointer',
-            marginRight: 12
-          }}
-        >
-          API 연동 확인
-        </button>
-        {apiStatus === true && (
-          <span style={{ color: 'green', fontWeight: 'bold' }}>● 서버 연결됨</span>
-        )}
-        {apiStatus === false && (
-          <span style={{ color: 'red', fontWeight: 'bold' }}>● 서버 연결 실패</span>
-        )}
-        {apiStatus === null && (
-          <span style={{ color: '#888' }}>상태 미확인</span>
-        )}
-      </div>
       <h2 className="text-3xl font-bold mb-10 text-gray-900 tracking-tight">대시보드</h2>
       {/* 상단 통계 + 알림 카드 4개 그리드 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">

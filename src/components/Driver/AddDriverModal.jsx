@@ -1,41 +1,62 @@
 import React, { useState } from "react";
-import axios from "axios";
 import { useToast } from "../Toast/ToastProvider";
-
+import { useContext } from "react";
+import { DriverContext } from "./DriverContext";
+import axios from "axios";
 // axios 기본 URL 설정
 axios.defaults.baseURL = "http://localhost:8080";
 
 const AddDriverModal = ({ open, onClose, onAdd }) => {
   const [name, setName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
-  const [licenseType, setLicenseType] = useState("");
+  const [licenseNumber, setLicenseNumber] = useState("");
   const [operatorId, setOperatorId] = useState("");
+  const [grade, setGrade] = useState("");
+  const [careerYears, setCareerYears] = useState("");
+  const [driverPassword, setDriverPassword] = useState("");
+  const [avgDrivingScore, setAvgDrivingScore] = useState("");
+  const [driverImagePath, setDriverImagePath] = useState("");
   const toast = useToast();
+  const driverCtx = useContext(DriverContext);
+  if (!driverCtx || typeof driverCtx.addDriver !== "function") {
+    return (
+      <div className="p-8 bg-white rounded-lg shadow-lg text-red-500 text-center">
+        DriverProvider로 감싸지 않았거나 DriverContext가 올바르지 않습니다.<br />
+        관리자에게 문의하세요.
+      </div>
+    );
+  }
+  const { addDriver } = driverCtx;
 
   if (!open) return null;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
     const newDriver = {
-      name,
+      driverName: name,
       phoneNumber,
-      licenseType,
-      operatorId: operatorId ? parseInt(operatorId) : null,
-      status: "ACTIVE"
+      licenseNumber,
+      operatorId: operatorId ? parseInt(operatorId) : undefined,
+      grade,
+      careerYears: careerYears ? parseInt(careerYears) : undefined,
+      driverPassword,
+      avgDrivingScore: avgDrivingScore ? parseFloat(avgDrivingScore) : undefined,
+      driverImagePath
     };
-
     try {
-      const response = await axios.post("/api/drivers", newDriver);
-      onAdd(response.data);
+      await addDriver(newDriver);
       onClose();
       toast.success("운전자가 추가되었습니다!");
-      setName("");
-      setPhoneNumber("");
-      setLicenseType("");
-      setOperatorId("");
+  setName("");
+  setPhoneNumber("");
+  setLicenseNumber("");
+  setOperatorId("");
+  setGrade("");
+  setCareerYears("");
+  setDriverPassword("");
+  setAvgDrivingScore("");
+  setDriverImagePath("");
     } catch (error) {
-      console.error("운전자 추가 실패:", error);
       toast.error("운전자 추가에 실패했습니다.");
     }
   };
@@ -53,29 +74,72 @@ const AddDriverModal = ({ open, onClose, onAdd }) => {
             required 
           />
           <input 
+            value={driverPassword}
+            onChange={(e) => setDriverPassword(e.target.value)}
+            placeholder="비밀번호" 
+            className="border rounded p-2" 
+            type="password"
+            required
+          />
+          <input 
             value={phoneNumber} 
             onChange={(e) => setPhoneNumber(e.target.value)}
-            placeholder="전화번호" 
+            placeholder="휴대폰번호" 
             className="border rounded p-2" 
             required 
           />
-          <select
-            value={licenseType}
-            onChange={(e) => setLicenseType(e.target.value)}
-            className="border rounded p-2"
-          >
-            <option value="">면허 종류 선택</option>
-            <option value="1종 보통">1종 보통</option>
-            <option value="1종 대형">1종 대형</option>
-            <option value="2종 보통">2종 보통</option>
-            <option value="특수면허">특수면허</option>
-          </select>
+          <input 
+            value={licenseNumber} 
+            onChange={(e) => setLicenseNumber(e.target.value)}
+            placeholder="면허번호" 
+            className="border rounded p-2" 
+            required 
+          />
           <input 
             value={operatorId} 
             onChange={(e) => setOperatorId(e.target.value)}
-            placeholder="운영자 ID (선택사항)" 
+            placeholder="운영사 ID" 
             className="border rounded p-2" 
             type="number"
+            required
+          />
+          <input 
+            value={careerYears}
+            onChange={(e) => setCareerYears(e.target.value)}
+            placeholder="경력(년)"
+            className="border rounded p-2"
+            type="number"
+            min="0"
+            required
+          />
+          <input 
+            value={avgDrivingScore}
+            onChange={(e) => setAvgDrivingScore(e.target.value)}
+            placeholder="평균점수"
+            className="border rounded p-2"
+            type="number"
+            min="0"
+            step="0.01"
+          />
+          <select
+            value={grade}
+            onChange={(e) => setGrade(e.target.value)}
+            className="border rounded p-2"
+            required
+          >
+            <option value="">등급 선택</option>
+            <option value="A">A</option>
+            <option value="B">B</option>
+            <option value="C">C</option>
+            <option value="D">D</option>
+            <option value="E">E</option>
+          </select>
+          <input 
+            value={driverImagePath}
+            onChange={(e) => setDriverImagePath(e.target.value)}
+            placeholder="이미지 경로"
+            className="border rounded p-2"
+            type="text"
           />
           <div className="flex gap-2 mt-4">
             <button type="submit" className="bg-blue-500 text-white px-4 py-2 rounded">추가</button>

@@ -4,15 +4,22 @@ import { useNotifications } from "../Notification/contexts/NotificationContext";
 import { useNavigate } from "react-router-dom";
 import { useToken } from "../Token/TokenProvider";
 
-const TopNav = ({ onSidebarOpen, onLogoClick, userName = "박윤영", onNotificationClick }) => {
+const TopNav = ({ onSidebarOpen, onLogoClick, onNotificationClick }) => {
   const { unreadCount } = useNotifications();
   const navigate = useNavigate();
-  const { removeToken } = useToken();
+  const { removeToken, getUserInfoFromToken } = useToken();
+  
+  const userInfo = getUserInfoFromToken();
+  const userName = userInfo?.name || "사용자";
 
   const handleLogout = () => {
     removeToken(); // 인증 토큰 제거
     // 필요시 사용자 정보도 추가적으로 제거
     navigate('/signin');
+  };
+
+  const handleProfileClick = () => {
+    navigate('/mypage');
   };
 
   return (
@@ -27,7 +34,10 @@ const TopNav = ({ onSidebarOpen, onLogoClick, userName = "박윤영", onNotifica
         </span>
       </div>
       <div className="space-x-6 flex items-center">
-        <div className="flex items-center gap-2 text-gray-700">
+        <div 
+          className="flex items-center gap-2 text-gray-700 cursor-pointer hover:text-blue-600 transition-colors"
+          onClick={handleProfileClick}
+        >
           <IoPersonCircle className="text-2xl" />
           <span className="font-semibold">{userName}</span>
         </div>

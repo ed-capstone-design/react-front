@@ -1,11 +1,13 @@
-import React, { useState } from "react";
+import React, { useState, useContext } from "react";
+import { DriverContext } from "./DriverContext";
 
-const DriverDetailModal = ({ open, driver, onClose, onUpdate, onDelete }) => {
+const DriverDetailModal = ({ open, driver, onClose }) => {
   const [form, setForm] = useState(driver || {});
 
   React.useEffect(() => {
     setForm(driver || {});
   }, [driver]);
+  const { updateDriver, deleteDriver } = useContext(DriverContext);
 
   if (!open || !driver) return null;
 
@@ -13,16 +15,24 @@ const DriverDetailModal = ({ open, driver, onClose, onUpdate, onDelete }) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    onUpdate(form);
-    onClose();
+    try {
+      await updateDriver({ ...form, driverId: driver.driverId });
+      onClose();
+    } catch {
+      alert("운전자 정보 수정에 실패했습니다.");
+    }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (window.confirm("정말 삭제하시겠습니까?")) {
-      onDelete(driver.driverId);
-      onClose();
+      try {
+        await deleteDriver(driver.driverId);
+        onClose();
+      } catch {
+        alert("운전자 삭제에 실패했습니다.");
+      }
     }
   };
 

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import { useContext } from "react";
+import { DriverContext } from "./DriverContext";
 import { useToast } from "../Toast/ToastProvider";
 
-const EditDriverModal = ({ open, onClose, driver, onEdit }) => {
+const EditDriverModal = ({ open, onClose, driver }) => {
   const [name, setName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [licenseType, setLicenseType] = useState("");
@@ -10,7 +11,7 @@ const EditDriverModal = ({ open, onClose, driver, onEdit }) => {
   const [status, setStatus] = useState("ACTIVE");
   const [loading, setLoading] = useState(false);
   const toast = useToast();
-
+  const driverCtx = useContext(DriverContext);
   useEffect(() => {
     if (driver) {
       setName(driver.name || "");
@@ -20,6 +21,15 @@ const EditDriverModal = ({ open, onClose, driver, onEdit }) => {
       setStatus(driver.status || "ACTIVE");
     }
   }, [driver]);
+  if (!driverCtx || typeof driverCtx.updateDriver !== "function") {
+    return (
+      <div className="p-8 bg-white rounded-lg shadow-lg text-red-500 text-center">
+        DriverProvider로 감싸지 않았거나 DriverContext가 올바르지 않습니다.<br />
+        관리자에게 문의하세요.
+      </div>
+    );
+  }
+  const { updateDriver } = driverCtx;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -27,19 +37,17 @@ const EditDriverModal = ({ open, onClose, driver, onEdit }) => {
       toast.warning("이름과 전화번호를 입력해주세요.");
       return;
     }
-
     setLoading(true);
     try {
       const updatedDriver = {
-        name,
+        driverId: driver.driverId,
+        driverName: name,
         phoneNumber,
         licenseType,
-        operatorId: operatorId || null,
+        operatorId: operatorId ? parseInt(operatorId) : undefined,
         status
       };
-
-      const response = await axios.put(`/api/drivers/${driver.driverId}`, updatedDriver);
-      onEdit(response.data);
+      await updateDriver(updatedDriver);
       onClose();
       toast.success("운전자 정보가 수정되었습니다!");
       setName("");
@@ -48,7 +56,6 @@ const EditDriverModal = ({ open, onClose, driver, onEdit }) => {
       setOperatorId("");
       setStatus("ACTIVE");
     } catch (error) {
-      console.error("운전자 수정 실패:", error);
       toast.error("운전자 수정에 실패했습니다.");
     } finally {
       setLoading(false);

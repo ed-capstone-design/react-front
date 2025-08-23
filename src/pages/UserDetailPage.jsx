@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { IoPersonCircle } from "react-icons/io5";
 import axios from "axios";
 import { useToast } from "../components/Toast/ToastProvider";
+import { useSchedule } from "../components/Schedule/ScheduleContext";
 
 // axios 기본 URL 설정
 axios.defaults.baseURL = "http://localhost:8080";
@@ -11,6 +12,7 @@ const UserDetailPage = () => {
   const { id } = useParams(); // URL에서 사용자 ID 가져오기
   const navigate = useNavigate();
   const toast = useToast();
+  const { fetchSchedulesByDriver } = useSchedule();
   
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -21,6 +23,11 @@ const UserDetailPage = () => {
   const [status, setStatus] = useState("");
   const [routes, setRoutes] = useState("");
   const [dispatchHistory, setDispatchHistory] = useState([]);
+  const [dateRange, setDateRange] = useState({
+    startDate: "",
+    endDate: "",
+    limit: 20
+  });
 
     // 사용자 데이터 불러오기
   const fetchUserData = async (userId) => {
@@ -36,10 +43,8 @@ const UserDetailPage = () => {
       setStatus(driver.status || "");
       setRoutes(driver.routes || "");
 
-      // 배차 이력 가져오기
-      const dispatchResponse = await axios.get("/api/dispatch");
-      const userDispatches = dispatchResponse.data.filter(d => d.driverId === parseInt(userId));
-      setDispatchHistory(userDispatches);
+      // 최적화된 배차 이력 가져오기 (최근 20개만)
+      await loadDispatchHistory(userId);
       
     } catch (error) {
       console.error("사용자 정보 로딩 실패:", error);
@@ -50,6 +55,25 @@ const UserDetailPage = () => {
     }
   };
 
+  // 배차 이력 로드 함수
+  const loadDispatchHistory = async (userId) => {
+    try {
+      const options = {
+        limit: dateRange.limit
+      };
+      
+      // 날짜 범위가 설정되어 있으면 추가
+      if (dateRange.startDate) options.startDate = dateRange.startDate;
+      if (dateRange.endDate) options.endDate = dateRange.endDate;
+      
+      const history = await fetchSchedulesByDriver(userId, options);
+      setDispatchHistory(history);
+    } catch (error) {
+      console.error("배차 이력 조회 실패:", error);
+      toast.error("배차 이력을 불러올 수 없습니다.");
+    }
+  };
+
   useEffect(() => {
     if (id) {
       fetchUserData(id);
@@ -57,7 +81,22 @@ const UserDetailPage = () => {
       // ID가 없으면 새 사용자 생성 모드
       setLoading(false);
     }
-  }, [id]); // fetchUserData를 의존성에서 제외하고 id만 포함
+  }, [id]);
+
+  // 날짜 범위 변경시 배차 이력 다시 로드
+  useEffect(() => {
+    if (id) {
+      loadDispatchHistory(id);
+    }
+  }, [dateRange]);
+
+  // 날짜 범위 변경 핸들러
+  const handleDateRangeChange = (field, value) => {
+    setDateRange(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -204,6 +243,53 @@ const UserDetailPage = () => {
       {/* 배차 내역 */}
       <div className="bg-white border border-gray-100 rounded-lg shadow-sm p-8">
         <h3 className="text-xl font-bold text-gray-900 mb-4">배차 내역</h3>
+        
+        {/* 날짜 필터 */}
+        <div className="bg-gray-50 rounded-lg p-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">시작 날짜</label>
+              <input
+                type="date"
+                value={dateRange.startDate}
+                onChange={(e) => handleDateRangeChange('startDate', e.target.value)}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">종료 날짜</label>
+              <input
+                type="date"
+                value={dateRange.endDate}
+                onChange={(e) => handleDateRangeChange('endDate', e.target.value)}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">조회 개수</label>
+              <select
+                value={dateRange.limit}
+                onChange={(e) => handleDateRangeChange('limit', parseInt(e.target.value))}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value={10}>최근 10개</option>
+                <option value={20}>최근 20개</option>
+                <option value={50}>최근 50개</option>
+                <option value={100}>최근 100개</option>
+              </select>
+            </div>
+            <div>
+              <button
+                type="button"
+                onClick={() => setDateRange({ startDate: "", endDate: "", limit: 20 })}
+                className="w-full px-4 py-2 text-sm bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition"
+              >
+                필터 초기화
+              </button>
+            </div>
+          </div>
+        </div>
+
         {dispatchHistory.length === 0 ? (
           <p className="text-gray-400 text-center py-8">배차 이력이 없습니다.</p>
         ) : (

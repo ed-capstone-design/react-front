@@ -36,13 +36,15 @@ const Signin = () => {
     
     setError("");
     setLoading(true);
-    
+    // 지금 임시토큰으로 발행하는데 나중에는 토큰 자체만 발행되었을때 토큰을 분해해서 저장하는 방식을 고쳐야됨
+    //TokenProvider에 만들긴 했음
     try {
       const response = await axios.post("/api/auth/login", {
         username: userid,
         password: password
       });
-      // JwtResponse: { token, adminId, adminName, operatorId }
+      
+      // 토큰만 저장 - 사용자 정보는 토큰에서 추출
       setToken(response.data.token);
       axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
       alert("로그인 성공!");

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import axios from "axios";
+import { useSchedule } from "../../Schedule/ScheduleContext";
 
 // axios 기본 URL 설정
 axios.defaults.baseURL = "http://localhost:8080";
@@ -11,6 +12,7 @@ export const useNotifications = () => useContext(NotificationContext);
 export const NotificationProvider = ({ children }) => {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
+  const { fetchSchedulesByDate } = useSchedule();
 
   // 알림 목록 불러오기
   const fetchNotifications = async () => {
@@ -61,40 +63,40 @@ export const NotificationProvider = ({ children }) => {
         // Warning 데이터를 불러올 수 없는 경우 빈 처리
       }
 
-      // 2. Dispatch 상태 변경으로부터 알림 생성
+      // 2. 오늘 스케줄 상태로부터 알림 생성 (최적화)
       try {
-        const dispatchResponse = await axios.get("/api/dispatch");
-        const dispatches = dispatchResponse.data;
+        const today = new Date().toISOString().split('T')[0];
+        const todaySchedules = await fetchSchedulesByDate(today);
         
-        dispatches.forEach(dispatch => {
-          if (dispatch.status === "COMPLETED") {
+        todaySchedules.forEach(schedule => {
+          if (schedule.status === "COMPLETED") {
             mockNotifications.push({
-              id: `dispatch_${dispatch.dispatchId}`,
+              id: `schedule_${schedule.scheduleId}`,
               title: "운행 완료",
-              message: `배차 ${dispatch.dispatchId}번의 운행이 완료되었습니다.`,
-              timestamp: new Date(dispatch.actualArrival || Date.now()),
+              message: `스케줄 ${schedule.scheduleId}번의 운행이 완료되었습니다.`,
+              timestamp: new Date(schedule.actualArrival || Date.now()),
               read: false,
               type: "success",
               priority: "normal",
-              dispatchId: dispatch.dispatchId,
-              action: "view_dispatch"
+              scheduleId: schedule.scheduleId,
+              action: "view_schedule"
             });
-          } else if (dispatch.status === "DELAYED") {
+          } else if (schedule.status === "DELAYED") {
             mockNotifications.push({
-              id: `dispatch_delay_${dispatch.dispatchId}`,
+              id: `schedule_delay_${schedule.scheduleId}`,
               title: "운행 지연",
-              message: `배차 ${dispatch.dispatchId}번이 지연되었습니다.`,
+              message: `스케줄 ${schedule.scheduleId}번이 지연되었습니다.`,
               timestamp: new Date(),
               read: false,
               type: "warning",
               priority: "high",
-              dispatchId: dispatch.dispatchId,
-              action: "view_dispatch"
+              scheduleId: schedule.scheduleId,
+              action: "view_schedule"
             });
           }
         });
       } catch (e) {
-        console.log("Dispatch 데이터를 불러올 수 없습니다.");
+        console.log("오늘 스케줄 데이터를 불러올 수 없습니다.");
       }
 
       // 3. 기본 더미 알림 추가 (데이터가 없을 경우)

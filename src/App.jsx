@@ -4,14 +4,19 @@ import Signin from './pages/Signin';
 import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
 import Drivers from './pages/Drivers';
+import Buses from './pages/Buses';
 import OperatingSchedule from './pages/OperatingSchedule';
 import Insight from './pages/Insight';
 import Notifications from './pages/Notifications';
 import UserDetailPage from './pages/UserDetailPage';
 import DriveDetail from './pages/DriveDetail';
+import MyPage from './pages/MyPage';
 import Layout from './components/Layout/Layout';
 import ToastProvider from './components/Toast/ToastProvider';
 import './App.css';
+import { DriverProvider } from './components/Driver/DriverContext';
+import { BusProvider } from './components/Bus/BusContext';
+import { ScheduleProvider } from './components/Schedule/ScheduleContext';
 
 // 보호된 라우트 컴포넌트
 const ProtectedRoute = ({ children }) => {
@@ -31,50 +36,66 @@ function App() {
   return (
     <TokenProvider>
       <ToastProvider>
-        <Router>
-          <div className="App">
-            <Routes>
-              <Route path="/" element={<RootRedirect />} />
-              <Route path="/signin" element={<Signin />} />
-              <Route path="/signup" element={<Signup />} />
-              <Route path="/dashboard" element={
-                <ProtectedRoute>
-                  <Layout><Dashboard /></Layout>
-                </ProtectedRoute>
-              } />
-              <Route path="/drivers" element={
-                <ProtectedRoute>
-                  <Layout><Drivers /></Layout>
-                </ProtectedRoute>
-              } />
-              <Route path="/operating-schedule" element={
-                <ProtectedRoute>
-                  <Layout><OperatingSchedule /></Layout>
-                </ProtectedRoute>
-              } />
-              <Route path="/insight" element={
-                <ProtectedRoute>
-                  <Layout><Insight /></Layout>
-                </ProtectedRoute>
-              } />
-              <Route path="/notifications" element={
-                <ProtectedRoute>
-                  <Layout><Notifications /></Layout>
-                </ProtectedRoute>
-              } />
-              <Route path="/userdetailpage" element={
-                <ProtectedRoute>
-                  <Layout><UserDetailPage /></Layout>
-                </ProtectedRoute>
-              } />
-              <Route path="/drivedetail/:id" element={
-                <ProtectedRoute>
-                  <Layout><DriveDetail /></Layout>
-                </ProtectedRoute>
-              } />
-            </Routes>
-          </div>
-        </Router>
+        <DriverProvider>
+          <BusProvider>
+            <ScheduleProvider>
+              <Router>
+                <div className="App">
+                  <Routes>
+                    <Route path="/" element={<RootRedirect />} />
+                    <Route path="/signin" element={<Signin />} />
+                    <Route path="/signup" element={<Signup />} />
+                    <Route path="/dashboard" element={
+                      <ProtectedRoute>
+                        <Layout><Dashboard /></Layout>
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/drivers" element={
+                      <ProtectedRoute>
+                        <Layout><Drivers /></Layout>
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/buses" element={
+                      <ProtectedRoute>
+                        <Layout><Buses /></Layout>
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/operating-schedule" element={
+                      <ProtectedRoute>
+                        <Layout><OperatingSchedule /></Layout>
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/insight" element={
+                      <ProtectedRoute>
+                        <Layout><Insight /></Layout>
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/notifications" element={
+                      <ProtectedRoute>
+                        <Layout><Notifications /></Layout>
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/userdetailpage" element={
+                      <ProtectedRoute>
+                        <Layout><UserDetailPage /></Layout>
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/drivedetail/:id" element={
+                      <ProtectedRoute>
+                        <Layout><DriveDetail /></Layout>
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/mypage" element={
+                      <ProtectedRoute>
+                        <MyPage />
+                      </ProtectedRoute>
+                    } />
+                  </Routes>
+                </div>
+              </Router>
+            </ScheduleProvider>
+          </BusProvider>
+        </DriverProvider>
       </ToastProvider>
     </TokenProvider>
   );

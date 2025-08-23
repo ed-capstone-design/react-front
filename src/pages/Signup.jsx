@@ -45,19 +45,19 @@ const Signup = () => {
     try {
       if (role === "admin") {
         await axios.post("/api/auth/register-admin", {
-          adminName: userid,
-          rawPassword: password,
+          adminId: userid,
+          password: password,
           adminEmail: email,
-          adminRealName: name,
-          operatorId
+          adminName: name,
+          operatorId: operatorId
         });
       } else {
         await axios.post("/api/auth/register", {
-          driverName: name,
           driverId: userid,
-          rawPassword: password,
-          email,
-          operatorId
+          password: password,
+          email: email,
+          driverName: name,
+          operatorId: operatorId
         });
       }
       setSuccess("회원가입이 완료되었습니다! 로그인 페이지로 이동합니다.");

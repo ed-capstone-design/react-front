@@ -1,35 +1,16 @@
-import React, { useState, useEffect } from "react";
-import axios from "axios";
+import React, { useState, useContext } from "react";
+import { DriverContext } from "../components/Driver/DriverContext";
 import AddDriverModal from "../components/Driver/AddDriverModal";
 import EditDriverModal from "../components/Driver/EditDriverModal";
 
-// axios 기본 URL 설정
-axios.defaults.baseURL = "http://localhost:8080";
 
 const Drivers = () => {
   const [addOpen, setAddOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [selectedDriver, setSelectedDriver] = useState(null);
-  const [drivers, setDrivers] = useState([]);
+  const { drivers, addDriver, updateDriver } = useContext(DriverContext);
 
-  // 운전자 목록 불러오기 (driver 테이블 기준)
-  useEffect(() => {
-    axios.get("/api/drivers")
-      .then(res => setDrivers(res.data))
-      .catch(() => setDrivers([]));
-  }, []);
-
-  // 운전자 추가
-  const handleAdd = (driver) => {
-    setDrivers(prev => [...prev, driver]);
-  };
-
-  // 운전자 수정
-  const handleEdit = (updatedDriver) => {
-    setDrivers(prev => prev.map(driver => 
-      driver.driverId === updatedDriver.driverId ? updatedDriver : driver
-    ));
-  };
+  // DriverContext에서 운전자 목록 및 함수 사용
 
   // 수정 모달 열기
   const openEditModal = (driver) => {
@@ -92,12 +73,11 @@ const Drivers = () => {
           ))}
         </tbody>
       </table>
-      <AddDriverModal open={addOpen} onClose={() => setAddOpen(false)} onAdd={handleAdd} />
+      <AddDriverModal open={addOpen} onClose={() => setAddOpen(false)} />
       <EditDriverModal 
         open={editOpen} 
         onClose={() => setEditOpen(false)} 
         driver={selectedDriver}
-        onEdit={handleEdit} 
       />
     </div>
   );
