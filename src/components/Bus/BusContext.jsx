@@ -26,7 +26,21 @@ export const BusProvider = ({ children }) => {
     } catch (error) {
       console.error("버스 목록 조회 실패:", error);
       setError("버스 목록을 불러오는데 실패했습니다.");
-      setBuses([]);
+      // 예시 데이터로 대체
+      setBuses([
+        {
+          busId: 1,
+          routeNumber: "101",
+          routeType: "CITY",
+          capacity: 45,
+          vehicleNumber: "서울70가1234",
+          vehicleType: "STANDARD",
+          vehicleYear: 2020,
+          lastMaintenance: "2024-01-15",
+          repairCount: 3,
+          fuelType: "DIESEL"
+        }
+      ]);
     } finally {
       setLoading(false);
     }

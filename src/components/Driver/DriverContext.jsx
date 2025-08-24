@@ -22,7 +22,63 @@ export const DriverProvider = ({ children }) => {
   useEffect(() => {
     axios.get("/api/drivers")
       .then(res => setDrivers(res.data))
-      .catch(() => setDrivers([]));
+      .catch(() => {
+        console.log("운전자 목록 조회 실패, 예시 데이터 사용");
+        setDrivers([
+          {
+            driverId: 1,
+            driverName: "김철수",
+            phoneNumber: "010-1234-5678",
+            licenseType: "1종 대형",
+            licenseNumber: "12-34-567890",
+            operatorId: 1,
+            careerYears: 5,
+            avgDrivingScore: 85,
+            grade: "A",
+            status: "운행중",
+            createdAt: "2024-01-15T09:00:00Z"
+          },
+          {
+            driverId: 2,
+            driverName: "박영희",
+            phoneNumber: "010-2345-6789",
+            licenseType: "1종 대형",
+            licenseNumber: "12-34-567891",
+            operatorId: 1,
+            careerYears: 3,
+            avgDrivingScore: 92,
+            grade: "A",
+            status: "대기",
+            createdAt: "2024-02-10T09:00:00Z"
+          },
+          {
+            driverId: 3,
+            driverName: "이민수",
+            phoneNumber: "010-3456-7890",
+            licenseType: "1종 대형", 
+            licenseNumber: "12-34-567892",
+            operatorId: 1,
+            careerYears: 7,
+            avgDrivingScore: 88,
+            grade: "A",
+            status: "운행중",
+            createdAt: "2024-01-20T09:00:00Z"
+          },
+          {
+            driverId: 4,
+            driverName: "정수영",
+            phoneNumber: "010-4567-8901",
+            licenseType: "1종 대형",
+            licenseNumber: "12-34-567893", 
+            operatorId: 1,
+            careerYears: 2,
+            avgDrivingScore: 79,
+            grade: "B",
+            status: "대기",
+            createdAt: "2024-03-05T09:00:00Z"
+          }
+        ]);
+      });
   }, []);
 
   // 운전자 추가

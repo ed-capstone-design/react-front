@@ -37,7 +37,57 @@ export const ScheduleProvider = ({ children }) => {
     } catch (error) {
       console.error("날짜별 스케줄 조회 실패:", error);
       setError("해당 날짜의 스케줄을 불러오는데 실패했습니다.");
-      return [];
+      // 예시 데이터 반환 - 4개 상태별로 구성
+      return [
+        {
+          dispatchId: 1,
+          driverId: 1,
+          busId: 1,
+          dispatchDate: date,
+          scheduledDeparture: "08:00",
+          actualDeparture: null,
+          actualArrival: null,
+          status: "SCHEDULED",
+          warningCount: 0,
+          drivingScore: null
+        },
+        {
+          dispatchId: 2,
+          driverId: 2,
+          busId: 2,
+          dispatchDate: date,
+          scheduledDeparture: "09:30",
+          actualDeparture: "09:35",
+          actualArrival: null,
+          status: "RUNNING",
+          warningCount: 1,
+          drivingScore: null
+        },
+        {
+          dispatchId: 3,
+          driverId: 3,
+          busId: 3,
+          dispatchDate: date,
+          scheduledDeparture: "11:00",
+          actualDeparture: null,
+          actualArrival: null,
+          status: "DELAYED",
+          warningCount: 0,
+          drivingScore: null
+        },
+        {
+          dispatchId: 4,
+          driverId: 1,
+          busId: 1,
+          dispatchDate: date,
+          scheduledDeparture: "14:00",
+          actualDeparture: "14:02",
+          actualArrival: "22:30",
+          status: "COMPLETED",
+          warningCount: 2,
+          drivingScore: 85
+        }
+      ];
     } finally {
       setLoading(false);
     }
@@ -58,7 +108,21 @@ export const ScheduleProvider = ({ children }) => {
     } catch (error) {
       console.error("운전자별 스케줄 조회 실패:", error);
       setError("운전자의 스케줄을 불러오는데 실패했습니다.");
-      return [];
+      // 예시 데이터 반환
+      return [
+        {
+          dispatchId: 2,
+          driverId: parseInt(driverId),
+          busId: 1,
+          dispatchDate: "2024-08-24",
+          scheduledDeparture: "09:00",
+          actualDeparture: "09:02",
+          actualArrival: "18:15",
+          status: "COMPLETED",
+          warningCount: 1,
+          drivingScore: 88
+        }
+      ];
     } finally {
       setLoading(false);
     }

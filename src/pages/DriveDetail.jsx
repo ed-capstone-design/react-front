@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { IoBus, IoPersonCircle, IoWarning, IoSpeedometer, IoLocation, IoArrowBack } from "react-icons/io5";
 import KakaoMap from "../components/Map/Map";
 import axios from "axios";
 
-const DriveDetail = ({ id, onBackToInsight }) => {
+const DriveDetail = ({ onBackToInsight }) => {
+  const { id } = useParams();
+  const navigate = useNavigate();
   const [driveData, setDriveData] = useState(null);
   const [obdData, setObdData] = useState(null);
   const [alerts, setAlerts] = useState([]);
@@ -103,11 +106,11 @@ const DriveDetail = ({ id, onBackToInsight }) => {
     <div className="max-w-4xl mx-auto py-10 px-4">
       {/* 뒤로가기 버튼 */}
       <button
-        onClick={onBackToInsight}
+        onClick={() => navigate(-1)}
         className="mb-4 flex items-center gap-2 px-4 py-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors"
       >
         <IoArrowBack className="text-lg" />
-        <span className="font-medium">인사이트로 돌아가기</span>
+        <span className="font-medium">뒤로가기</span>
       </button>
       
       <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">

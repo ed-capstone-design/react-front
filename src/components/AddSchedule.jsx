@@ -1,17 +1,27 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import ScheduleModal from "./Schedule/ScheduleModal";
 import DriverSelector from "./Schedule/DriverSelector";
 import BusSelector from "./Schedule/BusSelector";
 import DateTimeInputs from "./Schedule/DateTimeInputs";
 import { useSchedule } from "./Schedule/ScheduleContext";
 
-const AddSchedule = ({ open, onClose, onAdd }) => {
+const AddSchedule = ({ open, onClose, onAdd, initialData = null, isEdit = false }) => {
   const [driverId, setDriverId] = useState("");
   const [busId, setBusId] = useState("");
   const [dispatchDate, setDispatchDate] = useState("");
   const [scheduledDeparture, setScheduledDeparture] = useState("");
 
   const { drivers, error } = useSchedule();
+
+  // 수정 모드일 때 초기 데이터 설정
+  useEffect(() => {
+    if (isEdit && initialData) {
+      setDriverId(initialData.driverId?.toString() || "");
+      setBusId(initialData.busId?.toString() || "");
+      setDispatchDate(initialData.dispatchDate || "");
+      setScheduledDeparture(initialData.scheduledDeparture || "");
+    }
+  }, [isEdit, initialData]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -46,7 +56,7 @@ const AddSchedule = ({ open, onClose, onAdd }) => {
     <ScheduleModal 
       open={open} 
       onClose={handleClose} 
-      title="스케줄 추가"
+      title={isEdit ? "스케줄 수정" : "스케줄 추가"}
       onSubmit={handleSubmit}
     >
       {error && (

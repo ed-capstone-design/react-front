@@ -16,7 +16,7 @@ const DriverCard = ({ driver, onNameClick }) => (
           if (onNameClick) onNameClick(driver);
         }}
       >
-        {driver.name}
+        {driver.driverName}
       </div>
     </div>
     {statusIcon[driver.status] || <span className="inline-block w-3 h-3 rounded-full bg-gray-200 mr-2 align-middle" title={driver.status}></span>}
