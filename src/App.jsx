@@ -22,14 +22,15 @@ import { ScheduleProvider } from './components/Schedule/ScheduleContext';
 const ProtectedRoute = ({ children }) => {
   const { getToken } = useToken();
   const token = getToken();
-  return token ? children : <Navigate to="/signin" replace />;
+  return children;
+  // return token ? children : <Navigate to="/signin" replace />;
 };
 
 // 루트 경로 리다이렉트 컴포넌트
 const RootRedirect = () => {
-  const { getToken } = useToken();
-  const token = getToken();
-  return <Navigate to={token ? "/dashboard" : "/signin"} replace />;
+  // const { getToken } = useToken();
+  // const token = getToken();
+  // return <Navigate to={token ? "/dashboard" : "/signin"} replace />;
 };
 
 function App() {

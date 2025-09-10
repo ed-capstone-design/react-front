@@ -38,49 +38,53 @@ export const TokenProvider = ({ children }) => {
   }, []);
 
   // 토큰에서 사용자 정보 추출
+  // 안전한 JWT 파싱 (한글 깨짐 방지)
+  function parseJwt(token) {
+    if (!token) return null;
+    try {
+      const base64Url = token.split('.')[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const jsonPayload = decodeURIComponent(
+        atob(base64)
+          .split('')
+          .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+          .join('')
+      );
+      return JSON.parse(jsonPayload);
+    } catch (e) {
+      return null;
+    }
+  }
+
   const getUserInfoFromToken = () => {
     const token = getToken();
     if (!token) return null;
-    
     try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      
+      const payload = parseJwt(token);
+      if (!payload) return null;
       // JWT 표준 클레임 검증
       const currentTime = Math.floor(Date.now() / 1000);
       if (payload.exp && payload.exp < currentTime) {
         console.warn("토큰이 만료되었습니다.");
         return null;
       }
-      
       if (payload.aud && payload.aud !== "driving-app") {
         console.warn("토큰 대상자가 일치하지 않습니다.");
         return null;
       }
-
       return {
-        // ✅ 필수 식별 정보
         userId: payload.userId || payload.sub,
         username: payload.username || payload.sub,
-        
-        // ✅ 필수 표시용 정보
         name: payload.name || payload.displayName || "사용자",
-        email: payload.email || "",                          // 필수
-        
-        // ✅ 필수 권한 정보
+        email: payload.email || "",
         role: payload.role || "user",
-        
-        // ✅ 필수 JWT 표준 클레임
         sub: payload.sub,
         aud: payload.aud,
         iat: payload.iat,
         exp: payload.exp,
-        
-        // ✅ 필수 업무 정보
-        operatorId: payload.operatorId || "UNKNOWN",         // 회사코드 (필수)
-        
-        // 🔸 선택적 정보
-        authorities: payload.authorities || [],              // 세부 권한 (선택적)
-        driverLicense: payload.driverLicense || null,        // 운전자 면허 (선택적)
+        operatorId: payload.operatorId || "UNKNOWN",
+        authorities: payload.authorities || [],
+        driverLicense: payload.driverLicense || null,
       };
     } catch (error) {
       console.error("토큰 파싱 실패:", error);

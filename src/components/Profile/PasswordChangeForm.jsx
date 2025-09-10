@@ -5,7 +5,6 @@ const PasswordChangeForm = ({ userInfo, onChange }) => {
   return (
     <div>
       <h3 className="text-lg font-semibold text-gray-900 mb-4">비밀번호 변경</h3>
-      <p className="text-sm text-gray-600 mb-4">비밀번호를 변경하지 않으려면 아래 필드를 비워두세요.</p>
       
       <div className="space-y-4">
         <div>
