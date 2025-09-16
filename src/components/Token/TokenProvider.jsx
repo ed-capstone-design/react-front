@@ -78,10 +78,10 @@ export const TokenProvider = ({ children }) => {
         name: payload.name || payload.displayName || "사용자",
         email: payload.email || "",
         role: payload.role || "user",
-        sub: payload.sub,
-        aud: payload.aud,
-        iat: payload.iat,
-        exp: payload.exp,
+        sub: payload.sub,//누구냐->userId,,role operator
+        aud: payload.aud,//어디서 사용하느냐 
+        iat: payload.iat,//접속시간
+        exp: payload.exp,//유효시간
         operatorId: payload.operatorId || "UNKNOWN",
         authorities: payload.authorities || [],
         driverLicense: payload.driverLicense || null,

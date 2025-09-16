@@ -15,8 +15,8 @@ const DriverSelector = ({ value, onChange, drivers, loading, required = false })
         >
           <option value="">운전자를 선택하세요</option>
           {drivers.map(driver => (
-            <option key={driver.driverId} value={driver.driverId}>
-              {driver.name} (ID: {driver.driverId})
+            <option key={driver.driverId} value={driver.driverName}>
+              {driver.driverName} (ID: {driver.driverId})
             </option>
           ))}
         </select>

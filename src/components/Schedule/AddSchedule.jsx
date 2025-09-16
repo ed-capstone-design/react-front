@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
-import ScheduleModal from "./Schedule/ScheduleModal";
-import DriverSelector from "./Schedule/DriverSelector";
-import BusSelector from "./Schedule/BusSelector";
-import DateTimeInputs from "./Schedule/DateTimeInputs";
-import { useSchedule } from "./Schedule/ScheduleContext";
+import ScheduleModal from "./ScheduleModal";
+import DriverSelector from "./DriverSelector";
+import BusSelector from "./BusSelector";
+import DateTimeInputs from "./DateTimeInputs";
+import { useSchedule } from "./ScheduleContext";
 
 const AddSchedule = ({ open, onClose, onAdd, initialData = null, isEdit = false }) => {
   const [driverId, setDriverId] = useState("");
@@ -16,10 +16,13 @@ const AddSchedule = ({ open, onClose, onAdd, initialData = null, isEdit = false 
   // 수정 모드일 때 초기 데이터 설정
   useEffect(() => {
     if (isEdit && initialData) {
-      setDriverId(initialData.driverId?.toString() || "");
-      setBusId(initialData.busId?.toString() || "");
+      setDriverId(initialData.driverId ? String(initialData.driverId) : "");
+      setBusId(initialData.busId ? String(initialData.busId) : "");
       setDispatchDate(initialData.dispatchDate || "");
       setScheduledDeparture(initialData.scheduledDeparture || "");
+    } else if (!isEdit) {
+      // 추가 모드일 때는 폼 초기화
+      resetForm();
     }
   }, [isEdit, initialData]);
 
@@ -58,6 +61,7 @@ const AddSchedule = ({ open, onClose, onAdd, initialData = null, isEdit = false 
       onClose={handleClose} 
       title={isEdit ? "스케줄 수정" : "스케줄 추가"}
       onSubmit={handleSubmit}
+      isEdit={isEdit}
     >
       {error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">

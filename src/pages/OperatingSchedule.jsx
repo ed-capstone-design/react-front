@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import AddSchedule from "../components/AddSchedule";
+import AddSchedule from "../components/Schedule/AddSchedule";
 import { useToast } from "../components/Toast/ToastProvider";
 import { useSchedule } from "../components/Schedule/ScheduleContext";
 
@@ -21,7 +21,8 @@ const OperatingSchedule = () => {
     deleteSchedule,
     getDriverById,
     getBusById,
-    fetchSchedulesByDate
+    fetchSchedulesByDate,
+    fetchError
   } = useSchedule();
 
   // 선택된 날짜의 스케줄 로드
@@ -103,6 +104,11 @@ const OperatingSchedule = () => {
 
   return (
     <div className="max-w-5xl mx-auto py-10 px-6">
+      {fetchError && (
+        <div className="mb-4 p-3 bg-red-100 text-red-700 rounded border border-red-200 text-center font-semibold">
+          {fetchError}
+        </div>
+      )}
       <h2 className="text-2xl font-bold mb-8 text-gray-900 tracking-tight">운행 스케줄</h2>
       
       {/* 날짜 필터 섹션 */}
@@ -129,6 +135,16 @@ const OperatingSchedule = () => {
       </div>
 
       <div className="bg-white border border-gray-100 rounded-lg shadow-sm p-8">
+          {dailySchedules.length > 0 && (
+          <div className="flex justify-end mt-2 mb-6">
+            <button
+              className="bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold shadow-sm hover:bg-blue-700 transition"
+              onClick={() => setModalOpen(true)}
+            >
+              스케줄 추가
+            </button>
+          </div>
+        )}
         {dailySchedules.length === 0 ? (
           <div className="text-center py-12">
             <div className="text-gray-500 mb-4">
@@ -161,30 +177,30 @@ const OperatingSchedule = () => {
               <tbody>
                 {dailySchedules.map((item, idx) => (
                   <tr key={item.dispatchId || idx} className="border-b border-gray-100 hover:bg-blue-50 transition-colors">
-                    <td className="py-3 px-3 text-sm">{item.dispatchDate.slice(5)}</td>
+                    <td className="py-3 px-3 text-sm">{item.dispatchDate ? (item.dispatchDate.replace(/-/g, ". ") + ".") : '-'}</td>
                     <td className="py-3 px-3">
                       {getDriverById(item.driverId) ? (
                         <div>
                           <div className="font-medium text-sm">{getDriverById(item.driverId).driverName}</div>
-                          <div className="text-xs text-gray-500">#{item.driverId}</div>
+                          <div className="text-xs text-gray-500">#{item.driverId ?? '-'}</div>
                         </div>
                       ) : (
-                        <span className="text-gray-400 text-sm">#{item.driverId}</span>
+                        <span className="text-gray-400 text-sm">#{item.driverId ?? '-'}</span>
                       )}
                     </td>
                     <td className="py-3 px-3">
                       {getBusById(item.busId) ? (
                         <div>
                           <div className="font-medium text-sm">{getBusById(item.busId).vehicleNumber}</div>
-                          <div className="text-xs text-gray-500">{getBusById(item.busId).routeNumber}번</div>
+                          <div className="text-xs text-gray-500">{getBusById(item.busId).routeNumber ? getBusById(item.busId).routeNumber + '번' : '-'}</div>
                         </div>
                       ) : (
-                        <span className="text-gray-400 text-sm">#{item.busId}</span>
+                        <span className="text-gray-400 text-sm">#{item.busId ?? '-'}</span>
                       )}
                     </td>
-                    <td className="py-3 px-3 text-sm font-mono">{item.scheduledDeparture || "-"}</td>
-                    <td className="py-3 px-3 text-sm font-mono">{item.actualDeparture || "-"}</td>
-                    <td className="py-3 px-3 text-sm font-mono">{item.actualArrival || "-"}</td>
+                    <td className="py-3 px-3 text-sm font-mono">{item.scheduledDeparture || '-'}</td>
+                    <td className="py-3 px-3 text-sm font-mono">{item.actualDeparture || '-'}</td>
+                    <td className="py-3 px-3 text-sm font-mono">{item.actualArrival || '-'}</td>
                     <td className="py-3 px-3">
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                         item.status === "COMPLETED" ? "bg-green-100 text-green-800" :
@@ -196,40 +212,42 @@ const OperatingSchedule = () => {
                         {item.status === "COMPLETED" ? "완료" :
                          item.status === "RUNNING" ? "운행중" :
                          item.status === "SCHEDULED" ? "예정" :
-                         item.status === "DELAYED" ? "지연" : item.status}
+                         item.status === "DELAYED" ? "지연" : 
+                        item.status === "CANCELLED" ? "취소" :
+                         (item.status || '-')}
                       </span>
                     </td>
-                    <td className="py-3 px-3 text-center text-sm">{item.warningCount || 0}</td>
+                    <td className="py-3 px-3 text-center text-sm">{item.warningCount ?? 0}</td>
                     <td className="py-3 px-3 text-center text-sm">
                       {item.drivingScore ? `${item.drivingScore}점` : "-"}
                     </td>
                     <td className="py-3 px-3">
-                      <div className="flex items-center justify-center gap-1">
-                        {/* 수정 버튼 - 예정된 스케줄만 */}
-                        {item.status === "SCHEDULED" && (
-                          <button
-                            onClick={() => handleEditClick(item)}
-                            className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
-                          >
-                            수정
-                          </button>
+                      <div className="flex items-center justify-center gap-2">
+                        {/* 상태가 예정(SCHEDULED) 또는 지연(DELAYED)일 때만 수정/삭제 */}
+                        {(item.status === "SCHEDULED" || item.status === "DELAYED") && (
+                          <>
+                            <button
+                              onClick={() => handleEditClick(item)}
+                              className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
+                              style={{ minWidth: 48 }}
+                            >
+                              수정
+                            </button>
+                            <button
+                              onClick={() => handleDeleteSchedule(item.dispatchId)}
+                              className="px-3 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
+                              style={{ minWidth: 48 }}
+                            >
+                              삭제
+                            </button>
+                          </>
                         )}
-                        
-                        {/* 삭제 버튼 - 완료되지 않은 스케줄만 */}
-                        {item.status !== "COMPLETED" && (
-                          <button
-                            onClick={() => handleDeleteSchedule(item.dispatchId)}
-                            className="px-2 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
-                          >
-                            삭제
-                          </button>
-                        )}
-                        
-                        {/* 상세보기 버튼 - 운행중이거나 완료된 스케줄만 */}
-                        {(item.status === "RUNNING" || item.status === "COMPLETED") && (
+                        {/* 상태가 완료(COMPLETED)일 때만 상세보기 */}
+                        {item.status === "COMPLETED" && (
                           <button
                             onClick={() => navigate(`/drivedetail/${item.dispatchId}`)}
-                            className="px-2 py-1 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200 transition-colors"
+                            className="px-3 py-1 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200 transition-colors"
+                            style={{ minWidth: 64 }}
                           >
                             상세보기
                           </button>
@@ -242,17 +260,7 @@ const OperatingSchedule = () => {
             </table>
           </div>
         )}
-        
-        {dailySchedules.length > 0 && (
-          <div className="flex justify-end mt-8">
-            <button
-              className="bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold shadow-sm hover:bg-blue-700 transition"
-              onClick={() => setModalOpen(true)}
-            >
-              스케줄 추가
-            </button>
-          </div>
-        )}
+
       </div>
       <AddSchedule
         open={modalOpen}

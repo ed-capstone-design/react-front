@@ -16,6 +16,24 @@ const BasicInfoForm = ({ userInfo }) => {
             {userInfo.name || "사용자"}
           </div>
         </div>
+            <div>
+          <label className="block mb-2 text-sm font-semibold text-gray-700">
+            <IoPersonCircle className="inline mr-2" />
+             UserID
+          </label>
+          <div className="mt-1 block w-full rounded-md bg-gray-100 px-3 py-2 text-gray-900 border border-gray-200">
+            {userInfo.userid || "userid"}
+          </div>
+        </div>
+            <div>
+          <label className="block mb-2 text-sm font-semibold text-gray-700">
+            <IoPersonCircle className="inline mr-2" />
+            phone
+          </label>
+          <div className="mt-1 block w-full rounded-md bg-gray-100 px-3 py-2 text-gray-900 border border-gray-200">
+            {userInfo.phone || "010-1234-1234"}
+          </div>
+        </div>
         <div>
           <label className="block mb-2 text-sm font-semibold text-gray-700">
             <IoMail className="inline mr-2" />

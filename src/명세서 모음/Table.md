@@ -10,19 +10,19 @@
 ### admin (관리자)
 | 컬럼명        | 타입           | 제약조건                        | 설명      |
 |---------------|---------------|----------------------------------|-----------|
-| adminId       | INT           | PK                               | 관리자 ID |
-| adminName     | VARCHAR(50)   |                                  | 이름      |
-| adminPassword | VARCHAR(255)  |                                  | 비밀번호  |
-| operatorId    | INT           | FK → operator(operatorId)        | 운영사 ID |
+| adminId       | INT           | PK                               | 관리자 ID |->유저로 변경
+| adminName     | VARCHAR(50)   |                                  | 이름      |->유저에 포함
+| adminPassword | VARCHAR(255)  |                                  | 비밀번호  |->유저에 포함
+| operatorId    | INT           | FK → operator(operatorId)        | 운영사 ID |->유저에 포함
 
 ### driver (운전자)
 | 컬럼명           | 타입           | 제약조건                        | 설명      |
 |------------------|---------------|----------------------------------|-----------|
-| driverId         | INT           | PK                               | 운전자 ID |
-| driverName       | VARCHAR(100)  |                                  | 이름      |
-| driverPassword   | VARCHAR(255)  |                                  | 비밀번호  |
+| driverId         | INT           | PK                               | 운전자 ID |->유저로 변경
+| driverName       | VARCHAR(100)  |                                  | 이름      |->이름 삭제
+| driverPassword   | VARCHAR(255)  |                                  | 비밀번호  |->없움
 | licenseNumber    | VARCHAR(50)   |                                  | 면허번호  |
-| operatorId       | INT           | FK → operator(operatorId)        | 운영사 ID |
+| operatorId       | INT           | FK → operator(operatorId)        | 운영사 ID |->없음
 | careerYears      | INT           |                                  | 경력(년)  |
 | avgDrivingScore  | DECIMAL(4,2)  |                                  | 평균점수  |
 | grade            | ENUM('A','B','C','D','E') |                      | 등급      |
@@ -33,7 +33,7 @@
 |----------------|---------------|----------------------------------|-----------|
 | busId          | INT           | PK                               | 버스 ID   |
 | routeNumber    | VARCHAR(50)   |                                  | 노선번호  |
-| routeType      | ENUM('CITY','SUBURBAN','EXPRESS','INTERCITY') | | 노선유형  |
+| routeType      | ENUM('CITY','COMMUTER','TOWN','EXPRESS','INTERCITY') | | 노선유형  |
 | capacity       | INT           |                                  | 좌석수    |
 | vehicleNumber  | VARCHAR(20)   |                                  | 차량번호  |
 | vehicleType    | ENUM('MINI','STANDARD','DOUBLE') |              | 차량유형  |

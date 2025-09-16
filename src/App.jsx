@@ -17,6 +17,7 @@ import './App.css';
 import { DriverProvider } from './components/Driver/DriverContext';
 import { BusProvider } from './components/Bus/BusContext';
 import { ScheduleProvider } from './components/Schedule/ScheduleContext';
+// import { WebSocketProvider } from './components/WebSocket/WebSocketProvider';
 
 // 보호된 라우트 컴포넌트
 const ProtectedRoute = ({ children }) => {
@@ -28,77 +29,80 @@ const ProtectedRoute = ({ children }) => {
 
 // 루트 경로 리다이렉트 컴포넌트
 const RootRedirect = () => {
-  // const { getToken } = useToken();
-  // const token = getToken();
+  const { getToken } = useToken();
+  const token = getToken();
   // return <Navigate to={token ? "/dashboard" : "/signin"} replace />;
+    return <Navigate to={token ? "signin" : "/dashboard"} replace />;
 };
 
 function App() {
   return (
-    <TokenProvider>
-      <ToastProvider>
-        <DriverProvider>
-          <BusProvider>
-            <ScheduleProvider>
-              <Router>
-                <div className="App">
-                  <Routes>
-                    <Route path="/" element={<RootRedirect />} />
-                    <Route path="/signin" element={<Signin />} />
-                    <Route path="/signup" element={<Signup />} />
-                    <Route path="/dashboard" element={
-                      <ProtectedRoute>
-                        <Layout><Dashboard /></Layout>
-                      </ProtectedRoute>
-                    } />
-                    <Route path="/drivers" element={
-                      <ProtectedRoute>
-                        <Layout><Drivers /></Layout>
-                      </ProtectedRoute>
-                    } />
-                    <Route path="/buses" element={
-                      <ProtectedRoute>
-                        <Layout><Buses /></Layout>
-                      </ProtectedRoute>
-                    } />
-                    <Route path="/operating-schedule" element={
-                      <ProtectedRoute>
-                        <Layout><OperatingSchedule /></Layout>
-                      </ProtectedRoute>
-                    } />
-                    <Route path="/insight" element={
-                      <ProtectedRoute>
-                        <Layout><Insight /></Layout>
-                      </ProtectedRoute>
-                    } />
-                    <Route path="/notifications" element={
-                      <ProtectedRoute>
-                        <Layout><Notifications /></Layout>
-                      </ProtectedRoute>
-                    } />
-                    <Route path="/userdetailpage" element={
-                      <ProtectedRoute>
-                        <Layout><UserDetailPage /></Layout>
-                      </ProtectedRoute>
-                    } />
-                    <Route path="/drivedetail/:id" element={
-                      <ProtectedRoute>
-                        <Layout><DriveDetail /></Layout>
-                      </ProtectedRoute>
-                    } />
-                    <Route path="/mypage" element={
-                      <ProtectedRoute>
-                        <MyPage />
-                      </ProtectedRoute>
-                    } />
-                  </Routes>
-                </div>
-              </Router>
-            </ScheduleProvider>
-          </BusProvider>
-        </DriverProvider>
-      </ToastProvider>
-    </TokenProvider>
+    // <WebSocketProvider>
+    // </WebSocketProvider>
+     <TokenProvider>
+        <ToastProvider>
+          <DriverProvider>
+            <BusProvider>
+              <ScheduleProvider>
+                <Router>
+                  <div className="App">
+                    <Routes>
+                      <Route path="/" element={<RootRedirect />} />
+                      <Route path="/signin" element={<Signin />} />
+                      <Route path="/signup" element={<Signup />} />
+                      <Route path="/dashboard" element={
+                        <ProtectedRoute>
+                          <Layout><Dashboard /></Layout>
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/drivers" element={
+                        <ProtectedRoute>
+                          <Layout><Drivers /></Layout>
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/buses" element={
+                        <ProtectedRoute>
+                          <Layout><Buses /></Layout>
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/operating-schedule" element={
+                        <ProtectedRoute>
+                          <Layout><OperatingSchedule /></Layout>
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/insight" element={
+                        <ProtectedRoute>
+                          <Layout><Insight /></Layout>
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/notifications" element={
+                        <ProtectedRoute>
+                          <Layout><Notifications /></Layout>
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/userdetailpage" element={
+                        <ProtectedRoute>
+                          <Layout><UserDetailPage /></Layout>
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/drivedetail/:id" element={
+                        <ProtectedRoute>
+                          <Layout><DriveDetail /></Layout>
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/mypage" element={
+                        <ProtectedRoute>
+                          <MyPage />
+                        </ProtectedRoute>
+                      } />
+                    </Routes>
+                  </div>
+                </Router>
+              </ScheduleProvider>
+            </BusProvider>
+          </DriverProvider>
+        </ToastProvider>
+      </TokenProvider>
   );
 }
 export default App;

@@ -4,6 +4,8 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { NotificationProvider, useNotifications } from "../components/Notification/contexts/NotificationContext";
 import { useSchedule } from "../components/Schedule/ScheduleContext";
+import RunningDrivers from "../components/Dashboard/RunningDrivers";
+import TodayScheduleList from "../components/Dashboard/TodayScheduleList";
 
 // axios 기본 URL 설정
 axios.defaults.baseURL = "http://localhost:8080";
@@ -145,56 +147,24 @@ const DashboardContent = () => {
           </div>
         </div>
       </div>
-      {/* 데이터 분석 & 통계 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
-        <div className="bg-white border border-gray-100 rounded-xl shadow-sm p-8 flex flex-col">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">데이터 분석</h3>
-          <div className="flex-1 h-40 flex items-center justify-center text-gray-400 bg-gray-50 rounded-lg">
-            [그래프/통계 영역]
-          </div>
-        </div>
-        <div className="bg-white border border-gray-100 rounded-xl shadow-sm p-8 flex flex-col">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">통계</h3>
-          <ul className="list-disc pl-6 text-gray-700 space-y-2">
-            <li>월별 운행 횟수: 120회</li>
-            <li>평균 만족도: 4.7점</li>
-            <li>신규 가입자: 30명</li>
-          </ul>
-        </div>
-      </div>
-      {/* 최근 운행 요약 */}
-      <div className="bg-white border border-gray-100 rounded-xl shadow-sm p-8">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">최근 운행 요약</h3>
-        <ul className="divide-y divide-gray-50">
-          {loading ? (
-            <li className="py-4 text-center text-gray-400">로딩중...</li>
-          ) : recentDrives.length === 0 ? (
-            <li className="py-4 text-center text-gray-400">최근 운행 데이터가 없습니다.</li>
-          ) : (
-            recentDrives.map((drive) => (
-              <li key={drive.dispatchId} className="py-4 flex justify-between items-center">
-                <span className="font-medium text-gray-700">
-                  {drive.busId ? `${drive.busId}번 버스` : `배차 ${drive.dispatchId}번`}
-                </span>
-                <span className={`text-sm font-semibold px-3 py-1 rounded ${
-                  drive.status === "COMPLETED" 
-                    ? "text-green-600 bg-green-50" 
-                    : drive.status === "SCHEDULED"
-                    ? "text-blue-600 bg-blue-50"
-                    : "text-gray-500 bg-gray-50"
-                }`}>
-                  {drive.status === "COMPLETED" ? "운행완료" : 
-                   drive.status === "SCHEDULED" ? "예정" : 
-                   drive.status === "DELAYED" ? "지연" : "대기"}
-                </span>
-              </li>
-            ))
-          )}
-        </ul>
+
+      {/* 추가컨텐츠: 운행중인 운전자 리스트, 당일 배차목록 */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
+        {/* 운행중인 운전자 리스트 */}
+        <section className="bg-white rounded-xl shadow p-6">
+          <h3 className="text-lg font-bold mb-4 text-blue-700">운행중인 운전자</h3>
+          <RunningDrivers />
+        </section>
+        {/* 당일 배차목록 */}
+        <section className="bg-white rounded-xl shadow p-6">
+          <h3 className="text-lg font-bold mb-4 text-green-700">오늘의 배차목록</h3>
+          <TodayScheduleList />
+        </section>
       </div>
     </div>
   );
-};
+}
+
 
 const Dashboard = () => (
   <NotificationProvider>

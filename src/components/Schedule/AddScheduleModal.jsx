@@ -1,6 +1,6 @@
 import React from "react";
 
-const ScheduleModal = ({ open, onClose, title, children, onSubmit, isEdit = false }) => {
+const AddScheduleModal = ({ open, onClose, title = "스케줄 추가", children, onSubmit }) => {
   if (!open) return null;
 
   return (
@@ -18,14 +18,12 @@ const ScheduleModal = ({ open, onClose, title, children, onSubmit, isEdit = fals
           &times;
         </button>
         <h2 className="text-xl font-bold mb-6 text-blue-700">{title}</h2>
-        
         {children}
-        
         <button
           type="submit"
           className="w-full py-2 rounded-lg bg-blue-600 text-white font-bold hover:bg-blue-700 transition"
         >
-          {isEdit ? "수정" : "추가"}
+          추가
         </button>
       </form>
       <style>{`
@@ -41,4 +39,4 @@ const ScheduleModal = ({ open, onClose, title, children, onSubmit, isEdit = fals
   );
 };
 
-export default ScheduleModal;
+export default AddScheduleModal;

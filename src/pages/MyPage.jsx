@@ -16,6 +16,8 @@ const MyPage = () => {
   const [userInfo, setLocalUserInfo] = useState({
     name: "",
     email: "",
+    userid: "",
+    phone: "",
     currentPassword: "",
     newPassword: "",
     confirmPassword: ""
@@ -24,15 +26,41 @@ const MyPage = () => {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const savedUserInfo = getUserInfoFromToken();
-    if (savedUserInfo) {
-      setLocalUserInfo(prev => ({
-        ...prev,
-        name: savedUserInfo.name || "",
-        email: savedUserInfo.email || ""
-      }));
+    const fetchUserInfo = async () => {
+      const savedUserInfo = getUserInfoFromToken();
+      if (savedUserInfo && savedUserInfo.userid) {
+        try {
+          setLoading(true);
+          setError("");
+          const res = await axios.get(`/api/user/${savedUserInfo.userid},`);
+          const { name, email, userid, phone } = res.data;
+          setLocalUserInfo(prev => ({
+            ...prev,
+            name: name || "",
+            email: email || "",
+            userid: userid || "",
+            phone: phone || ""
+          }));
+        } catch (err) {
+          setError("사용자 정보를 불러오지 못했습니다.");
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+    fetchUserInfo();
+  }, []);
+
+  // [예시] 토큰이 없거나 만료된 경우 로그인 페이지로 이동 (아직 반영하지 않음)
+  /*
+  useEffect(() => {
+    const token = getToken();
+    if (!token) {
+      navigate("/signin");
     }
-  }, [getUserInfoFromToken]);
+    // 만약 토큰 만료 체크가 필요하다면, 만료 여부 확인 후 navigate("/signin")
+  }, [getToken, navigate]);
+  */
 
 
   const handleUpdateProfile = async (e) => {
@@ -51,17 +79,36 @@ const MyPage = () => {
         return;
       }
       const updateData = {
+        userid: userInfo.userid,
         currentPassword: userInfo.currentPassword,
         newPassword: userInfo.newPassword
       };
-      await axios.put("/api/user/profile", updateData);
+      const token = getToken();
+      const res = await axios.put("/api/user/profile", updateData, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      // 서버에서 최신 사용자 정보를 반환하면 userInfo 상태를 갱신
+      if (res.data) {
+        const { name, email, userid, phone } = res.data;
+        setLocalUserInfo(prev => ({
+          ...prev,
+          name: name || prev.name,
+          email: email || prev.email,
+          userid: userid || prev.userid,
+          phone: phone || prev.phone,
+          currentPassword: "",
+          newPassword: "",
+          confirmPassword: ""
+        }));
+      } else {
+        setLocalUserInfo(prev => ({
+          ...prev,
+          currentPassword: "",
+          newPassword: "",
+          confirmPassword: ""
+        }));
+      }
       toast.success("비밀번호가 성공적으로 변경되었습니다!");
-      setLocalUserInfo(prev => ({
-        ...prev,
-        currentPassword: "",
-        newPassword: "",
-        confirmPassword: ""
-      }));
     } catch (error) {
       if (error.response) {
         setError(error.response.data.message || "프로필 업데이트에 실패했습니다.");
@@ -86,10 +133,10 @@ const MyPage = () => {
       const token = getToken();
       await axios.delete("/api/user/account", {
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          'Authorization': `Bearer ${token}`
         }
       });
+
       alert("회원 탈퇴가 완료되었습니다.");
       removeToken();
       navigate("/signin");

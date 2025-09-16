@@ -1,4 +1,5 @@
 import React, { useState, createContext, useContext, useEffect } from "react";
+import { WebSocketContext } from "../WebSocket/WebSocketProvider";
 import axios from "axios";
 
 // axios 기본 URL 설정
@@ -6,6 +7,7 @@ axios.defaults.baseURL = "http://localhost:8080";
 
 export const DriverContext = createContext();
 DriverContext.displayName = "DriverContext";
+
 
 export const useDriver = () => {
   const context = useContext(DriverContext);
@@ -16,7 +18,9 @@ export const useDriver = () => {
 };
 
 export const DriverProvider = ({ children }) => {
+
   const [drivers, setDrivers] = useState([]);
+  // const ws = useContext(WebSocketContext);
 
   // DB에서 운전자 목록 불러오기 (Table.md 기준)
   useEffect(() => {
@@ -81,16 +85,32 @@ export const DriverProvider = ({ children }) => {
       });
   }, []);
 
-  // 운전자 추가
-  const addDriver = async (driver) => {
-    // driver: { driverName, phoneNumber, licenseType, operatorId }
-    try {
-      const res = await axios.post("/api/drivers", driver);
-      setDrivers(prev => [...prev, res.data]);
-    } catch (e) {
-      alert("운전자 추가 실패");
-    }
-  };
+  // useEffect(() => {
+  //   if (!ws) return;
+  //   ws.onmessage = (event) => {
+  //     const message = JSON.parse(event.data);
+  //     if (message.type === "DRIVER_UPDATE") {
+  //       setDrivers(prev => prev.map(d => d.driverId === message.driver.driverId ? message.driver : d));
+  //     } else if (message.type === "DRIVER_ADD") {
+  //       setDrivers(prev => [...prev, message.driver]);
+  //     } else if (message.type === "DRIVER_DELETE") {
+  //       setDrivers(prev => prev.filter(d => d.driverId !== message.driverId));
+  //     }
+  //   };
+  //   return () => {
+  //     if (ws) ws.onmessage = null;
+  //   };
+  // }, [ws]);
+
+  // 운전자 추가-> 삭제 기능
+  // const addDriver = async (driver) => {
+  //   try {
+  //     const res = await axios.post("/api/drivers", driver);
+  //     setDrivers(prev => [...prev, res.data]);
+  //   } catch (e) {
+  //     alert("운전자 추가 실패");
+  //   }
+  // };
 
   // 운전자 수정
   const updateDriver = async (driver) => {
@@ -111,9 +131,9 @@ export const DriverProvider = ({ children }) => {
       alert("운전자 삭제 실패");
     }
   };
-
+// addDriver
   return (
-    <DriverContext.Provider value={{ drivers, setDrivers, addDriver, updateDriver, deleteDriver }}>
+    <DriverContext.Provider value={{ drivers, setDrivers, updateDriver, deleteDriver }}>
       {children}
     </DriverContext.Provider>
   );

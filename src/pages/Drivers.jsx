@@ -1,6 +1,6 @@
 import React, { useState, useContext } from "react";
 import { DriverContext } from "../components/Driver/DriverContext";
-import AddDriverModal from "../components/Driver/AddDriverModal";
+// import AddDriverModal from "../components/Driver/AddDriverModal";
 import EditDriverModal from "../components/Driver/EditDriverModal";
 
 
@@ -21,9 +21,9 @@ const Drivers = () => {
   return (
     <div className="max-w-4xl mx-auto py-10 px-4">
       <h2 className="text-2xl font-bold mb-8 text-gray-900">운전자 관리</h2>
-      <div className="flex justify-end mb-2">
+      {/* <div className="flex justify-end mb-2">
         <button onClick={() => setAddOpen(true)} className="bg-blue-500 text-white px-3 py-1 rounded text-sm font-semibold">+ 운전자 추가</button>
-      </div>
+      </div> */}
       <table className="w-full bg-white border border-gray-100 rounded-lg shadow-sm text-left">
         <thead>
           <tr>
@@ -73,7 +73,7 @@ const Drivers = () => {
           ))}
         </tbody>
       </table>
-      <AddDriverModal open={addOpen} onClose={() => setAddOpen(false)} />
+      {/* <AddDriverModal open={addOpen} onClose={() => setAddOpen(false)} /> */}
       <EditDriverModal 
         open={editOpen} 
         onClose={() => setEditOpen(false)} 

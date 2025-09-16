@@ -11,8 +11,8 @@ const Insight = ({ onDriverClick }) => {
 
   useEffect(() => {
     fetchBusLocations();
-    // 실시간 위치 업데이트를 위한 인터벌 (15초마다)
-    const interval = setInterval(fetchBusLocations, 15000);
+    // 실시간 위치 업데이트를 위한 인터벌 (150ms마다)
+    const interval = setInterval(fetchBusLocations, 150);
     return () => clearInterval(interval);
   }, []);
 

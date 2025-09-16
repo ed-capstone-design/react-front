@@ -12,6 +12,7 @@ const BusDetailModal = ({ isOpen, onClose, bus, mode = 'view' }) => {
     vehicleYear: '',
     lastMaintenance: '',
     repairCount: 0,
+    operatorId: 1,
     fuelType: 'DIESEL'
   });
   const [loading, setLoading] = useState(false);
@@ -27,6 +28,7 @@ const BusDetailModal = ({ isOpen, onClose, bus, mode = 'view' }) => {
         vehicleYear: bus.vehicleYear || '',
         lastMaintenance: bus.lastMaintenance || '',
         repairCount: bus.repairCount || 0,
+        operatorId: bus.operatorId || 1,
         fuelType: bus.fuelType || 'DIESEL'
       });
     } else if (mode === 'create') {
@@ -39,6 +41,7 @@ const BusDetailModal = ({ isOpen, onClose, bus, mode = 'view' }) => {
         vehicleYear: '',
         lastMaintenance: '',
         repairCount: 0,
+        operatorId: 1,
         fuelType: 'DIESEL'
       });
     }
@@ -124,9 +127,10 @@ const BusDetailModal = ({ isOpen, onClose, bus, mode = 'view' }) => {
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
               >
                 <option value="CITY">시내</option>
-                <option value="SUBURBAN">시외</option>
+                <option value="TOWN">마을버스</option>
                 <option value="EXPRESS">고속</option>
                 <option value="INTERCITY">시외고속</option>
+                <option value="COMMUTER">광역버스</option>
               </select>
             </div>
 
@@ -195,6 +199,21 @@ const BusDetailModal = ({ isOpen, onClose, bus, mode = 'view' }) => {
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
               />
             </div>
+            {/* <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                운영사ID
+              </label>
+              <input
+                type="number"
+                name="operatorId"
+                value={formData.operatorId}
+                onChange={handleChange}
+                required
+                min="1"
+                disabled={isReadOnly}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+              />
+            </div> */}
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">

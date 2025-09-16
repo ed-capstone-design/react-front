@@ -38,6 +38,7 @@ export const BusProvider = ({ children }) => {
           vehicleYear: 2020,
           lastMaintenance: "2024-01-15",
           repairCount: 3,
+          operatorId: 1,
           fuelType: "DIESEL"
         }
       ]);

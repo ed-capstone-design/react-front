@@ -11,11 +11,15 @@ export const useSchedule = () => {
     throw new Error("useSchedule must be used within a ScheduleProvider");
   }
   return context;
+
 };
 
 export const ScheduleProvider = ({ children }) => {
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [fetchError, setFetchError] = useState("");
+  const [addError, setAddError] = useState("");
+  const [updateError, setUpdateError] = useState("");
+  const [deleteError, setDeleteError] = useState("");
 
   // 다른 Context에서 데이터 참조
   const { drivers } = useDriver();
@@ -30,13 +34,14 @@ export const ScheduleProvider = ({ children }) => {
   const fetchSchedulesByDate = async (date) => {
     try {
       setLoading(true);
-      const response = await axios.get(`/api/dispatch/by-date`, {
-        params: { date }
+      setFetchError("");
+      const response = await axios.get(`/api/dispatch/date`, {
+        params: { date}
       });
       return response.data;
     } catch (error) {
       console.error("날짜별 스케줄 조회 실패:", error);
-      setError("해당 날짜의 스케줄을 불러오는데 실패했습니다.");
+      setFetchError("해당 날짜의 스케줄을 불러오는데 실패했습니다.");
       // 예시 데이터 반환 - 4개 상태별로 구성
       return [
         {
@@ -107,7 +112,7 @@ export const ScheduleProvider = ({ children }) => {
       return response.data;
     } catch (error) {
       console.error("운전자별 스케줄 조회 실패:", error);
-      setError("운전자의 스케줄을 불러오는데 실패했습니다.");
+      setFetchError("운전자의 스케줄을 불러오는데 실패했습니다.");
       // 예시 데이터 반환
       return [
         {
@@ -132,12 +137,13 @@ export const ScheduleProvider = ({ children }) => {
   const addSchedule = async (scheduleData) => {
     try {
       setLoading(true);
+      setAddError("");
       const response = await axios.post("/api/dispatch", scheduleData);
       return { success: true, data: response.data };
     } catch (error) {
       console.error("스케줄 추가 실패:", error);
       const errorMessage = error.response?.data?.message || "스케줄 추가에 실패했습니다.";
-      setError(errorMessage);
+      setAddError(errorMessage);
       return { success: false, error: errorMessage };
     } finally {
       setLoading(false);
@@ -148,12 +154,13 @@ export const ScheduleProvider = ({ children }) => {
   const updateSchedule = async (dispatchId, scheduleData) => {
     try {
       setLoading(true);
+      setUpdateError("");
       const response = await axios.put(`/api/dispatch/${dispatchId}`, scheduleData);
       return { success: true, data: response.data };
     } catch (error) {
       console.error("스케줄 수정 실패:", error);
       const errorMessage = error.response?.data?.message || "스케줄 수정에 실패했습니다.";
-      setError(errorMessage);
+      setUpdateError(errorMessage);
       return { success: false, error: errorMessage };
     } finally {
       setLoading(false);
@@ -164,12 +171,13 @@ export const ScheduleProvider = ({ children }) => {
   const deleteSchedule = async (dispatchId) => {
     try {
       setLoading(true);
+      setDeleteError("");
       await axios.delete(`/api/dispatch/${dispatchId}`);
       return { success: true };
     } catch (error) {
       console.error("스케줄 삭제 실패:", error);
       const errorMessage = error.response?.data?.message || "스케줄 삭제에 실패했습니다.";
-      setError(errorMessage);
+      setDeleteError(errorMessage);
       return { success: false, error: errorMessage };
     } finally {
       setLoading(false);
@@ -191,7 +199,10 @@ export const ScheduleProvider = ({ children }) => {
     drivers,
     buses,
     loading,
-    error,
+    fetchError,
+    addError,
+    updateError,
+    deleteError,
     
     // 메서드
     fetchSchedulesByDate,
@@ -205,7 +216,10 @@ export const ScheduleProvider = ({ children }) => {
     getBusById,
     
     // 기타
-    clearError: () => setError("")
+    clearFetchError: () => setFetchError("") ,
+    clearAddError: () => setAddError("") ,
+    clearUpdateError: () => setUpdateError("") ,
+    clearDeleteError: () => setDeleteError("")
   };
 
   return (
