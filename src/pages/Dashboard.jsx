@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { IoCarSportOutline, IoPeopleOutline, IoStatsChartOutline } from "react-icons/io5";
+import { IoCarSportOutline, IoPeopleOutline, IoStatsChartOutline, IoNotificationsOutline } from "react-icons/io5";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import { NotificationProvider, useNotifications } from "../components/Notification/contexts/NotificationContext";
-import { useSchedule } from "../components/Schedule/ScheduleContext";
+import { useNotificationCount } from "../components/Notification/NotificationCountProvider";
+import { useScheduleAPI } from "../hooks/useScheduleAPI";
 import RunningDrivers from "../components/Dashboard/RunningDrivers";
 import TodayScheduleList from "../components/Dashboard/TodayScheduleList";
 
@@ -11,8 +11,8 @@ import TodayScheduleList from "../components/Dashboard/TodayScheduleList";
 axios.defaults.baseURL = "http://localhost:8080";
 
 const DashboardContent = () => {
-  const { notifications, unreadCount } = useNotifications();
-  const { fetchSchedulesByDate } = useSchedule();
+  const { unreadCount } = useNotificationCount();
+  const { fetchSchedulesByDate } = useScheduleAPI();
   const navigate = useNavigate();
   const [stats, setStats] = useState([
     { icon: <IoCarSportOutline className="text-blue-500 text-3xl" />, label: "오늘 스케줄", value: "로딩중..." },
@@ -20,13 +20,65 @@ const DashboardContent = () => {
     { icon: <IoStatsChartOutline className="text-purple-500 text-3xl" />, label: "완료 운행", value: "로딩중..." },
   ]);
   const [recentDrives, setRecentDrives] = useState([]);
+  const [recentNotifications, setRecentNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [notificationLoading, setNotificationLoading] = useState(true);
 
   // 통계 데이터 불러오기
   useEffect(() => {
     fetchDashboardStats();
     fetchRecentDrives();
+    fetchRecentNotifications();
   }, []);
+
+  // unreadCount 변경 시 stats 업데이트
+  useEffect(() => {
+    setStats(prev => prev.map(stat => 
+      stat.label === "미읽은 알림" 
+        ? { ...stat, value: unreadCount }
+        : stat
+    ));
+  }, [unreadCount]);
+
+  const fetchRecentNotifications = async () => {
+    setNotificationLoading(true);
+    try {
+      // 읽지 않은 알림만 가져오기
+      const response = await axios.get("/api/notifications/me/unread?limit=5");
+      setRecentNotifications(response.data);
+    } catch (error) {
+      console.log("읽지 않은 알림 조회 실패, 예시 데이터 사용");
+      setRecentNotifications([
+        {
+          warningType: "Acceleration",
+          warningtime: new Date(Date.now() - 1000 * 60 * 30).toISOString(), // 30분 전
+          isRead: false
+        },
+        {
+          warningType: "Drowsiness",
+          warningtime: new Date(Date.now() - 1000 * 60 * 60).toISOString(), // 1시간 전
+          isRead: false
+        },
+        {
+          warningType: "Abnormal",
+          warningtime: new Date(Date.now() - 1000 * 60 * 10).toISOString(), // 10분 전
+          isRead: false
+        }
+      ]);
+    } finally {
+      setNotificationLoading(false);
+    }
+  };
+
+  // warningType별 라벨 반환
+  const getWarningTypeLabel = (warningType) => {
+    switch (warningType) {
+      case "Acceleration": return "급과속";
+      case "Braking": return "급정거";
+      case "Drowsiness": return "졸음";
+      case "Abnormal": return "이상감지";
+    }
+  };
 
   const fetchDashboardStats = async () => {
     try {
@@ -79,17 +131,17 @@ const DashboardContent = () => {
     navigate('/insight');
   };
   
-  // 오늘 날짜로 필터링 (timestamp를 사용)
+  // 오늘 날짜로 필터링 (warningtime을 사용)
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const todayNotis = notifications.filter(n => {
-    const notiDate = new Date(n.timestamp);
+  const todayNotis = recentNotifications.filter(n => {
+    const notiDate = new Date(n.warningtime);
     notiDate.setHours(0, 0, 0, 0);
     return notiDate.getTime() === today.getTime();
   });
 
-  // 읽지 않은 오늘 알림
-  const todayUnreadNotis = todayNotis.filter(n => !n.read);
+  // 읽지 않은 오늘 알림 (모든 알림이 읽지 않은 알림이므로 그대로 사용)
+  const todayUnreadNotis = todayNotis;
 
   return (
     <div className="max-w-6xl mx-auto py-12 px-4">
@@ -128,14 +180,12 @@ const DashboardContent = () => {
             ) : (
               todayNotis
                 .slice(0, 5) // 최대 5개만 표시
-                .map(n => (
+                .map((n, index) => (
                   <div 
-                    key={n.id} 
-                    className={`text-xs py-1 border-b last:border-b-0 border-gray-50 truncate ${
-                      !n.read ? 'text-gray-900 font-medium' : 'text-gray-500'
-                    }`}
+                    key={index} 
+                    className="text-xs py-1 border-b last:border-b-0 border-gray-50 truncate text-gray-900 font-medium"
                   >
-                    {n.title}: {n.message}
+                    {getWarningTypeLabel(n.warningType)}: {new Date(n.warningtime).toLocaleTimeString()}
                   </div>
                 ))
             )}
@@ -167,9 +217,7 @@ const DashboardContent = () => {
 
 
 const Dashboard = () => (
-  <NotificationProvider>
-    <DashboardContent />
-  </NotificationProvider>
+  <DashboardContent />
 );
 
 export default Dashboard;

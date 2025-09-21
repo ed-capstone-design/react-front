@@ -428,18 +428,21 @@ const TopNav = () => {
 4. Provider 계층에서 ScheduleProvider 제거
 ```
 
-#### **Phase 3: DriverContext/BusContext 제거 (2주)**
+#### **Phase 3: DriverContext/BusContext 제거 (API 개발 완료 후 진행 예정)**
 ```jsx
 // 영향받는 컴포넌트
 Driver: 12개 컴포넌트
 Bus: 8개 컴포넌트
 
-// 마이그레이션 작업
+// 마이그레이션 작업 (API 준비 후)
 1. 각 페이지별 독립적 상태 관리 구현
 2. 드롭다운 컴포넌트 → API 기반으로 전환
 3. 상세 페이지 → 독립적 데이터 로딩
 4. WebSocket 리스너 각 페이지별 구현
 5. Context Provider 완전 제거
+
+// 현재 상태: 대기 중 (API 개발 진행 중)
+// 예상 시작일: API 완료 후
 ```
 
 ### **3.2 구체적 파일 변경 목록**

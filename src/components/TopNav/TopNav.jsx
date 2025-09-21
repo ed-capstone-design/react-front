@@ -1,11 +1,11 @@
 import React from "react";
 import { IoCarSport, IoLogOut, IoMenu, IoPersonCircle, IoNotificationsOutline } from "react-icons/io5";
-import { useNotifications } from "../Notification/contexts/NotificationContext";
+import { useNotificationCount } from "../Notification/NotificationCountProvider";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useToken } from "../Token/TokenProvider";
 
 const TopNav = ({ onSidebarOpen, onLogoClick }) => {
-  const { unreadCount } = useNotifications();
+  const { unreadCount, wsConnected } = useNotificationCount();
   const navigate = useNavigate();
   const location = useLocation();
   const { removeToken, getUserInfoFromToken } = useToken();
@@ -44,12 +44,20 @@ const TopNav = ({ onSidebarOpen, onLogoClick }) => {
         </div>
         {/* 알림(종) 버튼: 인사이트 페이지에서는 숨김 */}
         {location.pathname !== "/insight" && (
-          <button className="relative" onClick={() => navigate('/insight')}>
+          <button 
+            className={`relative ${!wsConnected ? 'opacity-70' : ''}`} 
+            onClick={() => navigate('/insight')}
+            title={wsConnected ? '실시간 알림 연결됨' : '실시간 알림 연결 해제됨'}
+          >
             <IoNotificationsOutline className="text-2xl text-gray-700" />
             {unreadCount > 0 && (
               <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 font-bold">
-                {unreadCount}
+                {unreadCount > 99 ? '99+' : unreadCount}
               </span>
+            )}
+            {/* WebSocket 연결 상태 표시 */}
+            {!wsConnected && (
+              <span className="absolute -bottom-1 -right-1 w-2 h-2 bg-orange-500 rounded-full"></span>
             )}
           </button>
         )}

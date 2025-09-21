@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { IoPersonCircle, IoArrowBack } from "react-icons/io5";
 import axios from "axios";
 import { useToast } from "../components/Toast/ToastProvider";
-import { useSchedule } from "../components/Schedule/ScheduleContext";
+import { useScheduleAPI } from "../hooks/useScheduleAPI";
 
 // axios 기본 URL 설정
 axios.defaults.baseURL = "http://localhost:8080";
@@ -12,7 +12,7 @@ const UserDetailPage = () => {
   const { id } = useParams(); // URL에서 사용자 ID 가져오기
   const navigate = useNavigate();
   const toast = useToast();
-  const { fetchSchedulesByDriver } = useSchedule();
+  const { fetchSchedulesByDriver } = useScheduleAPI();
   
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

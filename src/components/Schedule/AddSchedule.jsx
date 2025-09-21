@@ -3,7 +3,8 @@ import ScheduleModal from "./ScheduleModal";
 import DriverSelector from "./DriverSelector";
 import BusSelector from "./BusSelector";
 import DateTimeInputs from "./DateTimeInputs";
-import { useSchedule } from "./ScheduleContext";
+import { useDriver } from "../Driver/DriverContext";
+import { useBus } from "../Bus/BusContext";
 
 const AddSchedule = ({ open, onClose, onAdd, initialData = null, isEdit = false }) => {
   const [driverId, setDriverId] = useState("");
@@ -11,7 +12,8 @@ const AddSchedule = ({ open, onClose, onAdd, initialData = null, isEdit = false 
   const [dispatchDate, setDispatchDate] = useState("");
   const [scheduledDeparture, setScheduledDeparture] = useState("");
 
-  const { drivers, error } = useSchedule();
+  const { drivers, loading: driversLoading, error: driversError } = useDriver();
+  const { buses, loading: busesLoading, error: busesError } = useBus();
 
   // 수정 모드일 때 초기 데이터 설정
   useEffect(() => {
@@ -63,9 +65,9 @@ const AddSchedule = ({ open, onClose, onAdd, initialData = null, isEdit = false 
       onSubmit={handleSubmit}
       isEdit={isEdit}
     >
-      {error && (
+      {(driversError || busesError) && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-red-600 text-sm">{error}</p>
+          <p className="text-red-600 text-sm">{driversError || busesError}</p>
         </div>
       )}
 
@@ -73,13 +75,15 @@ const AddSchedule = ({ open, onClose, onAdd, initialData = null, isEdit = false 
         value={driverId}
         onChange={setDriverId}
         drivers={drivers}
-        loading={false}
+        loading={driversLoading}
         required
       />
 
       <BusSelector
         value={busId}
         onChange={setBusId}
+        buses={buses}
+        loading={busesLoading}
         required
       />
 
@@ -95,4 +99,3 @@ const AddSchedule = ({ open, onClose, onAdd, initialData = null, isEdit = false 
 };
 
 export default AddSchedule;
-

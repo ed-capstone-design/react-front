@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import AddSchedule from "../components/Schedule/AddSchedule";
 import { useToast } from "../components/Toast/ToastProvider";
-import { useSchedule } from "../components/Schedule/ScheduleContext";
+import { useScheduleAPI } from "../hooks/useScheduleAPI";
 import dayjs from "dayjs";
 
 const OperatingSchedule = () => {
@@ -15,21 +15,23 @@ const OperatingSchedule = () => {
     end: dayjs().add(1, 'day').format('YYYY-MM-DD')
   });
   const [periodSchedules, setPeriodSchedules] = useState([]);
+  const [scheduleDetails, setScheduleDetails] = useState({});
   const [periodLoading, setPeriodLoading] = useState(false);
   const [statusFilter, setStatusFilter] = useState(["RUNNING", "SCHEDULED", "DELAYED"]);
 
   const toast = useToast();
   
   const {
-    loading,
     addSchedule,
     updateSchedule,
     deleteSchedule,
-    getDriverById,
-    getBusById,
-    fetchSchedulesByPeriod,
-    fetchError
-  } = useSchedule();
+    fetchDriverById,
+    fetchBusById,
+    fetchSchedulesByPeriod
+  } = useScheduleAPI();
+
+  const [loading, setLoading] = useState(false);
+  const [fetchError, setFetchError] = useState(null);
 
   // 상태 체크박스 목록
   const statusOptions = [
@@ -43,42 +45,98 @@ const OperatingSchedule = () => {
   // 기간 내 스케줄 불러오기
   useEffect(() => {
     const load = async () => {
-      setPeriodLoading(true);
-      const data = await fetchSchedulesByPeriod(period.start, period.end);
-      setPeriodSchedules(data);
-      setPeriodLoading(false);
+      try {
+        setPeriodLoading(true);
+        setFetchError(null);
+        const data = await fetchSchedulesByPeriod(period.start, period.end);
+        setPeriodSchedules(data);
+
+        // 각 스케줄의 운전자와 버스 정보를 병렬로 가져오기
+        const details = {};
+        const detailPromises = data.map(async (schedule) => {
+          const [driver, bus] = await Promise.all([
+            fetchDriverById(schedule.driverId),
+            fetchBusById(schedule.busId)
+          ]);
+          details[schedule.dispatchId] = { driver, bus };
+        });
+        
+        await Promise.all(detailPromises);
+        setScheduleDetails(details);
+      } catch (error) {
+        console.error('스케줄 로드 실패:', error);
+        setFetchError(error.message || '스케줄을 불러올 수 없습니다.');
+        toast.error('스케줄을 불러올 수 없습니다.');
+      } finally {
+        setPeriodLoading(false);
+      }
     };
     load();
-  }, [period.start, period.end, fetchSchedulesByPeriod]);
+  }, [period.start, period.end]); // 기간 변경시에만 재실행
 
   // 스케줄 추가 핸들러
   const handleAddSchedule = async (newSchedule) => {
-    const result = await addSchedule(newSchedule);
-    if (result.success) {
+    try {
+      setLoading(true);
+      await addSchedule(newSchedule);
       toast.success("스케줄이 성공적으로 추가되었습니다.");
       setModalOpen(false);
       // 추가 후 해당 기간 스케줄 다시 로드
       const data = await fetchSchedulesByPeriod(period.start, period.end);
       setPeriodSchedules(data);
-    } else {
-      toast.error(result.error || "스케줄 추가에 실패했습니다.");
+      
+      // 새로 추가된 스케줄들의 세부 정보 로드
+      const details = {};
+      const detailPromises = data.map(async (schedule) => {
+        const [driver, bus] = await Promise.all([
+          fetchDriverById(schedule.driverId),
+          fetchBusById(schedule.busId)
+        ]);
+        details[schedule.dispatchId] = { driver, bus };
+      });
+      
+      await Promise.all(detailPromises);
+      setScheduleDetails(details);
+    } catch (error) {
+      console.error('스케줄 추가 실패:', error);
+      toast.error(error.message || "스케줄 추가에 실패했습니다.");
+    } finally {
+      setLoading(false);
     }
   };
 
   // 스케줄 수정 핸들러
   const handleUpdateSchedule = async (dispatchId, scheduleData) => {
-    const result = await updateSchedule(dispatchId, scheduleData);
-    if (result.success) {
+    try {
+      setLoading(true);
+      await updateSchedule(dispatchId, scheduleData);
       toast.success("스케줄이 성공적으로 수정되었습니다.");
       setEditModalOpen(false);
       setEditingSchedule(null);
       // 수정 후 해당 기간 스케줄 다시 로드
       const data = await fetchSchedulesByPeriod(period.start, period.end);
       setPeriodSchedules(data);
-    } else {
-      toast.error(result.error || "스케줄 수정에 실패했습니다.");
+      
+      // 수정된 스케줄들의 세부 정보 로드
+      const details = {};
+      const detailPromises = data.map(async (schedule) => {
+        const [driver, bus] = await Promise.all([
+          fetchDriverById(schedule.driverId),
+          fetchBusById(schedule.busId)
+        ]);
+        details[schedule.dispatchId] = { driver, bus };
+      });
+      
+      await Promise.all(detailPromises);
+      setScheduleDetails(details);
+      return { success: true };
+    } catch (error) {
+      console.error('스케줄 수정 실패:', error);
+      toast.error(error.message || "스케줄 수정에 실패했습니다.");
+      return { success: false, error: error.message };
+    } finally {
+      setLoading(false);
     }
-    return result;
   };
 
   // 수정 버튼 클릭 핸들러
@@ -90,16 +148,34 @@ const OperatingSchedule = () => {
   // 스케줄 삭제 핸들러
   const handleDeleteSchedule = async (dispatchId) => {
     if (window.confirm("정말로 이 스케줄을 삭제하시겠습니까?")) {
-      const result = await deleteSchedule(dispatchId);
-      if (result.success) {
+      try {
+        setLoading(true);
+        await deleteSchedule(dispatchId);
         toast.success("스케줄이 성공적으로 삭제되었습니다.");
         // 삭제 후 해당 기간 스케줄 다시 로드
         const data = await fetchSchedulesByPeriod(period.start, period.end);
         setPeriodSchedules(data);
-      } else {
-        toast.error(result.error || "스케줄 삭제에 실패했습니다.");
+        
+        // 삭제된 스케줄 외의 세부 정보 로드
+        const details = {};
+        const detailPromises = data.map(async (schedule) => {
+          const [driver, bus] = await Promise.all([
+            fetchDriverById(schedule.driverId),
+            fetchBusById(schedule.busId)
+          ]);
+          details[schedule.dispatchId] = { driver, bus };
+        });
+        
+        await Promise.all(detailPromises);
+        setScheduleDetails(details);
+        return { success: true };
+      } catch (error) {
+        console.error('스케줄 삭제 실패:', error);
+        toast.error(error.message || "스케줄 삭제에 실패했습니다.");
+        return { success: false, error: error.message };
+      } finally {
+        setLoading(false);
       }
-      return result;
     }
     return { success: false };
   };
@@ -220,9 +296,9 @@ const OperatingSchedule = () => {
                   <tr key={item.dispatchId || idx} className="border-b border-gray-100 hover:bg-blue-50 transition-colors">
                     <td className="py-3 px-3 text-sm">{item.dispatchDate ? (item.dispatchDate.replace(/-/g, ". ") + ".") : '-'}</td>
                     <td className="py-3 px-3">
-                      {getDriverById(item.driverId) ? (
+                      {scheduleDetails[item.dispatchId]?.driver ? (
                         <div>
-                          <div className="font-medium text-sm">{getDriverById(item.driverId).driverName}</div>
+                          <div className="font-medium text-sm">{scheduleDetails[item.dispatchId].driver.driverName}</div>
                           <div className="text-xs text-gray-500">#{item.driverId ?? '-'}</div>
                         </div>
                       ) : (
@@ -230,10 +306,10 @@ const OperatingSchedule = () => {
                       )}
                     </td>
                     <td className="py-3 px-3">
-                      {getBusById(item.busId) ? (
+                      {scheduleDetails[item.dispatchId]?.bus ? (
                         <div>
-                          <div className="font-medium text-sm">{getBusById(item.busId).vehicleNumber}</div>
-                          <div className="text-xs text-gray-500">{getBusById(item.busId).routeNumber ? getBusById(item.busId).routeNumber + '번' : '-'}</div>
+                          <div className="font-medium text-sm">{scheduleDetails[item.dispatchId].bus.vehicleNumber}</div>
+                          <div className="text-xs text-gray-500">{scheduleDetails[item.dispatchId].bus.routeNumber ? scheduleDetails[item.dispatchId].bus.routeNumber + '번' : '-'}</div>
                         </div>
                       ) : (
                         <span className="text-gray-400 text-sm">#{item.busId ?? '-'}</span>
