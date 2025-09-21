@@ -3,39 +3,53 @@ import { useNavigate } from "react-router-dom";
 import AddSchedule from "../components/Schedule/AddSchedule";
 import { useToast } from "../components/Toast/ToastProvider";
 import { useSchedule } from "../components/Schedule/ScheduleContext";
+import dayjs from "dayjs";
 
 const OperatingSchedule = () => {
   const navigate = useNavigate();
   const [modalOpen, setModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState(null);
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  const [dailySchedules, setDailySchedules] = useState([]);
-  const [dailyLoading, setDailyLoading] = useState(false);
+  const [period, setPeriod] = useState({
+    start: dayjs().subtract(1, 'day').format('YYYY-MM-DD'),
+    end: dayjs().add(1, 'day').format('YYYY-MM-DD')
+  });
+  const [periodSchedules, setPeriodSchedules] = useState([]);
+  const [periodLoading, setPeriodLoading] = useState(false);
+  const [statusFilter, setStatusFilter] = useState(["RUNNING", "SCHEDULED", "DELAYED"]);
+
   const toast = useToast();
   
-  const { 
-    loading, 
+  const {
+    loading,
     addSchedule,
     updateSchedule,
     deleteSchedule,
     getDriverById,
     getBusById,
-    fetchSchedulesByDate,
+    fetchSchedulesByPeriod,
     fetchError
   } = useSchedule();
 
-  // 선택된 날짜의 스케줄 로드
-  const loadSchedulesForDate = async (date) => {
-    setDailyLoading(true);
-    const schedules = await fetchSchedulesByDate(date);
-    setDailySchedules(schedules);
-    setDailyLoading(false);
-  };
+  // 상태 체크박스 목록
+  const statusOptions = [
+    { value: "SCHEDULED", label: "예정" },
+    { value: "DELAYED", label: "지연" },
+    { value: "RUNNING", label: "운행중" },
+    { value: "COMPLETED", label: "완료" },
+    { value: "CANCELLED", label: "취소" },
+  ];
 
+  // 기간 내 스케줄 불러오기
   useEffect(() => {
-    loadSchedulesForDate(selectedDate);
-  }, [selectedDate, fetchSchedulesByDate]);
+    const load = async () => {
+      setPeriodLoading(true);
+      const data = await fetchSchedulesByPeriod(period.start, period.end);
+      setPeriodSchedules(data);
+      setPeriodLoading(false);
+    };
+    load();
+  }, [period.start, period.end, fetchSchedulesByPeriod]);
 
   // 스케줄 추가 핸들러
   const handleAddSchedule = async (newSchedule) => {
@@ -43,8 +57,9 @@ const OperatingSchedule = () => {
     if (result.success) {
       toast.success("스케줄이 성공적으로 추가되었습니다.");
       setModalOpen(false);
-      // 추가 후 해당 날짜 스케줄 다시 로드
-      loadSchedulesForDate(selectedDate);
+      // 추가 후 해당 기간 스케줄 다시 로드
+      const data = await fetchSchedulesByPeriod(period.start, period.end);
+      setPeriodSchedules(data);
     } else {
       toast.error(result.error || "스케줄 추가에 실패했습니다.");
     }
@@ -57,8 +72,9 @@ const OperatingSchedule = () => {
       toast.success("스케줄이 성공적으로 수정되었습니다.");
       setEditModalOpen(false);
       setEditingSchedule(null);
-      // 수정 후 해당 날짜 스케줄 다시 로드
-      loadSchedulesForDate(selectedDate);
+      // 수정 후 해당 기간 스케줄 다시 로드
+      const data = await fetchSchedulesByPeriod(period.start, period.end);
+      setPeriodSchedules(data);
     } else {
       toast.error(result.error || "스케줄 수정에 실패했습니다.");
     }
@@ -77,8 +93,9 @@ const OperatingSchedule = () => {
       const result = await deleteSchedule(dispatchId);
       if (result.success) {
         toast.success("스케줄이 성공적으로 삭제되었습니다.");
-        // 삭제 후 해당 날짜 스케줄 다시 로드
-        loadSchedulesForDate(selectedDate);
+        // 삭제 후 해당 기간 스케줄 다시 로드
+        const data = await fetchSchedulesByPeriod(period.start, period.end);
+        setPeriodSchedules(data);
       } else {
         toast.error(result.error || "스케줄 삭제에 실패했습니다.");
       }
@@ -87,12 +104,35 @@ const OperatingSchedule = () => {
     return { success: false };
   };
 
-  // 날짜 변경 핸들러
-  const handleDateChange = (e) => {
-    setSelectedDate(e.target.value);
+  // 체크박스 핸들러
+  const handleStatusChange = (value) => {
+    setStatusFilter(prev =>
+      prev.includes(value)
+        ? prev.filter(v => v !== value)
+        : [...prev, value]
+    );
   };
 
-  if (loading || dailyLoading) {
+  // 상태별 필터링
+  const filteredSchedules =
+    statusFilter.length === 0
+      ? periodSchedules
+      : periodSchedules.filter(s => statusFilter.includes(s.status));
+
+  // 조회 버튼을 눌러야만 리스트가 갱신되도록 변경
+  const [pendingPeriod, setPendingPeriod] = useState({
+    start: period.start,
+    end: period.end
+  });
+  const [pendingStatusFilter, setPendingStatusFilter] = useState([...statusFilter]);
+
+  // 조회 버튼 클릭 시 실제 필터 적용
+  const handleSearch = () => {
+    setPeriod({ ...pendingPeriod });
+    setStatusFilter([...pendingStatusFilter]);
+  };
+
+  if (loading || periodLoading) {
     return (
       <div className="max-w-5xl mx-auto py-10 px-6">
         <div className="flex items-center justify-center h-64">
@@ -110,32 +150,33 @@ const OperatingSchedule = () => {
         </div>
       )}
       <h2 className="text-2xl font-bold mb-8 text-gray-900 tracking-tight">운행 스케줄</h2>
-      
-      {/* 날짜 필터 섹션 */}
       <div className="bg-white border border-gray-100 rounded-lg shadow-sm p-6 mb-6">
-        <div className="flex flex-col items-center gap-4">
-          <div className="flex items-center gap-4">
-            <label className="text-sm font-medium text-gray-700">날짜 선택:</label>
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={handleDateChange}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
+        <div className="flex flex-wrap items-center gap-4 relative">
+          <label className="text-sm font-medium text-gray-700">기간:</label>
+          <input type="date" value={pendingPeriod.start} onChange={e => setPendingPeriod(p => ({...p, start: e.target.value}))} className="px-2 py-1 border rounded" />
+          <span>~</span>
+          <input type="date" value={pendingPeriod.end} onChange={e => setPendingPeriod(p => ({...p, end: e.target.value}))} className="px-2 py-1 border rounded" />
+          <label className="ml-6 text-sm font-medium text-gray-700">상태:</label>
+          <div className="flex flex-wrap gap-2">
+            {statusOptions.map(opt => (
+              <label key={opt.value} className="flex items-center gap-1 text-sm">
+                <input type="checkbox" value={opt.value} checked={pendingStatusFilter.includes(opt.value)}
+                  onChange={() => setPendingStatusFilter(prev => prev.includes(opt.value) ? prev.filter(v => v !== opt.value) : [...prev, opt.value])} />
+                {opt.label}
+              </label>
+            ))}
           </div>
-          
-          <div className="text-sm text-gray-600 flex items-center gap-2">
-            <span className="font-medium">{selectedDate}</span> 
-            <span>스케줄</span>
-            <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
-              {dailySchedules.length}건
-            </span>
-          </div>
+          <button
+            onClick={handleSearch}
+            className="absolute right-0 top-1/2 -translate-y-1/2 px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition shadow-sm"
+            style={{ minWidth: 60 }}
+          >
+            조회
+          </button>
         </div>
       </div>
-
       <div className="bg-white border border-gray-100 rounded-lg shadow-sm p-8">
-          {dailySchedules.length > 0 && (
+        {filteredSchedules.length > 0 && (
           <div className="flex justify-end mt-2 mb-6">
             <button
               className="bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold shadow-sm hover:bg-blue-700 transition"
@@ -145,10 +186,10 @@ const OperatingSchedule = () => {
             </button>
           </div>
         )}
-        {dailySchedules.length === 0 ? (
+        {filteredSchedules.length === 0 ? (
           <div className="text-center py-12">
             <div className="text-gray-500 mb-4">
-              {selectedDate}에 등록된 스케줄이 없습니다.
+              선택한 기간에 등록된 스케줄이 없습니다.
             </div>
             <button
               onClick={() => setModalOpen(true)}
@@ -175,7 +216,7 @@ const OperatingSchedule = () => {
                 </tr>
               </thead>
               <tbody>
-                {dailySchedules.map((item, idx) => (
+                {filteredSchedules.map((item, idx) => (
                   <tr key={item.dispatchId || idx} className="border-b border-gray-100 hover:bg-blue-50 transition-colors">
                     <td className="py-3 px-3 text-sm">{item.dispatchDate ? (item.dispatchDate.replace(/-/g, ". ") + ".") : '-'}</td>
                     <td className="py-3 px-3">

@@ -7,12 +7,15 @@ axios.defaults.baseURL = "http://localhost:8080";
 
 const Signup = () => {
   const [role, setRole] = useState("admin"); // admin 또는 driver
-  const [name, setName] = useState("");
+  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
-  const [userid, setUserid] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [operatorCode, setOperatorCode] = useState("");
   const [password, setPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
-  const [operatorId, setOperatorId] = useState("");
+  const [confirmpassword, setConfirmpassword] = useState("");
+  // 운전자 추가 필드
+  const [licenseNumber, setLicenseNumber] = useState("");
+  const [career, setCareer] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
@@ -29,12 +32,12 @@ const Signup = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     // 필수값 체크
-    if (!name || !email || !userid || !password || !confirm || !operatorId) {
+    if (!username || !email || !phoneNumber || !operatorCode || !password || !confirmpassword || (role === "driver" && (!licenseNumber || !career))) {
       setError("모든 항목을 입력해주세요.");
       setSuccess("");
       return;
     }
-    if (password !== confirm) {
+    if (password !== confirmpassword) {
       setError("비밀번호가 일치하지 않습니다.");
       setSuccess("");
       return;
@@ -43,23 +46,17 @@ const Signup = () => {
     setSuccess("");
     setLoading(true);
     try {
-      if (role === "admin") {
-        await axios.post("/api/auth/register-admin", {
-          adminId: userid,
-          password: password,
-          adminEmail: email,
-          adminName: name,
-          operatorId: operatorId
-        });
-      } else {
-        await axios.post("/api/auth/register", {
-          driverId: userid,
-          password: password,
+        await axios.post("/api/auth/signup", {
+          name: username,
           email: email,
-          driverName: name,
-          operatorId: operatorId
+          phone: phoneNumber,
+          companyCode: operatorCode,
+          password: password,
+          role: role,
+          licenseNumber: role === "driver" ? licenseNumber : undefined,
+          career: role === "driver" ? Number(career) : undefined,
         });
-      }
+      
       setSuccess("회원가입이 완료되었습니다! 로그인 페이지로 이동합니다.");
       setTimeout(() => {
         navigate("/signin");
@@ -80,42 +77,57 @@ const Signup = () => {
       <div className="w-full max-w-md p-8 bg-white border border-gray-100 rounded-2xl shadow-lg">
         <h2 className="text-3xl font-bold mb-8 text-center text-gray-900 tracking-tight">회원가입</h2>
         {/* 관리자/드라이버 선택 */}
-        <div className="mb-8 flex gap-8 justify-center">
-          <label className="flex items-center gap-2 text-lg font-semibold">
+        <div className="mb-6 flex gap-6 justify-center">
+          <label className="flex items-center gap-2 text-base font-medium text-gray-700">
             <input type="radio" value="admin" checked={role === "admin"} onChange={() => setRole("admin")} />
             <span>관리자</span>
           </label>
-          <label className="flex items-center gap-2 text-lg font-semibold">
+          <label className="flex items-center gap-2 text-base font-medium text-gray-700">
             <input type="radio" value="driver" checked={role === "driver"} onChange={() => setRole("driver")} />
             <span>운전자</span>
           </label>
         </div>
         <form onSubmit={handleSubmit}>
-          <div className="space-y-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-4">
             <div>
               <label className="block mb-1 text-sm font-semibold text-gray-700">이름</label>
-              <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition" required />
+              <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition" required />
             </div>
             <div>
               <label className="block mb-1 text-sm font-semibold text-gray-700">이메일</label>
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition" required />
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition" required />
             </div>
             <div>
-              <label className="block mb-1 text-sm font-semibold text-gray-700">아이디</label>
-              <input type="text" value={userid} onChange={(e) => setUserid(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition" required />
+              <label className="block mb-1 text-sm font-semibold text-gray-700">휴대폰 번호</label>
+              <input type="text" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition" required />
             </div>
+            <div>
+              <label className="block mb-1 text-sm font-semibold text-gray-700">회사코드</label>
+              <input type="text" value={operatorCode} onChange={(e) => setOperatorCode(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition" required />
+            </div>
+            <div className="md:col-span-2 border-t pt-4" />
             <div>
               <label className="block mb-1 text-sm font-semibold text-gray-700">비밀번호</label>
-              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition" required />
+              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition" required />
             </div>
             <div>
               <label className="block mb-1 text-sm font-semibold text-gray-700">비밀번호 확인</label>
-              <input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition" required />
+              <input type="password" value={confirmpassword} onChange={(e) => setConfirmpassword(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition" required />
             </div>
-            <div>
-              <label className="block mb-1 text-sm font-semibold text-gray-700">운영사 ID</label>
-              <input type="number" value={operatorId} onChange={(e) => setOperatorId(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition" required />
-            </div>
+            {/* 운전자 선택 시 추가 입력 */}
+            {role === "driver" && (
+              <>
+                <div className="md:col-span-2 border-t pt-4" />
+                <div>
+                  <label className="block mb-1 text-sm font-semibold text-gray-700">면허번호</label>
+                  <input type="text" value={licenseNumber} onChange={(e) => setLicenseNumber(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition" required={role === "driver"} />
+                </div>
+                <div>
+                  <label className="block mb-1 text-sm font-semibold text-gray-700">경력(년)</label>
+                  <input type="number" min="0" value={career} onChange={(e) => setCareer(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition" required={role === "driver"} />
+                </div>
+              </>
+            )}
           </div>
           {error && <div className="text-red-500 mt-6 mb-2 text-sm text-center">{error}</div>}
           {success && <div className="text-green-600 mt-6 mb-2 text-sm text-center">{success}</div>}

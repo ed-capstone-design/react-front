@@ -5,21 +5,20 @@ import { useToast } from "../Toast/ToastProvider";
 import axios from "axios";
 
 const EditDriverModal = ({ open, onClose, driver }) => {
-  const [name, setName] = useState("");
+  const [username, setUsername] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [licenseNumber, setlicenseNumber] = useState("");
-  const [operatorId, setOperatorId] = useState("");
-  const [status, setStatus] = useState("DRIVING");
+  const [operatorName, setOperatorName] = useState("");
+  const [grade, setGrade] = useState("");
   const [loading, setLoading] = useState(false);
   const toast = useToast();
   const driverCtx = useContext(DriverContext);
   useEffect(() => {
     if (driver) {
-      setName(driver.name || "");
+      setUsername(driver.username || "");
       setPhoneNumber(driver.phoneNumber || "");
       setlicenseNumber(driver.licenseNumber || "");
-      setOperatorId(driver.operatorId || "");
-      setStatus(driver.status || "DRIVING");
+      setOperatorName(driver.operatorName || "");
     }
   }, [driver]);
   if (!driverCtx || typeof driverCtx.updateDriver !== "function") {
@@ -34,28 +33,26 @@ const EditDriverModal = ({ open, onClose, driver }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!name || !phoneNumber) {
+    if (!username || !phoneNumber) {
       toast.warning("이름과 전화번호를 입력해주세요.");
       return;
     }
     setLoading(true);
     try {
       const updatedDriver = {
-        driverId: driver.driverId,
-        driverName: name,
+        userId: driver.userId,
+        username: username,
         phoneNumber,
         licenseNumber,
-        operatorId: operatorId ? parseInt(operatorId) : undefined,
-        status
+        operatorName: operatorName ? parseInt(operatorName) : undefined,
       };
       await updateDriver(updatedDriver);
       onClose();
       toast.success("운전자 정보가 수정되었습니다!");
-      setName("");
+      setUsername("");
       setPhoneNumber("");
       setlicenseNumber("");
-      setOperatorId("");
-      setStatus("ACTIVE");
+      setOperatorName("");
     } catch (error) {
       toast.error("운전자 수정에 실패했습니다.");
     } finally {
@@ -64,11 +61,11 @@ const EditDriverModal = ({ open, onClose, driver }) => {
   };
 
   const handleDelete = async () => {
-    if (!driver || !driver.driverId) return;
+    if (!driver || !driver.userId) return;
     if (!window.confirm("정말 삭제하시겠습니까?")) return;
     setLoading(true);
     try {
-      await axios.delete(`/api/drivers/${driver.driverId}`);
+      await axios.delete(`/api/drivers/${driver.userId}`);
       toast.success("운전자가 삭제되었습니다.");
       onClose();
     } catch (error) {
@@ -98,8 +95,8 @@ const EditDriverModal = ({ open, onClose, driver }) => {
               <input
                 type="text"
                 className="w-full border border-gray-200 focus:border-blue-400 rounded px-3 py-2 text-sm outline-none bg-white focus:bg-blue-50 transition"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 required
                 placeholder="이름"
               />
@@ -127,25 +124,18 @@ const EditDriverModal = ({ open, onClose, driver }) => {
               />
             </div>
             <div>
-              <label className="block mb-1 text-xs font-medium text-gray-600">운영자 ID</label>
-              <input
-                type="number"
-                className="w-full border border-gray-200 focus:border-blue-400 rounded px-3 py-2 text-sm outline-none bg-white focus:bg-blue-50 transition"
-                value={operatorId}
-                onChange={(e) => setOperatorId(e.target.value)}
-                placeholder="선택사항"
-              />
-            </div>
-            <div>
-              <label className="block mb-1 text-xs font-medium text-gray-600">상태</label>
+              <label className="block mb-1 text-xs font-medium text-gray-600">등급</label>
               <select
                 className="w-full border border-gray-200 focus:border-blue-400 rounded px-3 py-2 text-sm outline-none bg-white focus:bg-blue-50 transition"
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
+                value={grade}
+                onChange={(e) => setGrade(e.target.value)}
               >
-                <option value="DRIVING">운행중</option>
-                <option value="BREAK">휴식</option>
-                <option value="OFF">휴무</option>
+                <option value="">선택하세요</option>
+                <option value="A">A</option>
+                <option value="B">B</option>
+                <option value="C">C</option>
+                <option value="D">D</option>
+                <option value="E">E</option>
               </select>
             </div>
             <div className="pt-4 mt-4 border-t border-gray-100 flex justify-end gap-2">

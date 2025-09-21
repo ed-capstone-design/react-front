@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import axios from "axios";
-
+import { useToken } from "../Token/TokenProvider";
 const BusContext = createContext();
 
 export const useBus = () => {
@@ -13,6 +13,7 @@ export const useBus = () => {
 
 export const BusProvider = ({ children }) => {
   const [buses, setBuses] = useState([]);
+  const { getToken } = useToken();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -21,7 +22,9 @@ export const BusProvider = ({ children }) => {
     setLoading(true);
     setError("");
     try {
-      const response = await axios.get("/api/buses");
+      const response = await axios.get("/api/buses",{
+            headers: { Authorization: `Bearer ${getToken()}` }
+          });
       setBuses(response.data);
     } catch (error) {
       console.error("버스 목록 조회 실패:", error);

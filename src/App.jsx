@@ -7,7 +7,6 @@ import Drivers from './pages/Drivers';
 import Buses from './pages/Buses';
 import OperatingSchedule from './pages/OperatingSchedule';
 import Insight from './pages/Insight';
-import Notifications from './pages/Notifications';
 import UserDetailPage from './pages/UserDetailPage';
 import DriveDetail from './pages/DriveDetail';
 import MyPage from './pages/MyPage';
@@ -75,12 +74,7 @@ function App() {
                           <Layout><Insight /></Layout>
                         </ProtectedRoute>
                       } />
-                      <Route path="/notifications" element={
-                        <ProtectedRoute>
-                          <Layout><Notifications /></Layout>
-                        </ProtectedRoute>
-                      } />
-                      <Route path="/userdetailpage" element={
+                      <Route path="/userdetailpage/:id" element={
                         <ProtectedRoute>
                           <Layout><UserDetailPage /></Layout>
                         </ProtectedRoute>

@@ -133,6 +133,86 @@ export const ScheduleProvider = ({ children }) => {
     }
   };
 
+  // 기간 단위 스케줄 조회 (API 호출)
+  const fetchSchedulesByPeriod = async (startDate, endDate) => {
+    try {
+      setLoading(true);
+      setFetchError("");
+      const response = await axios.get(`/api/dispatch/period`, {
+        params: { startDate, endDate }
+      });
+      return response.data;
+    } catch (error) {
+      console.error("기간별 스케줄 조회 실패:", error);
+      setFetchError("해당 기간의 스케줄을 불러오는데 실패했습니다.");
+      // 목업 데이터 반환 - 다양한 상태의 스케줄들
+      return [
+        {
+          dispatchId: 1,
+          driverId: 1,
+          busId: 1,
+          dispatchDate: startDate,
+          scheduledDeparture: "08:00",
+          actualDeparture: null,
+          actualArrival: null,
+          status: "SCHEDULED",
+          warningCount: 0,
+          drivingScore: null
+        },
+        {
+          dispatchId: 2,
+          driverId: 2,
+          busId: 2,
+          dispatchDate: startDate,
+          scheduledDeparture: "09:30",
+          actualDeparture: "09:35",
+          actualArrival: null,
+          status: "RUNNING",
+          warningCount: 1,
+          drivingScore: null
+        },
+        {
+          dispatchId: 3,
+          driverId: 3,
+          busId: 3,
+          dispatchDate: startDate,
+          scheduledDeparture: "11:00",
+          actualDeparture: null,
+          actualArrival: null,
+          status: "DELAYED",
+          warningCount: 0,
+          drivingScore: null
+        },
+        {
+          dispatchId: 4,
+          driverId: 1,
+          busId: 1,
+          dispatchDate: endDate,
+          scheduledDeparture: "14:00",
+          actualDeparture: "14:02",
+          actualArrival: "22:30",
+          status: "COMPLETED",
+          warningCount: 2,
+          drivingScore: 85
+        },
+        {
+          dispatchId: 5,
+          driverId: 4,
+          busId: 4,
+          dispatchDate: endDate,
+          scheduledDeparture: "16:00",
+          actualDeparture: "16:00",
+          actualArrival: null,
+          status: "CANCELLED",
+          warningCount: 0,
+          drivingScore: null
+        }
+      ];
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // 스케줄 추가
   const addSchedule = async (scheduleData) => {
     try {
@@ -207,6 +287,7 @@ export const ScheduleProvider = ({ children }) => {
     // 메서드
     fetchSchedulesByDate,
     fetchSchedulesByDriver,
+    fetchSchedulesByPeriod,
     addSchedule,
     updateSchedule,
     deleteSchedule,

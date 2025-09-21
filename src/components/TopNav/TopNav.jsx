@@ -1,12 +1,13 @@
 import React from "react";
 import { IoCarSport, IoLogOut, IoMenu, IoPersonCircle, IoNotificationsOutline } from "react-icons/io5";
 import { useNotifications } from "../Notification/contexts/NotificationContext";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useToken } from "../Token/TokenProvider";
 
-const TopNav = ({ onSidebarOpen, onLogoClick, onNotificationClick }) => {
+const TopNav = ({ onSidebarOpen, onLogoClick }) => {
   const { unreadCount } = useNotifications();
   const navigate = useNavigate();
+  const location = useLocation();
   const { removeToken, getUserInfoFromToken } = useToken();
   
   const userInfo = getUserInfoFromToken();
@@ -41,14 +42,18 @@ const TopNav = ({ onSidebarOpen, onLogoClick, onNotificationClick }) => {
           <IoPersonCircle className="text-2xl" />
           <span className="font-semibold">{userName}</span>
         </div>
-        <button className="relative" onClick={onNotificationClick}>
-          <IoNotificationsOutline className="text-2xl text-gray-700" />
-          {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 font-bold">
-              {unreadCount}
-            </span>
-          )}
-        </button>        <button 
+        {/* 알림(종) 버튼: 인사이트 페이지에서는 숨김 */}
+        {location.pathname !== "/insight" && (
+          <button className="relative" onClick={() => navigate('/insight')}>
+            <IoNotificationsOutline className="text-2xl text-gray-700" />
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 font-bold">
+                {unreadCount}
+              </span>
+            )}
+          </button>
+        )}
+        <button 
           onClick={handleLogout}
           className="text-gray-700 hover:underline flex items-center gap-2 hover:text-red-600 transition-colors"
         >

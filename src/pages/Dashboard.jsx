@@ -76,7 +76,7 @@ const DashboardContent = () => {
   
   // 알림 카드 클릭 핸들러
   const handleNotificationCardClick = () => {
-    navigate('/notifications');
+    navigate('/insight');
   };
   
   // 오늘 날짜로 필터링 (timestamp를 사용)

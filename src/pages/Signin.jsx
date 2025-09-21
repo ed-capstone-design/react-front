@@ -8,7 +8,7 @@ import { useToken } from "../components/Token/TokenProvider";
 axios.defaults.baseURL = "http://localhost:8080";
 
 const Signin = () => {
-  const [userid, setUserid] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -27,8 +27,8 @@ const Signin = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!userid || !password) {
-      setError("아이디와 비밀번호를 입력해주세요.");
+    if (!email || !password) {
+      setError("이메일과 비밀번호를 입력해주세요.");
       return;
     }
 
@@ -40,7 +40,7 @@ const Signin = () => {
     //TokenProvider에 만들긴 했음
     try {
       const response = await axios.post("/api/auth/login", {
-        username: userid,
+        email: email,
         password: password
       });
       
@@ -67,11 +67,11 @@ const Signin = () => {
         <h2 className="text-2xl font-bold mb-8 text-center text-gray-900 tracking-tight">로그인</h2>
         <form onSubmit={handleSubmit}>
           <div className="mb-5">
-            <label className="block mb-2 text-sm font-semibold text-gray-700">아이디</label>
+            <label className="block mb-2 text-sm font-semibold text-gray-700">이메일</label>
             <input
-              type="text"
-              value={userid}
-              onChange={(e) => setUserid(e.target.value)}
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
               required
               autoFocus

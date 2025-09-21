@@ -1,10 +1,12 @@
 import React, { useState, useContext } from "react";
+import { useNavigate } from "react-router-dom";
 import { DriverContext } from "../components/Driver/DriverContext";
 // import AddDriverModal from "../components/Driver/AddDriverModal";
 import EditDriverModal from "../components/Driver/EditDriverModal";
 
 
 const Drivers = () => {
+  const navigate = useNavigate();
   const [addOpen, setAddOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [selectedDriver, setSelectedDriver] = useState(null);
@@ -16,6 +18,11 @@ const Drivers = () => {
   const openEditModal = (driver) => {
     setSelectedDriver(driver);
     setEditOpen(true);
+  };
+
+  // 운전자 행 클릭 시 유저 디테일 페이지로 이동
+  const handleRowClick = (driver) => {
+    navigate(`/userdetailpage/${driver.userId}`);
   };
 
   return (
@@ -32,15 +39,17 @@ const Drivers = () => {
             <th className="py-3 px-4 text-gray-600">경력(년)</th>
             <th className="py-3 px-4 text-gray-600">평균점수</th>
             <th className="py-3 px-4 text-gray-600">등급</th>
-            <th className="py-3 px-4 text-gray-600">운영사ID</th>
-            <th className="py-3 px-4 text-gray-600">상태</th>
             <th className="py-3 px-4 text-gray-600">수정</th>
           </tr>
         </thead>
         <tbody>
           {drivers.map((d, idx) => (
-            <tr key={d.driverId || idx} className="hover:bg-blue-50 transition">
-              <td className="py-3 px-4 text-gray-900">{d.driverName}</td>
+            <tr 
+              key={d.userId || idx} 
+              className="hover:bg-blue-50 transition cursor-pointer"
+              onClick={() => handleRowClick(d)}
+            >
+              <td className="py-3 px-4 text-gray-900">{d.username}</td>
               <td className="py-3 px-4">{d.licenseNumber}</td>
               <td className="py-3 px-4">{d.careerYears}</td>
               <td className="py-3 px-4">{d.avgDrivingScore}</td>
@@ -54,17 +63,14 @@ const Drivers = () => {
                   {d.grade}
                 </span>
               </td>
-              <td className="py-3 px-4">{d.operatorId}</td>
-              <td className="py-3 px-4">
-                <span className={`px-3 py-1 rounded-full text-xs font-bold shadow-sm
-                  ${d.status === "운행중" ? "bg-green-100 text-green-700" : d.status === "대기" ? "bg-yellow-100 text-yellow-700" : "bg-gray-100 text-gray-500"}`}>
-                  {d.status}
-                </span>
-              </td>
+
               <td className="py-3 px-4">
                 <button
                   className="text-blue-600 hover:underline font-semibold"
-                  onClick={() => openEditModal(d)}
+                  onClick={(e) => {
+                    e.stopPropagation(); // 행 클릭 이벤트 전파 방지
+                    openEditModal(d);
+                  }}
                 >
                   수정
                 </button>
@@ -73,7 +79,7 @@ const Drivers = () => {
           ))}
         </tbody>
       </table>
-      {/* <AddDriverModal open={addOpen} onClose={() => setAddOpen(false)} /> */}
+
       <EditDriverModal 
         open={editOpen} 
         onClose={() => setEditOpen(false)} 

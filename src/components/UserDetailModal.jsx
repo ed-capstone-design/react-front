@@ -64,30 +64,7 @@ const UserDetailModal = ({ open, onClose, user }) => {
             </div>
           )}
         </div>
-        <div className="mb-4">
-          <label className="block font-semibold text-blue-700 mb-1">
-            메모 보내기
-          </label>
-          <textarea
-            className="w-full border rounded p-2 min-h-[60px] resize-none focus:outline-none focus:border-blue-400"
-            placeholder="운전자에게 전달할 메모를 입력하세요."
-            value={memo}
-            onChange={(e) => setMemo(e.target.value)}
-            disabled={memoSent}
-          />
-          <button
-            className="mt-2 w-full py-2 rounded-lg bg-blue-600 text-white font-bold hover:bg-blue-700 transition disabled:bg-gray-300"
-            onClick={handleSendMemo}
-            disabled={memo.trim() === "" || memoSent}
-          >
-            메모 보내기
-          </button>
-          {memoSent && (
-            <div className="text-green-600 text-center mt-2 font-semibold">
-              메모가 전송되었습니다!
-            </div>
-          )}
-        </div>
+
       </div>
       <style>{`
         .animate-fade-in {

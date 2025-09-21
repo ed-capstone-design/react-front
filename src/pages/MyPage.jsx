@@ -14,10 +14,9 @@ const MyPage = () => {
   const toast = useToast();
   
   const [userInfo, setLocalUserInfo] = useState({
-    name: "",
+    username: "",
     email: "",
-    userid: "",
-    phone: "",
+    phoneNumber: "",
     currentPassword: "",
     newPassword: "",
     confirmPassword: ""
@@ -28,18 +27,19 @@ const MyPage = () => {
   useEffect(() => {
     const fetchUserInfo = async () => {
       const savedUserInfo = getUserInfoFromToken();
-      if (savedUserInfo && savedUserInfo.userid) {
+      if (savedUserInfo && savedUserInfo.email) {
         try {
           setLoading(true);
           setError("");
-          const res = await axios.get(`/api/user/${savedUserInfo.userid},`);
-          const { name, email, userid, phone } = res.data;
+          const res = await axios.get(`/api/user/me`, {
+            headers: { Authorization: `Bearer ${getToken()}` }
+          });
+          const { username, email, phoneNumber } = res.data;
           setLocalUserInfo(prev => ({
             ...prev,
-            name: name || "",
+            username: username || "",
             email: email || "",
-            userid: userid || "",
-            phone: phone || ""
+            phoneNumber: phoneNumber || "",
           }));
         } catch (err) {
           setError("사용자 정보를 불러오지 못했습니다.");
@@ -79,23 +79,21 @@ const MyPage = () => {
         return;
       }
       const updateData = {
-        userid: userInfo.userid,
         currentPassword: userInfo.currentPassword,
         newPassword: userInfo.newPassword
       };
       const token = getToken();
-      const res = await axios.put("/api/user/profile", updateData, {
+      const res = await axios.put("/api/users/me", updateData, {
         headers: { Authorization: `Bearer ${token}` }
       });
       // 서버에서 최신 사용자 정보를 반환하면 userInfo 상태를 갱신
       if (res.data) {
-        const { name, email, userid, phone } = res.data;
+        const { username, email, phoneNumber } = res.data;
         setLocalUserInfo(prev => ({
           ...prev,
-          name: name || prev.name,
+          username: username || prev.username,
           email: email || prev.email,
-          userid: userid || prev.userid,
-          phone: phone || prev.phone,
+          phoneNumber: phoneNumber || prev.phoneNumber,
           currentPassword: "",
           newPassword: "",
           confirmPassword: ""
@@ -131,7 +129,7 @@ const MyPage = () => {
     setError("");
     try {
       const token = getToken();
-      await axios.delete("/api/user/account", {
+      await axios.delete("/api/users/me", {
         headers: {
           'Authorization': `Bearer ${token}`
         }

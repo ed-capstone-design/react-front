@@ -100,9 +100,7 @@ const BusDetailModal = ({ isOpen, onClose, bus, mode = 'view' }) => {
         <form onSubmit={handleSubmit} className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                노선번호 *
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">노선번호 *</label>
               <input
                 type="text"
                 name="routeNumber"
@@ -115,9 +113,7 @@ const BusDetailModal = ({ isOpen, onClose, bus, mode = 'view' }) => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                노선유형 *
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">노선유형 *</label>
               <select
                 name="routeType"
                 value={formData.routeType}
@@ -135,30 +131,26 @@ const BusDetailModal = ({ isOpen, onClose, bus, mode = 'view' }) => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                차량번호 *
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">차량번호 *</label>
               <input
                 type="text"
                 name="vehicleNumber"
                 value={formData.vehicleNumber}
                 onChange={handleChange}
                 required
-                disabled={isReadOnly}
+                disabled={isReadOnly || mode === 'edit'}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                차량유형 *
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">차량유형 *</label>
               <select
                 name="vehicleType"
                 value={formData.vehicleType}
                 onChange={handleChange}
                 required
-                disabled={isReadOnly}
+                disabled={isReadOnly || mode === 'edit'}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
               >
                 <option value="MINI">소형</option>
@@ -168,9 +160,7 @@ const BusDetailModal = ({ isOpen, onClose, bus, mode = 'view' }) => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                좌석수 *
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">좌석수 *</label>
               <input
                 type="number"
                 name="capacity"
@@ -184,9 +174,7 @@ const BusDetailModal = ({ isOpen, onClose, bus, mode = 'view' }) => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                차량연식 *
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">차량연식 *</label>
               <input
                 type="number"
                 name="vehicleYear"
@@ -199,32 +187,14 @@ const BusDetailModal = ({ isOpen, onClose, bus, mode = 'view' }) => {
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
               />
             </div>
-            {/* <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                운영사ID
-              </label>
-              <input
-                type="number"
-                name="operatorId"
-                value={formData.operatorId}
-                onChange={handleChange}
-                required
-                min="1"
-                disabled={isReadOnly}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
-              />
-            </div> */}
-
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                연료유형 *
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">연료유형 *</label>
               <select
                 name="fuelType"
                 value={formData.fuelType}
                 onChange={handleChange}
                 required
-                disabled={isReadOnly}
+                disabled={isReadOnly || mode === 'edit'}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
               >
                 <option value="DIESEL">경유</option>
@@ -235,9 +205,7 @@ const BusDetailModal = ({ isOpen, onClose, bus, mode = 'view' }) => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                최근 정비일
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">최근 정비일</label>
               <input
                 type="date"
                 name="lastMaintenance"
@@ -249,9 +217,7 @@ const BusDetailModal = ({ isOpen, onClose, bus, mode = 'view' }) => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                정비횟수
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">정비횟수</label>
               <input
                 type="number"
                 name="repairCount"
