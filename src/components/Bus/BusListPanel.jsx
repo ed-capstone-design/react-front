@@ -1,15 +1,20 @@
-import React, { useState } from "react";
-import { useBus } from "./BusContext";
+import React, { useState, useEffect } from "react";
+import { useBusAPI } from "../../hooks/useBusAPI";
 import BusCard from "./BusCard";
 import BusDetailModal from "./BusDetailModal";
 
 const BusListPanel = () => {
-  const { buses, loading, error, deleteBus, getBusStats } = useBus();
+  const { buses, loading, error, deleteBus, getBusStats, fetchBuses } = useBusAPI();
   const [selectedBus, setSelectedBus] = useState(null);
   const [modalMode, setModalMode] = useState('view'); // 'view', 'edit', 'create'
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [searchType, setSearchType] = useState('all'); // 'all', 'routeNumber', 'vehicleNumber'
+
+  // 컴포넌트 마운트 시 버스 목록 로드
+  useEffect(() => {
+    fetchBuses();
+  }, [fetchBuses]);
 
   const stats = getBusStats();
 
@@ -42,7 +47,11 @@ const BusListPanel = () => {
 
   const handleDelete = async (bus) => {
     if (window.confirm(`${bus.routeNumber}번 버스를 삭제하시겠습니까?`)) {
-      await deleteBus(bus.busId);
+      const result = await deleteBus(bus.busId);
+      if (result.success) {
+        // 목록 새로고침
+        fetchBuses();
+      }
     }
   };
 
@@ -55,6 +64,12 @@ const BusListPanel = () => {
   const closeModal = () => {
     setIsModalOpen(false);
     setSelectedBus(null);
+  };
+
+  const handleModalSuccess = () => {
+    closeModal();
+    // 목록 새로고침
+    fetchBuses();
   };
 
   if (loading && buses.length === 0) {
@@ -172,6 +187,7 @@ const BusListPanel = () => {
         onClose={closeModal}
         bus={selectedBus}
         mode={modalMode}
+        onSuccess={handleModalSuccess}
       />
     </div>
   );

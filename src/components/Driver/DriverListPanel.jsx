@@ -1,22 +1,27 @@
 // DriverListPanel.jsx
-import React, { useContext, useState } from 'react';
-import { DriverContext } from './DriverContext';
+import React, { useState, useEffect } from 'react';
+import { useDriverAPI } from '../../hooks/useDriverAPI';
 import DriverCard from './DriverCard';
 import DriverDetailModal from './DriverDetailModal';
 import UserDetailModal from '../UserDetailModal';
 
 const DriverListPanel = ({ onDriverClick }) => {
-    const { drivers, updateDriver, deleteDriver } = useContext(DriverContext);
+    const { drivers, updateDriver, deleteDriver, fetchDrivers } = useDriverAPI();
     const [detailOpen, setDetailOpen] = useState(false);
     const [userModalOpen, setUserModalOpen] = useState(false);
     const [selectedDriver, setSelectedDriver] = useState(null);
 
-        // 상태별로 필터링 (영문 ENUM)
-        // status: 'DRIVING', 'BREAK', 'OFF'
-        const statusLabel = {
-            DRIVING: "운행중"
-        };
-        const 운행중 = drivers.filter((d) => d.status === "DRIVING");
+    // 컴포넌트 마운트 시 운전자 목록 로드
+    useEffect(() => {
+        fetchDrivers();
+    }, [fetchDrivers]);
+
+    // 상태별로 필터링 (영문 ENUM)
+    // status: 'DRIVING', 'BREAK', 'OFF'
+    const statusLabel = {
+        DRIVING: "운행중"
+    };
+    const 운행중 = drivers.filter((d) => d.status === "DRIVING");
 
     // 운전자 수정
     const handleUpdate = async (driver) => {

@@ -14,8 +14,6 @@ import Layout from './components/Layout/Layout';
 import ToastProvider from './components/Toast/ToastProvider';
 import { NotificationCountProvider } from './components/Notification/NotificationCountProvider';
 import './App.css';
-import { DriverProvider } from './components/Driver/DriverContext';
-import { BusProvider } from './components/Bus/BusContext';
 // import { WebSocketProvider } from './components/WebSocket/WebSocketProvider';
 
 // 보호된 라우트 컴포넌트
@@ -41,14 +39,12 @@ function App() {
      <TokenProvider>
         <ToastProvider>
           <NotificationCountProvider>
-            <DriverProvider>
-              <BusProvider>
-                <Router>
-                  <div className="App">
-                    <Routes>
-                        <Route path="/" element={<RootRedirect />} />
-                        <Route path="/signin" element={<Signin />} />
-                      <Route path="/signup" element={<Signup />} />
+            <Router>
+              <div className="App">
+                <Routes>
+                    <Route path="/" element={<RootRedirect />} />
+                    <Route path="/signin" element={<Signin />} />
+                  <Route path="/signup" element={<Signup />} />
                       <Route path="/dashboard" element={
                         <ProtectedRoute>
                           <Layout><Dashboard /></Layout>
@@ -92,8 +88,6 @@ function App() {
                     </Routes>
                   </div>
                 </Router>
-              </BusProvider>
-            </DriverProvider>
           </NotificationCountProvider>
         </ToastProvider>
       </TokenProvider>

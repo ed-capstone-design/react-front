@@ -3,17 +3,12 @@ import ScheduleModal from "./ScheduleModal";
 import DriverSelector from "./DriverSelector";
 import BusSelector from "./BusSelector";
 import DateTimeInputs from "./DateTimeInputs";
-import { useDriver } from "../Driver/DriverContext";
-import { useBus } from "../Bus/BusContext";
 
 const AddSchedule = ({ open, onClose, onAdd, initialData = null, isEdit = false }) => {
   const [driverId, setDriverId] = useState("");
   const [busId, setBusId] = useState("");
   const [dispatchDate, setDispatchDate] = useState("");
   const [scheduledDeparture, setScheduledDeparture] = useState("");
-
-  const { drivers, loading: driversLoading, error: driversError } = useDriver();
-  const { buses, loading: busesLoading, error: busesError } = useBus();
 
   // 수정 모드일 때 초기 데이터 설정
   useEffect(() => {
@@ -65,33 +60,27 @@ const AddSchedule = ({ open, onClose, onAdd, initialData = null, isEdit = false 
       onSubmit={handleSubmit}
       isEdit={isEdit}
     >
-      {(driversError || busesError) && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-red-600 text-sm">{driversError || busesError}</p>
-        </div>
-      )}
+      <DateTimeInputs
+        dispatchDate={dispatchDate}
+        onDispatchDateChange={setDispatchDate}
+        scheduledDeparture={scheduledDeparture}
+        onScheduledDepartureChange={setScheduledDeparture}
+        required
+      />
 
       <DriverSelector
         value={driverId}
         onChange={setDriverId}
-        drivers={drivers}
-        loading={driversLoading}
+        selectedDate={dispatchDate}
+        selectedTime={scheduledDeparture}
         required
       />
 
       <BusSelector
         value={busId}
         onChange={setBusId}
-        buses={buses}
-        loading={busesLoading}
-        required
-      />
-
-      <DateTimeInputs
-        dispatchDate={dispatchDate}
-        onDispatchDateChange={setDispatchDate}
-        scheduledDeparture={scheduledDeparture}
-        onScheduledDepartureChange={setScheduledDeparture}
+        selectedDate={dispatchDate}
+        selectedTime={scheduledDeparture}
         required
       />
     </ScheduleModal>

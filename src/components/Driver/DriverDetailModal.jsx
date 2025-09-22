@@ -1,13 +1,13 @@
-import React, { useState, useContext } from "react";
-import { DriverContext } from "./DriverContext";
+import React, { useState } from "react";
+import { useDriverAPI } from "../../hooks/useDriverAPI";
 
-const DriverDetailModal = ({ open, driver, onClose }) => {
+const DriverDetailModal = ({ open, driver, onClose, onSuccess }) => {
   const [form, setForm] = useState(driver || {});
+  const { updateDriver, deleteDriver } = useDriverAPI();
 
   React.useEffect(() => {
     setForm(driver || {});
   }, [driver]);
-  const { updateDriver, deleteDriver } = useContext(DriverContext);
 
   if (!open || !driver) return null;
 
@@ -18,8 +18,16 @@ const DriverDetailModal = ({ open, driver, onClose }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await updateDriver({ ...form, userId: driver.userId });
-      onClose();
+      const result = await updateDriver({ ...form, userId: driver.userId });
+      if (result.success) {
+        onClose();
+        // 성공 콜백 호출
+        if (onSuccess) {
+          onSuccess();
+        }
+      } else {
+        alert(result.error || "운전자 정보 수정에 실패했습니다.");
+      }
     } catch {
       alert("운전자 정보 수정에 실패했습니다.");
     }
@@ -28,8 +36,16 @@ const DriverDetailModal = ({ open, driver, onClose }) => {
   const handleDelete = async () => {
     if (window.confirm("정말 삭제하시겠습니까?")) {
       try {
-        await deleteDriver(driver.userId);
-        onClose();
+        const result = await deleteDriver(driver.userId);
+        if (result.success) {
+          onClose();
+          // 성공 콜백 호출
+          if (onSuccess) {
+            onSuccess();
+          }
+        } else {
+          alert(result.error || "운전자 삭제에 실패했습니다.");
+        }
       } catch {
         alert("운전자 삭제에 실패했습니다.");
       }

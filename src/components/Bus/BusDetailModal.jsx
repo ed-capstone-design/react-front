@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { useBus } from "./BusContext";
+import { useBusAPI } from "../../hooks/useBusAPI";
 
-const BusDetailModal = ({ isOpen, onClose, bus, mode = 'view' }) => {
-  const { addBus, updateBus } = useBus();
+const BusDetailModal = ({ isOpen, onClose, bus, mode = 'view', onSuccess }) => {
+  const { addBus, updateBus } = useBusAPI();
   const [formData, setFormData] = useState({
     routeNumber: '',
     routeType: 'CITY',
@@ -69,6 +69,10 @@ const BusDetailModal = ({ isOpen, onClose, bus, mode = 'view' }) => {
 
       if (result.success) {
         onClose();
+        // 성공 콜백 호출
+        if (onSuccess) {
+          onSuccess();
+        }
       }
     } catch (error) {
       console.error('버스 저장 실패:', error);

@@ -1,10 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { useContext } from "react";
-import { DriverContext } from "./DriverContext";
+import { useDriverAPI } from "../../hooks/useDriverAPI";
 import { useToast } from "../Toast/ToastProvider";
-import axios from "axios";
 
-const EditDriverModal = ({ open, onClose, driver }) => {
+const EditDriverModal = ({ open, onClose, driver, onUpdateSuccess }) => {
   const [username, setUsername] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [licenseNumber, setlicenseNumber] = useState("");
@@ -12,24 +10,17 @@ const EditDriverModal = ({ open, onClose, driver }) => {
   const [grade, setGrade] = useState("");
   const [loading, setLoading] = useState(false);
   const toast = useToast();
-  const driverCtx = useContext(DriverContext);
+  const { updateDriver: updateDriverAPI, deleteDriver: deleteDriverAPI } = useDriverAPI();
+  
   useEffect(() => {
     if (driver) {
       setUsername(driver.username || "");
       setPhoneNumber(driver.phoneNumber || "");
       setlicenseNumber(driver.licenseNumber || "");
       setOperatorName(driver.operatorName || "");
+      setGrade(driver.grade || "");
     }
   }, [driver]);
-  if (!driverCtx || typeof driverCtx.updateDriver !== "function") {
-    return (
-      <div className="p-8 bg-white rounded-lg shadow-lg text-red-500 text-center">
-        DriverProvider로 감싸지 않았거나 DriverContext가 올바르지 않습니다.<br />
-        관리자에게 문의하세요.
-      </div>
-    );
-  }
-  const { updateDriver } = driverCtx;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -45,14 +36,26 @@ const EditDriverModal = ({ open, onClose, driver }) => {
         phoneNumber,
         licenseNumber,
         operatorName: operatorName ? parseInt(operatorName) : undefined,
+        grade
       };
-      await updateDriver(updatedDriver);
-      onClose();
-      toast.success("운전자 정보가 수정되었습니다!");
-      setUsername("");
-      setPhoneNumber("");
-      setlicenseNumber("");
-      setOperatorName("");
+      
+      const result = await updateDriverAPI(updatedDriver);
+      
+      if (result.success) {
+        onClose();
+        toast.success("운전자 정보가 수정되었습니다!");
+        setUsername("");
+        setPhoneNumber("");
+        setlicenseNumber("");
+        setOperatorName("");
+        setGrade("");
+        // 부모 컴포넌트에 업데이트 성공 알림
+        if (onUpdateSuccess) {
+          onUpdateSuccess();
+        }
+      } else {
+        toast.error(result.error || "운전자 정보 수정에 실패했습니다.");
+      }
     } catch (error) {
       toast.error("운전자 수정에 실패했습니다.");
     } finally {
@@ -65,9 +68,18 @@ const EditDriverModal = ({ open, onClose, driver }) => {
     if (!window.confirm("정말 삭제하시겠습니까?")) return;
     setLoading(true);
     try {
-      await axios.delete(`/api/drivers/${driver.userId}`);
-      toast.success("운전자가 삭제되었습니다.");
-      onClose();
+      const result = await deleteDriverAPI(driver.userId);
+      
+      if (result.success) {
+        toast.success("운전자가 삭제되었습니다.");
+        onClose();
+        // 부모 컴포넌트에 업데이트 성공 알림
+        if (onUpdateSuccess) {
+          onUpdateSuccess();
+        }
+      } else {
+        toast.error(result.error || "운전자 삭제에 실패했습니다.");
+      }
     } catch (error) {
       toast.error("운전자 삭제에 실패했습니다.");
     } finally {

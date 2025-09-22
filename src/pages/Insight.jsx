@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import KakaoMap from "../components/Map/Map";
 import DriverListPanel from "../components/Driver/DriverListPanel";
-import { DriverProvider } from "../components/Driver/DriverContext";
 import { useNotificationCount } from "../components/Notification/NotificationCountProvider";
 import axios from "axios";
 import {
@@ -234,9 +233,7 @@ const Insight = ({ onDriverClick }) => {
               <IoPersonOutline />
               운전자 목록
             </h3>
-            <DriverProvider>
-              <DriverListPanel onDriverClick={onDriverClick} />
-            </DriverProvider>
+            <DriverListPanel onDriverClick={onDriverClick} />
           </div>
         </div>
 

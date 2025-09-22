@@ -1,14 +1,44 @@
-import React from "react";
-import { useBus } from "../Bus/BusContext";
+import React, { useState, useEffect } from "react";
+import { useBusAPI } from "../../hooks/useBusAPI";
 
-const BusSelector = ({ value, onChange, required = false }) => {
-  const { buses, loading } = useBus();
+const BusSelector = ({ value, onChange, required = false, selectedDate, selectedTime }) => {
+  const { fetchAvailableBuses } = useBusAPI();
+  const [buses, setBuses] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  // 날짜/시간이 선택되었을 때 가용 버스 조회
+  useEffect(() => {
+    if (selectedDate && selectedTime) {
+      loadAvailableBuses();
+    } else {
+      setBuses([]);
+    }
+  }, [selectedDate, selectedTime]);
+
+  const loadAvailableBuses = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const availableBuses = await fetchAvailableBuses(selectedDate, selectedTime);
+      setBuses(availableBuses);
+    } catch (err) {
+      setError("가용 버스 조회에 실패했습니다.");
+      setBuses([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="mb-4">
       <label className="block mb-1 font-semibold">버스</label>
-      {loading ? (
-        <div className="text-gray-400 text-sm py-2">버스 목록 로딩 중...</div>
+      {!selectedDate || !selectedTime ? (
+        <div className="text-gray-400 text-sm py-2">날짜와 시간을 먼저 선택하세요</div>
+      ) : loading ? (
+        <div className="text-gray-400 text-sm py-2">가용 버스 조회 중...</div>
+      ) : error ? (
+        <div className="text-red-500 text-sm py-2">{error}</div>
       ) : (
         <select
           className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
