@@ -28,13 +28,34 @@ const MyPage = () => {
     const fetchUserInfo = async () => {
       // 새로운 사용자 정보 우선, 없으면 토큰에서 추출
       const savedUserInfo = getUserInfo() || getUserInfoFromToken();
+      const token = getToken();
+      
+      console.log("🔍 MyPage 디버깅 정보:");
+      console.log("- savedUserInfo:", savedUserInfo);
+      console.log("- token 존재:", !!token);
+      console.log("- token 앞 10자:", token ? token.substring(0, 10) + "..." : "없음");
+      
+      if (!token) {
+        console.error("❌ 토큰이 없습니다. 로그인 페이지로 이동합니다.");
+        navigate("/signin");
+        return;
+      }
+      
       if (savedUserInfo && savedUserInfo.email) {
         try {
           setLoading(true);
           setError("");
-          const res = await axios.get(`/api/user/me`, {
-            headers: { Authorization: `Bearer ${getToken()}` }
+          
+          console.log("📡 API 요청 전송:");
+          console.log("- URL: /api/users/me");  // 복수형으로 수정
+          console.log("- Headers:", { Authorization: `Bearer ${token.substring(0, 10)}...` });
+          
+          const res = await axios.get(`/api/users/me`, {  // 복수형으로 수정
+            headers: { Authorization: `Bearer ${token}` }
           });
+          
+          console.log("✅ API 응답 성공:", res.data);
+          
           const { username, email, phoneNumber } = res.data;
           setLocalUserInfo(prev => ({
             ...prev,
@@ -43,6 +64,17 @@ const MyPage = () => {
             phoneNumber: phoneNumber || "",
           }));
         } catch (err) {
+          console.error("❌ API 요청 실패:", err);
+          console.error("- 상태 코드:", err.response?.status);
+          console.error("- 응답 메시지:", err.response?.data);
+          
+          if (err.response?.status === 401) {
+            console.error("🚨 인증 실패 - 토큰이 유효하지 않습니다. 로그아웃 처리합니다.");
+            logout();
+            navigate("/signin");
+            return;
+          }
+          
           setError("사용자 정보를 불러오지 못했습니다.");
         } finally {
           setLoading(false);
@@ -137,7 +169,7 @@ const MyPage = () => {
       });
 
       alert("회원 탈퇴가 완료되었습니다.");
-      logout(); // 토큰과 사용자 정보 모두 삭제
+      logout(); // 토큰과 사용자 정보 모두 제거
       navigate("/signin");
     } catch (error) {
       if (error.response) {

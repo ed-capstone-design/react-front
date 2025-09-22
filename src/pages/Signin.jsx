@@ -38,32 +38,41 @@ const Signin = () => {
     setLoading(true);
     
     try {
+      console.log("🔐 로그인 요청 전송:", { email });
       const response = await axios.post("/api/auth/login", {
         email: email,
         password: password
       });
       
-      // 서버 응답이 예상된 형태인지 확인
+      console.log("🔐 백엔드 응답:", response.data);
+      
+      // 백엔드 JwtResponseDto 구조에 맞춘 응답 처리
+      // JwtResponseDto: { token, userId, email, username, roles }
+      let loginData;
+      
       if (response.data.success && response.data.data) {
-        // 로그인 함수를 사용하여 토큰과 사용자 정보 저장
-        const userInfo = login(response.data.data);
-        
-        toast.success(`${userInfo.username}님, 로그인되었습니다!`);
-        navigate("/dashboard");
+        // API 응답이 { success: true, data: JwtResponseDto } 형태인 경우
+        loginData = response.data.data;
+        console.log("✅ API 응답 형태 - data 필드에서 추출:", loginData);
+      } else if (response.data.token) {
+        // 직접 JwtResponseDto가 응답인 경우
+        loginData = response.data;
+        console.log("✅ 직접 JwtResponseDto 형태:", loginData);
       } else {
-        // 이전 형태의 응답 처리 (호환성)
-        const loginData = {
-          token: response.data.token,
-          userId: response.data.userId || null,
-          email: response.data.email || email,
-          username: response.data.username || "사용자",
-          roles: response.data.roles || ["ROLE_USER"]
-        };
-        
-        const userInfo = login(loginData);
-        toast.success(`${userInfo.username}님, 로그인되었습니다!`);
-        navigate("/dashboard");
+        throw new Error("예상하지 못한 응답 형태입니다.");
       }
+      
+      // 백엔드 JwtResponseDto 필드 검증
+      if (!loginData.token || !loginData.userId || !loginData.email || !loginData.username) {
+        console.error("❌ 필수 필드 누락:", loginData);
+        throw new Error("로그인 응답에 필수 정보가 누락되었습니다.");
+      }
+      
+      // TokenProvider의 login 함수 호출
+      const userInfo = login(loginData);
+      
+      toast.success(`${userInfo.username}님, 로그인되었습니다!`);
+      navigate("/dashboard");
     } catch (error) {
       if (error.response) {
         setError(error.response.data.message || "로그인에 실패했습니다.");
