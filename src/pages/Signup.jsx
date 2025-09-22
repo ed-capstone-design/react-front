@@ -6,7 +6,7 @@ import axios from "axios";
 axios.defaults.baseURL = "http://localhost:8080";
 
 const Signup = () => {
-  const [role, setRole] = useState("admin"); // admin 또는 driver
+  const [role, setRole] = useState("ADMIN"); // admin 또는 driver
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -47,14 +47,14 @@ const Signup = () => {
     setLoading(true);
     try {
         await axios.post("/api/auth/signup", {
-          name: username,
+          username: username,
           email: email,
-          phone: phoneNumber,
-          companyCode: operatorCode,
+          phoneNumber: phoneNumber,
+          operatorCode: operatorCode,
           password: password,
           role: role,
-          licenseNumber: role === "driver" ? licenseNumber : undefined,
-          career: role === "driver" ? Number(career) : undefined,
+          licenseNumber: role === "DRIVER" ? licenseNumber : undefined,
+          career: role === "DRIVER" ? Number(career) : undefined,
         });
       
       setSuccess("회원가입이 완료되었습니다! 로그인 페이지로 이동합니다.");
@@ -79,11 +79,11 @@ const Signup = () => {
         {/* 관리자/드라이버 선택 */}
         <div className="mb-6 flex gap-6 justify-center">
           <label className="flex items-center gap-2 text-base font-medium text-gray-700">
-            <input type="radio" value="admin" checked={role === "admin"} onChange={() => setRole("admin")} />
+            <input type="radio" value="admin" checked={role === "ADMIN"} onChange={() => setRole("ADMIN")} />
             <span>관리자</span>
           </label>
           <label className="flex items-center gap-2 text-base font-medium text-gray-700">
-            <input type="radio" value="driver" checked={role === "driver"} onChange={() => setRole("driver")} />
+            <input type="radio" value="driver" checked={role === "DRIVER"} onChange={() => setRole("DRIVER")} />
             <span>운전자</span>
           </label>
         </div>
@@ -115,7 +115,7 @@ const Signup = () => {
               <input type="password" value={confirmpassword} onChange={(e) => setConfirmpassword(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition" required />
             </div>
             {/* 운전자 선택 시 추가 입력 */}
-            {role === "driver" && (
+            {role === "DRIVER" && (
               <>
                 <div className="md:col-span-2 border-t pt-4" />
                 <div>

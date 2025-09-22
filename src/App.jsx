@@ -20,16 +20,16 @@ import './App.css';
 const ProtectedRoute = ({ children }) => {
   const { getToken } = useToken();
   const token = getToken();
-  return children;
-  // return token ? children : <Navigate to="/signin" replace />;
+  // return children;
+  return token ? children : <Navigate to="/signin" replace />;
 };
 
 // 루트 경로 리다이렉트 컴포넌트
 const RootRedirect = () => {
   const { getToken } = useToken();
   const token = getToken();
-  // return <Navigate to={token ? "/dashboard" : "/signin"} replace />;
-    return <Navigate to={token ? "signin" : "/dashboard"} replace />;
+  return <Navigate to={token ? "/dashboard" : "/signin"} replace />;
+    // return <Navigate to={token ? "signin" : "/dashboard"} replace />;
 };
 
 function App() {

@@ -8,14 +8,14 @@ const TopNav = ({ onSidebarOpen, onLogoClick }) => {
   const { unreadCount, wsConnected } = useNotificationCount();
   const navigate = useNavigate();
   const location = useLocation();
-  const { removeToken, getUserInfoFromToken } = useToken();
+  const { logout, getUserInfo, getUserInfoFromToken } = useToken();
   
-  const userInfo = getUserInfoFromToken();
-  const userName = userInfo?.name || "사용자";
+  // 새로운 사용자 정보 우선, 없으면 토큰에서 추출
+  const userInfo = getUserInfo() || getUserInfoFromToken();
+  const userName = userInfo?.username || userInfo?.name || "사용자";
 
   const handleLogout = () => {
-    removeToken(); // 인증 토큰 제거
-    // 필요시 사용자 정보도 추가적으로 제거
+    logout(); // 토큰과 사용자 정보 모두 제거
     navigate('/signin');
   };
 

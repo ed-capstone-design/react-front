@@ -14,16 +14,16 @@ const Signin = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const toast = useToast();
-  const { getToken, setToken } = useToken();
+  const { getToken, login, getUserInfo } = useToken();
 
   // 이미 로그인된 사용자라면 대시보드로 리다이렉트
   useEffect(() => {
-    // 실제 토큰이 있으면 대시보드로 이동
     const token = getToken();
-    if (token) {
+    const userInfo = getUserInfo();
+    if (token && userInfo) {
       navigate("/dashboard");
     }
-  }, [navigate]);
+  }, [navigate, getToken, getUserInfo]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -36,20 +36,34 @@ const Signin = () => {
     
     setError("");
     setLoading(true);
-    // 지금 임시토큰으로 발행하는데 나중에는 토큰 자체만 발행되었을때 토큰을 분해해서 저장하는 방식을 고쳐야됨
-    //TokenProvider에 만들긴 했음
+    
     try {
       const response = await axios.post("/api/auth/login", {
         email: email,
         password: password
       });
       
-      // 토큰만 저장 - 사용자 정보는 토큰에서 추출
-      setToken(response.data.token);
-      axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
-      alert("로그인 성공!");
-      toast.success("로그인되었습니다!");
-      navigate("/dashboard");
+      // 서버 응답이 예상된 형태인지 확인
+      if (response.data.success && response.data.data) {
+        // 로그인 함수를 사용하여 토큰과 사용자 정보 저장
+        const userInfo = login(response.data.data);
+        
+        toast.success(`${userInfo.username}님, 로그인되었습니다!`);
+        navigate("/dashboard");
+      } else {
+        // 이전 형태의 응답 처리 (호환성)
+        const loginData = {
+          token: response.data.token,
+          userId: response.data.userId || null,
+          email: response.data.email || email,
+          username: response.data.username || "사용자",
+          roles: response.data.roles || ["ROLE_USER"]
+        };
+        
+        const userInfo = login(loginData);
+        toast.success(`${userInfo.username}님, 로그인되었습니다!`);
+        navigate("/dashboard");
+      }
     } catch (error) {
       if (error.response) {
         setError(error.response.data.message || "로그인에 실패했습니다.");

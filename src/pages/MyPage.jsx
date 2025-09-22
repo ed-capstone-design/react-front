@@ -10,7 +10,7 @@ import axios from "axios";
 
 const MyPage = () => {
   const navigate = useNavigate();
-  const { getUserInfoFromToken, removeToken, getToken } = useToken();
+  const { getUserInfo, getUserInfoFromToken, logout, getToken } = useToken();
   const toast = useToast();
   
   const [userInfo, setLocalUserInfo] = useState({
@@ -26,7 +26,8 @@ const MyPage = () => {
 
   useEffect(() => {
     const fetchUserInfo = async () => {
-      const savedUserInfo = getUserInfoFromToken();
+      // 새로운 사용자 정보 우선, 없으면 토큰에서 추출
+      const savedUserInfo = getUserInfo() || getUserInfoFromToken();
       if (savedUserInfo && savedUserInfo.email) {
         try {
           setLoading(true);
