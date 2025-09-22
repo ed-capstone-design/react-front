@@ -68,6 +68,13 @@ const MyPage = () => {
           console.error("- 상태 코드:", err.response?.status);
           console.error("- 응답 메시지:", err.response?.data);
           
+          // CORS 에러 또는 네트워크 에러 처리
+          if (err.code === 'ERR_NETWORK' || err.message === 'Network Error') {
+            console.error("🚨 백엔드 서버 연결 실패 - CORS 에러 또는 서버 다운");
+            setError("백엔드 서버에 연결할 수 없습니다. 서버가 실행 중인지 확인해주세요.");
+            return;
+          }
+          
           if (err.response?.status === 401) {
             console.error("🚨 인증 실패 - 토큰이 유효하지 않습니다. 로그아웃 처리합니다.");
             logout();

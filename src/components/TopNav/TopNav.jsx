@@ -5,7 +5,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useToken } from "../Token/TokenProvider";
 
 const TopNav = ({ onSidebarOpen, onLogoClick }) => {
-  const { unreadCount, wsConnected } = useNotificationCount();
+  const { unreadCount } = useNotificationCount(); // wsConnected 제거
   const navigate = useNavigate();
   const location = useLocation();
   const { logout, getUserInfo, getUserInfoFromToken } = useToken();
@@ -45,9 +45,9 @@ const TopNav = ({ onSidebarOpen, onLogoClick }) => {
         {/* 알림(종) 버튼: 인사이트 페이지에서는 숨김 */}
         {location.pathname !== "/insight" && (
           <button 
-            className={`relative ${!wsConnected ? 'opacity-70' : ''}`} 
+            // className={`relative ${!wsConnected ? 'opacity-70' : ''}`} 
             onClick={() => navigate('/insight')}
-            title={wsConnected ? '실시간 알림 연결됨' : '실시간 알림 연결 해제됨'}
+            title="알림" // WebSocket 연결 상태 메시지 제거
           >
             <IoNotificationsOutline className="text-2xl text-gray-700" />
             {unreadCount > 0 && (
@@ -55,10 +55,12 @@ const TopNav = ({ onSidebarOpen, onLogoClick }) => {
                 {unreadCount > 99 ? '99+' : unreadCount}
               </span>
             )}
-            {/* WebSocket 연결 상태 표시 */}
+            {/* WebSocket 연결 상태 표시 - 주석 처리 (백엔드 개발 미완료) */}
+            {/*
             {!wsConnected && (
               <span className="absolute -bottom-1 -right-1 w-2 h-2 bg-orange-500 rounded-full"></span>
             )}
+            */}
           </button>
         )}
         <button 

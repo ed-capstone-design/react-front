@@ -29,13 +29,22 @@ export const NotificationCountProvider = ({ children }) => {
       // 프론트에서 개수 계산
       setUnreadCount(response.data.length || 0);
     } catch (error) {
-      console.log("읽지 않은 알림 조회 실패, 기본값 0으로 설정");
+      console.log("읽지 않은 알림 조회 실패:", error.message);
+      
+      // CORS 에러 또는 네트워크 에러 처리
+      if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
+        console.log("🚨 백엔드 서버 연결 실패 - 알림 기능 비활성화");
+      }
+      
+      console.log("기본값 0으로 설정");
       setUnreadCount(0);
     }
   };
 
-  // WebSocket 연결
+  // WebSocket 연결 (주석 처리 - 아직 백엔드 개발 미완료)
   const connectWebSocket = () => {
+    // TODO: 백엔드 WebSocket 엔드포인트 완성 후 주석 해제
+    /*
     try {
       const ws = new WebSocket('ws://localhost:8080/notifications');
       
@@ -99,6 +108,8 @@ export const NotificationCountProvider = ({ children }) => {
     } catch (error) {
       console.error('WebSocket 연결 실패:', error);
     }
+    */
+    console.log('WebSocket 연결 건너뜀 (백엔드 개발 미완료)');
   };
 
   // 초기화
@@ -106,8 +117,8 @@ export const NotificationCountProvider = ({ children }) => {
     // 초기 읽지 않은 알림 수 로드
     fetchUnreadCount();
     
-    // WebSocket 연결
-    connectWebSocket();
+    // WebSocket 연결 (주석 처리 - 백엔드 개발 미완료)
+    // connectWebSocket();
     
     // 정리 함수
     return () => {

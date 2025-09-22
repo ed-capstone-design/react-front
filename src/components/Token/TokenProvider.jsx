@@ -190,29 +190,30 @@ export const TokenProvider = ({ children }) => {
     try {
       const payload = parseJwt(token);
       if (!payload) return null;
+      
+      console.log("🔍 JWT 페이로드 내용:", payload);
+      
       // JWT 표준 클레임 검증
       const currentTime = Math.floor(Date.now() / 1000);
       if (payload.exp && payload.exp < currentTime) {
         console.warn("토큰이 만료되었습니다.");
         return null;
       }
-      if (payload.aud && payload.aud !== "driving-app") {
-        console.warn("토큰 대상자가 일치하지 않습니다.");
-        return null;
-      }
+      
+      // 백엔드 JWT 토큰 구조에 맞춘 사용자 정보 추출
+      // JwtResponseDto: { token, userId, email, username, roles }
+      // JWT 페이로드에는 보통 sub(subject), email, username 등이 포함됨
       return {
-        userId: payload.userId || payload.sub,
-        username: payload.username || payload.sub,
-        name: payload.name || payload.displayName || "사용자",
-        email: payload.email || "",
-        role: payload.role || "user",
-        sub: payload.sub,//누구냐->userId,,role operator
-        aud: payload.aud,//어디서 사용하느냐 
-        iat: payload.iat,//접속시간
-        exp: payload.exp,//유효시간
-        operatorId: payload.operatorId || "UNKNOWN",
-        authorities: payload.authorities || [],
-        driverLicense: payload.driverLicense || null,
+        userId: payload.userId || payload.sub, // 사용자 ID (주로 sub 클레임)
+        username: payload.username || payload.preferred_username || payload.sub, // 사용자명
+        email: payload.email || "", // 이메일
+        roles: payload.roles || payload.authorities || payload.scope?.split(' ') || [], // 권한/역할
+        // JWT 표준 클레임들
+        sub: payload.sub, // Subject (사용자 식별자)
+        aud: payload.aud, // Audience (토큰 대상)
+        iat: payload.iat, // Issued At (발급 시간)
+        exp: payload.exp, // Expiration Time (만료 시간)
+        iss: payload.iss, // Issuer (발급자)
       };
     } catch (error) {
       console.error("토큰 파싱 실패:", error);
@@ -237,6 +238,7 @@ export const TokenProvider = ({ children }) => {
       console.log("- 토큰 만료 시간:", payload.exp);
       console.log("- 토큰 발급 시간:", payload.iat);
       console.log("- 토큰 대상자:", payload.aud);
+      console.log("- 토큰 발급자:", payload.iss);
       
       // 만료 시간 확인
       if (payload.exp && payload.exp < currentTime) {
@@ -244,11 +246,12 @@ export const TokenProvider = ({ children }) => {
         return false;
       }
       
-      // 대상자 확인 (선택적)
-      if (payload.aud && payload.aud !== "driving-app") {
-        console.log("❌ 토큰 대상자 불일치");
-        return false;
-      }
+      // 대상자 확인 (백엔드에서 설정한 값에 따라 조정 필요)
+      // 임시로 주석 처리하여 백엔드 토큰 구조 확인
+      // if (payload.aud && payload.aud !== "driving-app") {
+      //   console.log("❌ 토큰 대상자 불일치");
+      //   return false;
+      // }
       
       // 발급 시간 확인 (미래 토큰 방지)
       if (payload.iat && payload.iat > currentTime + 300) {
