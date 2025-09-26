@@ -15,7 +15,7 @@ const PasswordChangeForm = ({ userInfo, onChange }) => {
           <input
             type="password"
             name="currentPassword"
-            value={userInfo.currentPassword}
+            value={userInfo?.currentPassword || ""}
             onChange={onChange}
             className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
           />
@@ -30,7 +30,7 @@ const PasswordChangeForm = ({ userInfo, onChange }) => {
             <input
               type="password"
               name="newPassword"
-              value={userInfo.newPassword}
+              value={userInfo?.newPassword || ""}
               onChange={onChange}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
             />
@@ -44,7 +44,7 @@ const PasswordChangeForm = ({ userInfo, onChange }) => {
             <input
               type="password"
               name="confirmPassword"
-              value={userInfo.confirmPassword}
+              value={userInfo?.confirmPassword || ""}
               onChange={onChange}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
             />

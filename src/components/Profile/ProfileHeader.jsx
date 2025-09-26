@@ -20,7 +20,7 @@ const ProfileHeader = ({ onBack, userInfo }) => {
       <div className="flex items-center gap-4 mb-8">
         <IoPersonCircle className="text-6xl text-blue-600" />
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">{userInfo.name || "사용자"}</h2>
+          <h2 className="text-2xl font-bold text-gray-900">{userInfo.username || "사용자"}</h2>
           <p className="text-gray-600">{userInfo.email|| "User@email.com"}</p>
         </div>
       </div>

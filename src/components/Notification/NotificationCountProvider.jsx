@@ -22,7 +22,8 @@ export const NotificationCountProvider = ({ children }) => {
   const reconnectAttempts = useRef(0);
   const maxReconnectAttempts = 5;
 
-  // 읽지 않은 알림 목록을 가져와서 개수 계산
+  // 읽지 않은 알림 목록을 가져와서 개수 계산 - 주석처리 (백엔드 미구현)
+  /*
   const fetchUnreadCount = async () => {
     try {
       const response = await axios.get("/api/notifications/me/unread");
@@ -40,6 +41,7 @@ export const NotificationCountProvider = ({ children }) => {
       setUnreadCount(0);
     }
   };
+  */
 
   // WebSocket 연결 (주석 처리 - 아직 백엔드 개발 미완료)
   const connectWebSocket = () => {
@@ -114,8 +116,11 @@ export const NotificationCountProvider = ({ children }) => {
 
   // 초기화
   useEffect(() => {
-    // 초기 읽지 않은 알림 수 로드
-    fetchUnreadCount();
+    // 초기 읽지 않은 알림 수 로드 - 주석처리 (백엔드 미구현)
+    // fetchUnreadCount();
+    
+    // 임시로 기본값 0 설정
+    setUnreadCount(0);
     
     // WebSocket 연결 (주석 처리 - 백엔드 개발 미완료)
     // connectWebSocket();
@@ -133,20 +138,20 @@ export const NotificationCountProvider = ({ children }) => {
 
   // 알림 읽음 처리
   const markAsRead = async (dispatchId) => {
-    try {
-      await axios.put(`/api/notifications/me/${dispatchId}`);
-      setUnreadCount(prev => Math.max(0, prev - 1));
-    } catch (error) {
-      console.error('알림 읽음 처리 실패:', error);
-      // WebSocket으로 받은 업데이트가 있을 수 있으니 전체 카운트 재조회
-      fetchUnreadCount();
-    }
+    // try {
+    //   await axios.put(`/api/notifications/me/${dispatchId}`);
+    //   setUnreadCount(prev => Math.max(0, prev - 1));
+    // } catch (error) {
+    //   console.error('알림 읽음 처리 실패:', error);
+    //   // WebSocket으로 받은 업데이트가 있을 수 있으니 전체 카운트 재조회
+    //   fetchUnreadCount();
+    // }
   };
 
 
   // 수동 새로고침
   const refreshCount = () => {
-    fetchUnreadCount();
+    // fetchUnreadCount();
   };
 
   const value = {

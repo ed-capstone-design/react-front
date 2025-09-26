@@ -47,16 +47,16 @@ const MyPage = () => {
           setError("");
           
           console.log("📡 API 요청 전송:");
-          console.log("- URL: /api/users/me");  // 복수형으로 수정
+          console.log("- URL: /api/users/me");
           console.log("- Headers:", { Authorization: `Bearer ${token.substring(0, 10)}...` });
           
-          const res = await axios.get(`/api/users/me`, {  // 복수형으로 수정
+          const res = await axios.get(`/api/users/me`, {
             headers: { Authorization: `Bearer ${token}` }
           });
           
           console.log("✅ API 응답 성공:", res.data);
           
-          const { username, email, phoneNumber } = res.data;
+          const { username, email, phoneNumber } = res.data.data;
           setLocalUserInfo(prev => ({
             ...prev,
             username: username || "",
@@ -91,17 +91,13 @@ const MyPage = () => {
     fetchUserInfo();
   }, []);
 
-  // [예시] 토큰이 없거나 만료된 경우 로그인 페이지로 이동 (아직 반영하지 않음)
-  /*
-  useEffect(() => {
-    const token = getToken();
-    if (!token) {
-      navigate("/signin");
-    }
-    // 만약 토큰 만료 체크가 필요하다면, 만료 여부 확인 후 navigate("/signin")
-  }, [getToken, navigate]);
-  */
-
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setLocalUserInfo(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
 
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
@@ -123,12 +119,12 @@ const MyPage = () => {
         newPassword: userInfo.newPassword
       };
       const token = getToken();
-      const res = await axios.put("/api/users/me", updateData, {
+      const res = await axios.post("/api/users/me/password", updateData, {
         headers: { Authorization: `Bearer ${token}` }
       });
       // 서버에서 최신 사용자 정보를 반환하면 userInfo 상태를 갱신
-      if (res.data) {
-        const { username, email, phoneNumber } = res.data;
+      if (res.data?.data) {
+        const { username, email, phoneNumber } = res.data.data;
         setLocalUserInfo(prev => ({
           ...prev,
           username: username || prev.username,
@@ -200,8 +196,8 @@ const MyPage = () => {
 
         <div className="bg-white rounded-2xl shadow-lg p-8 mb-6">
           <form onSubmit={handleUpdateProfile} className="space-y-6">
-            <BasicInfoForm userInfo={userInfo} />
-            <PasswordChangeForm userInfo={userInfo} />
+            <BasicInfoForm userInfo={userInfo} onChange={handleInputChange} />
+            <PasswordChangeForm userInfo={userInfo} onChange={handleInputChange} />
             {error && (
               <div className="text-red-500 text-sm p-4 bg-red-50 border border-red-200 rounded-lg">{error}</div>
             )}

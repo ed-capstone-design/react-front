@@ -2,7 +2,8 @@ import React, { useState, useEffect } from "react";
 import { IoCarSportOutline, IoPeopleOutline, IoStatsChartOutline, IoNotificationsOutline } from "react-icons/io5";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import { useNotificationCount } from "../components/Notification/NotificationCountProvider";
+import Layout from "../components/Layout/Layout";
+// import { useNotificationCount } from "../components/Notification/NotificationCountProvider";
 import { useScheduleAPI } from "../hooks/useScheduleAPI";
 import RunningDrivers from "../components/Dashboard/RunningDrivers";
 import TodayScheduleList from "../components/Dashboard/TodayScheduleList";
@@ -11,8 +12,8 @@ import TodayScheduleList from "../components/Dashboard/TodayScheduleList";
 axios.defaults.baseURL = "http://localhost:8080";
 
 const DashboardContent = () => {
-  const { unreadCount } = useNotificationCount();
-  const { fetchSchedulesByDate } = useScheduleAPI();
+  // const { unreadCount } = useNotificationCount(); // 백엔드 미구현으로 주석처리
+  const { fetchSchedulesByPeriod } = useScheduleAPI();
   const navigate = useNavigate();
   const [stats, setStats] = useState([
     { icon: <IoCarSportOutline className="text-blue-500 text-3xl" />, label: "오늘 스케줄", value: "로딩중..." },
@@ -20,18 +21,19 @@ const DashboardContent = () => {
     { icon: <IoStatsChartOutline className="text-purple-500 text-3xl" />, label: "완료 운행", value: "로딩중..." },
   ]);
   const [recentDrives, setRecentDrives] = useState([]);
-  const [recentNotifications, setRecentNotifications] = useState([]);
+  // const [recentNotifications, setRecentNotifications] = useState([]); // 백엔드 미구현
   const [loading, setLoading] = useState(true);
-  const [notificationLoading, setNotificationLoading] = useState(true);
+  // const [notificationLoading, setNotificationLoading] = useState(true); // 백엔드 미구현
 
   // 통계 데이터 불러오기
   useEffect(() => {
     fetchDashboardStats();
     fetchRecentDrives();
-    fetchRecentNotifications();
+    // fetchRecentNotifications(); // 백엔드 미구현으로 주석처리
   }, []);
 
-  // unreadCount 변경 시 stats 업데이트
+  // unreadCount 변경 시 stats 업데이트 - 백엔드 미구현으로 주석처리
+  /*
   useEffect(() => {
     setStats(prev => prev.map(stat => 
       stat.label === "미읽은 알림" 
@@ -39,7 +41,10 @@ const DashboardContent = () => {
         : stat
     ));
   }, [unreadCount]);
+  */
 
+  // 백엔드 미구현으로 전체 주석처리
+  /*
   const fetchRecentNotifications = async () => {
     setNotificationLoading(true);
     try {
@@ -69,8 +74,10 @@ const DashboardContent = () => {
       setNotificationLoading(false);
     }
   };
+  */
 
-  // warningType별 라벨 반환
+  // warningType별 라벨 반환 - 백엔드 미구현으로 주석처리
+  /*
   const getWarningTypeLabel = (warningType) => {
     switch (warningType) {
       case "Acceleration": return "급과속";
@@ -79,17 +86,18 @@ const DashboardContent = () => {
       case "Abnormal": return "이상감지";
     }
   };
+  */
 
   const fetchDashboardStats = async () => {
     try {
       // 1. 오늘 스케줄 조회 (최적화)
       const today = new Date().toISOString().split('T')[0];
-      const todaySchedules = await fetchSchedulesByDate(today);
+      const todaySchedules = await fetchSchedulesByPeriod(today, today);
       const completedToday = todaySchedules.filter(d => d.status === "COMPLETED").length;
 
       // 2. 운전자 수 (driver 테이블에서)
-      const driversResponse = await axios.get("/api/drivers");
-      const totalDrivers = driversResponse.data.length;
+      const driversResponse = await axios.get("/api/admin/drivers");
+      const totalDrivers = driversResponse.data?.data?.length || driversResponse.data?.length || 0;
 
       setStats([
         { icon: <IoCarSportOutline className="text-blue-500 text-3xl" />, label: "오늘 스케줄", value: `${todaySchedules.length}건` },
@@ -112,7 +120,7 @@ const DashboardContent = () => {
     try {
       // 오늘 스케줄만 가져와서 최근 운행으로 표시
       const today = new Date().toISOString().split('T')[0];
-      const todaySchedules = await fetchSchedulesByDate(today);
+      const todaySchedules = await fetchSchedulesByPeriod(today, today);
       const recent = todaySchedules
         .filter(d => d.status === "COMPLETED" || d.status === "SCHEDULED")
         .slice(0, 2); // 최근 2개만
@@ -126,7 +134,8 @@ const DashboardContent = () => {
     }
   };
   
-  // 알림 카드 클릭 핸들러
+  // 알림 카드 클릭 핸들러 - 백엔드 미구현으로 주석처리
+  /*
   const handleNotificationCardClick = () => {
     navigate('/insight');
   };
@@ -142,12 +151,13 @@ const DashboardContent = () => {
 
   // 읽지 않은 오늘 알림 (모든 알림이 읽지 않은 알림이므로 그대로 사용)
   const todayUnreadNotis = todayNotis;
+  */
 
   return (
     <div className="max-w-6xl mx-auto py-12 px-4">
       <h2 className="text-3xl font-bold mb-10 text-gray-900 tracking-tight">대시보드</h2>
-      {/* 상단 통계 + 알림 카드 4개 그리드 */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
+      {/* 상단 통계 3개 그리드 (알림 카드 제거) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
         {stats.map((item, idx) => (
           <div
             key={idx}
@@ -158,7 +168,8 @@ const DashboardContent = () => {
             <div className="text-2xl font-extrabold text-gray-900">{item.value}</div>
           </div>
         ))}
-        {/* 알림 카드 */}
+        {/* 알림 카드 - 백엔드 미구현으로 주석처리 */}
+        {/*
         <div
           className="bg-white border border-blue-100 rounded-xl p-8 flex flex-col items-center gap-3 shadow-sm hover:shadow-md transition cursor-pointer relative"
           onClick={handleNotificationCardClick}
@@ -196,6 +207,7 @@ const DashboardContent = () => {
             )}
           </div>
         </div>
+        */}
       </div>
 
       {/* 추가컨텐츠: 운행중인 운전자 리스트, 당일 배차목록 */}
@@ -215,9 +227,8 @@ const DashboardContent = () => {
   );
 }
 
-
 const Dashboard = () => (
-  <DashboardContent />
+    <DashboardContent />
 );
 
 export default Dashboard;

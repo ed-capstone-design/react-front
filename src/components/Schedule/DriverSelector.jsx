@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { useDriverAPI } from "../../hooks/useDriverAPI";
+import { useScheduleAPI } from "../../hooks/useScheduleAPI";
 
 const DriverSelector = ({ value, onChange, required = false, selectedDate, selectedTime }) => {
-  const { fetchAvailableDrivers } = useDriverAPI();
+  const { fetchAvailableDrivers } = useScheduleAPI();
   const [drivers, setDrivers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -20,7 +20,11 @@ const DriverSelector = ({ value, onChange, required = false, selectedDate, selec
     setLoading(true);
     setError(null);
     try {
-      const availableDrivers = await fetchAvailableDrivers(selectedDate, selectedTime);
+      // selectedDate와 selectedTime을 startTime, endTime 형식으로 변환
+      const startTime = `${selectedDate}T${selectedTime}:00`;
+      const endTime = `${selectedDate}T${selectedTime}:00`; // 임시로 같은 시간 사용
+      
+      const availableDrivers = await fetchAvailableDrivers(startTime, endTime);
       setDrivers(availableDrivers);
     } catch (err) {
       setError("가용 운전자 조회에 실패했습니다.");

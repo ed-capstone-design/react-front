@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { useToast } from "../components/Toast/ToastProvider";
 import { useToken } from "../components/Token/TokenProvider";
@@ -8,7 +8,10 @@ import { useToken } from "../components/Token/TokenProvider";
 axios.defaults.baseURL = "http://localhost:8080";
 
 const Auth = () => {
-  const [isSignUp, setIsSignUp] = useState(false);
+  const location = useLocation();
+  // 기본 모드: /signup 경로에서는 회원가입 패널을 기본으로, 그 외는 로그인
+  const initialIsSignUp = location.pathname.toLowerCase().includes('/signup');
+  const [isSignUp, setIsSignUp] = useState(initialIsSignUp);
   
   // 로그인 상태
   const [loginData, setLoginData] = useState({
@@ -45,6 +48,12 @@ const Auth = () => {
       navigate("/dashboard");
     }
   }, [navigate, getToken, getUserInfo]);
+
+  // 경로 변화 시 패널 동기화 (/signin <-> /signup 이동해도 UI가 맞도록)
+  useEffect(() => {
+    const shouldSignUp = location.pathname.toLowerCase().includes('/signup');
+    setIsSignUp(shouldSignUp);
+  }, [location.pathname]);
 
   // 패널 전환 함수
   const togglePanel = () => {
@@ -164,9 +173,9 @@ const Auth = () => {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-5">
       <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-4xl min-h-[650px] max-h-[85vh] overflow-hidden">
         
-        {/* 회원가입 폼 */}
-        <div className={`absolute top-0 left-0 w-1/2 h-full transition-all duration-500 ease-in-out overflow-y-auto bg-white ${
-          isSignUp ? 'translate-x-full opacity-100 z-10' : 'opacity-0 z-0'
+        {/* 회원가입 폼 (오른쪽 고정) */}
+        <div className={`absolute top-0 left-1/2 w-1/2 h-full transition-all duration-300 ease-in-out overflow-y-auto bg-white ${
+          isSignUp ? 'opacity-100 z-20' : 'opacity-0 z-0 pointer-events-none'
         }`}>
           <form onSubmit={handleSignUp} className="flex flex-col items-center justify-start p-8 h-full">
             <div className="mb-8">
@@ -298,9 +307,9 @@ const Auth = () => {
           </form>
         </div>
 
-        {/* 로그인 폼 */}
-        <div className={`absolute top-0 left-0 w-1/2 h-full transition-all duration-500 ease-in-out bg-white z-20 ${
-          isSignUp ? 'translate-x-full' : 'translate-x-0'
+        {/* 로그인 폼 (왼쪽 고정) */}
+        <div className={`absolute top-0 left-0 w-1/2 h-full transition-all duration-300 ease-in-out bg-white ${
+          isSignUp ? 'opacity-0 z-0 pointer-events-none' : 'opacity-100 z-20'
         }`}>
           <form onSubmit={handleSignIn} className="flex flex-col items-center justify-center p-8 h-full">
             <div className="mb-8">
@@ -354,8 +363,8 @@ const Auth = () => {
           </form>
         </div>
 
-        {/* 오버레이 패널 */}
-        <div className={`absolute top-0 left-1/2 w-1/2 h-full overflow-hidden transition-transform duration-500 ease-in-out z-50 hidden md:block ${
+        {/* 오버레이 패널 (패널 위를 덮지 않도록 z-index 낮춤) */}
+        <div className={`absolute top-0 left-1/2 w-1/2 h-full overflow-hidden transition-transform duration-500 ease-in-out z-0 hidden md:block ${
           isSignUp ? '-translate-x-full' : 'translate-x-0'
         }`}>
           <div className={`relative left-[-100%] h-full w-[200%] bg-gradient-to-br from-blue-50 to-sky-100 text-blue-800 transition-transform duration-500 ease-in-out ${

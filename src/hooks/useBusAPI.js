@@ -8,6 +8,7 @@ axios.defaults.baseURL = "http://localhost:8080";
 /**
  * 버스 관련 API를 관리하는 커스텀 훅
  * BusContext를 대체하여 페이지별 독립적인 데이터 관리를 제공
+ * 백엔드 BusController의 /api/admin/buses 엔드포인트와 연동
  */
 export const useBusAPI = () => {
   const [buses, setBuses] = useState([]);
@@ -18,23 +19,6 @@ export const useBusAPI = () => {
   // 타임아웃 설정 (5초)
   const TIMEOUT = 5000;
 
-  // 기본 fallback 데이터
-  const fallbackBuses = [
-    {
-      busId: 1,
-      routeNumber: "101",
-      routeType: "CITY",
-      capacity: 45,
-      vehicleNumber: "서울70가1234",
-      vehicleType: "STANDARD",
-      vehicleYear: 2020,
-      lastMaintenance: "2024-01-15",
-      repairCount: 3,
-      operatorId: 1,
-      fuelType: "DIESEL"
-    }
-  ];
-
   /**
    * 버스 목록 조회
    */
@@ -43,22 +27,42 @@ export const useBusAPI = () => {
     setError(null);
 
     try {
+      console.log('🚌 [useBusAPI] 버스 목록 조회 시작');
       const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error('API 호출 시간 초과')), TIMEOUT)
       );
 
-      const apiPromise = axios.get("/api/buses", {
-        headers: { Authorization: `Bearer ${getToken()}` }
+      const token = getToken();
+      if (!token) {
+        throw new Error('인증 토큰이 없습니다. 다시 로그인해주세요.');
+      }
+
+      const apiPromise = axios.get("/api/admin/buses", {
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
       });
 
       const response = await Promise.race([apiPromise, timeoutPromise]);
-      setBuses(response.data);
-      return response.data;
+      console.log('🚌 [useBusAPI] 서버 응답:', response.data);
+      
+      // 백엔드 ApiResponse 구조에 맞춰 데이터 추출
+      const busData = response.data?.data || [];
+      setBuses(busData);
+      console.log('🚌 [useBusAPI] 버스 목록 설정 완료:', busData);
+      return busData;
     } catch (err) {
-      console.log("버스 목록 조회 실패, 예시 데이터 사용");
-      setError(err.message);
-      setBuses(fallbackBuses);
-      return fallbackBuses;
+      console.error('❌ [useBusAPI] 버스 목록 조회 실패:', err);
+      if (err.response?.status === 401) {
+        setError('인증이 필요합니다. 다시 로그인해주세요.');
+      } else if (err.response?.status === 403) {
+        setError('관리자 권한이 필요합니다.');
+      } else {
+        setError(err.response?.data?.message || err.message || '버스 목록 조회에 실패했습니다.');
+      }
+      setBuses([]);
+      return [];
     } finally {
       setLoading(false);
     }
@@ -72,21 +76,40 @@ export const useBusAPI = () => {
     setError(null);
 
     try {
+      console.log(`🚌 [useBusAPI] 버스 ${busId} 상세 정보 조회 시작`);
       const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error('API 호출 시간 초과')), TIMEOUT)
       );
 
-      const apiPromise = axios.get(`/api/buses/${busId}`, {
-        headers: { Authorization: `Bearer ${getToken()}` }
+      const token = getToken();
+      if (!token) {
+        throw new Error('인증 토큰이 없습니다. 다시 로그인해주세요.');
+      }
+
+      const apiPromise = axios.get(`/api/admin/buses/${busId}`, {
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
       });
 
       const response = await Promise.race([apiPromise, timeoutPromise]);
-      return response.data;
+      console.log(`🚌 [useBusAPI] 버스 ${busId} 상세 정보 응답:`, response.data);
+      
+      // 백엔드 ApiResponse 구조에 맞춰 데이터 추출
+      return response.data?.data || null;
     } catch (err) {
-      console.log(`버스 ${busId} 상세 정보 조회 실패`);
-      setError(err.message);
-      // fallback 데이터에서 해당 버스 찾기
-      return fallbackBuses.find(bus => bus.busId === parseInt(busId)) || fallbackBuses[0];
+      console.error(`❌ [useBusAPI] 버스 ${busId} 상세 정보 조회 실패:`, err);
+      if (err.response?.status === 401) {
+        setError('인증이 필요합니다. 다시 로그인해주세요.');
+      } else if (err.response?.status === 403) {
+        setError('관리자 권한이 필요합니다.');
+      } else if (err.response?.status === 404) {
+        setError('해당 버스를 찾을 수 없습니다.');
+      } else {
+        setError(err.response?.data?.message || err.message || '버스 상세 정보 조회에 실패했습니다.');
+      }
+      return null;
     } finally {
       setLoading(false);
     }
@@ -100,21 +123,39 @@ export const useBusAPI = () => {
     setError(null);
 
     try {
+      console.log('🚌 [useBusAPI] 가용 버스 목록 조회 시작:', { date, time });
       const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error('API 호출 시간 초과')), TIMEOUT)
       );
 
-      const apiPromise = axios.get('/api/buses/available', {
+      const token = getToken();
+      if (!token) {
+        throw new Error('인증 토큰이 없습니다. 다시 로그인해주세요.');
+      }
+
+      const apiPromise = axios.get('/api/admin/buses/available', {
         params: { date, time },
-        headers: { Authorization: `Bearer ${getToken()}` }
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
       });
 
       const response = await Promise.race([apiPromise, timeoutPromise]);
-      return response.data;
+      console.log('🚌 [useBusAPI] 가용 버스 목록 응답:', response.data);
+      
+      // 백엔드 ApiResponse 구조에 맞춰 데이터 추출
+      return response.data?.data || [];
     } catch (err) {
-      console.log("가용 버스 조회 실패, 전체 버스 목록 반환");
-      setError(err.message);
-      return fallbackBuses;
+      console.error('❌ [useBusAPI] 가용 버스 조회 실패:', err);
+      if (err.response?.status === 401) {
+        setError('인증이 필요합니다. 다시 로그인해주세요.');
+      } else if (err.response?.status === 403) {
+        setError('관리자 권한이 필요합니다.');
+      } else {
+        setError(err.response?.data?.message || err.message || '가용 버스 조회에 실패했습니다.');
+      }
+      return [];
     } finally {
       setLoading(false);
     }
@@ -128,22 +169,45 @@ export const useBusAPI = () => {
     setError(null);
 
     try {
+      console.log('🚌 [useBusAPI] 버스 추가 시작:', busData);
       const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error('API 호출 시간 초과')), TIMEOUT)
       );
 
-      const apiPromise = axios.post("/api/buses", busData, {
-        headers: { Authorization: `Bearer ${getToken()}` }
+      const token = getToken();
+      if (!token) {
+        throw new Error('인증 토큰이 없습니다. 다시 로그인해주세요.');
+      }
+
+      const apiPromise = axios.post("/api/admin/buses", busData, {
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
       });
 
       const response = await Promise.race([apiPromise, timeoutPromise]);
+      console.log('🚌 [useBusAPI] 버스 추가 응답:', response.data);
       
-      // 로컬 상태 업데이트
-      setBuses(prev => [...prev, response.data]);
-      return { success: true, data: response.data };
+      // 백엔드 ApiResponse 구조에 맞춰 데이터 추출
+      const newBusData = response.data?.data;
+      if (newBusData) {
+        // 로컬 상태 업데이트
+        setBuses(prev => [...prev, newBusData]);
+      }
+      return { success: true, data: newBusData };
     } catch (err) {
-      console.error("버스 추가 실패:", err);
-      const errorMessage = err.response?.data?.message || "버스 추가에 실패했습니다.";
+      console.error("❌ [useBusAPI] 버스 추가 실패:", err);
+      let errorMessage = '버스 추가에 실패했습니다.';
+      
+      if (err.response?.status === 401) {
+        errorMessage = '인증이 필요합니다. 다시 로그인해주세요.';
+      } else if (err.response?.status === 403) {
+        errorMessage = '관리자 권한이 필요합니다.';
+      } else if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      }
+      
       setError(errorMessage);
       return { success: false, error: errorMessage };
     } finally {
@@ -159,24 +223,49 @@ export const useBusAPI = () => {
     setError(null);
 
     try {
+      console.log(`🚌 [useBusAPI] 버스 ${busId} 수정 시작:`, busData);
       const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error('API 호출 시간 초과')), TIMEOUT)
       );
 
-      const apiPromise = axios.put(`/api/buses/${busId}`, busData, {
-        headers: { Authorization: `Bearer ${getToken()}` }
+      const token = getToken();
+      if (!token) {
+        throw new Error('인증 토큰이 없습니다. 다시 로그인해주세요.');
+      }
+
+      const apiPromise = axios.patch(`/api/admin/buses/${busId}`, busData, {
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
       });
 
       const response = await Promise.race([apiPromise, timeoutPromise]);
+      console.log(`🚌 [useBusAPI] 버스 ${busId} 수정 응답:`, response.data);
       
-      // 로컬 상태 업데이트
-      setBuses(prev => prev.map(bus => 
-        bus.busId === busId ? { ...bus, ...response.data } : bus
-      ));
-      return { success: true, data: response.data };
+      // 백엔드 ApiResponse 구조에 맞춰 데이터 추출
+      const updatedBusData = response.data?.data;
+      if (updatedBusData) {
+        // 로컬 상태 업데이트
+        setBuses(prev => prev.map(bus => 
+          bus.busId === parseInt(busId) ? { ...bus, ...updatedBusData } : bus
+        ));
+      }
+      return { success: true, data: updatedBusData };
     } catch (err) {
-      console.error("버스 수정 실패:", err);
-      const errorMessage = err.response?.data?.message || "버스 수정에 실패했습니다.";
+      console.error(`❌ [useBusAPI] 버스 ${busId} 수정 실패:`, err);
+      let errorMessage = '버스 수정에 실패했습니다.';
+      
+      if (err.response?.status === 401) {
+        errorMessage = '인증이 필요합니다. 다시 로그인해주세요.';
+      } else if (err.response?.status === 403) {
+        errorMessage = '관리자 권한이 필요합니다.';
+      } else if (err.response?.status === 404) {
+        errorMessage = '해당 버스를 찾을 수 없습니다.';
+      } else if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      }
+      
       setError(errorMessage);
       return { success: false, error: errorMessage };
     } finally {
@@ -192,22 +281,43 @@ export const useBusAPI = () => {
     setError(null);
 
     try {
+      console.log(`🚌 [useBusAPI] 버스 ${busId} 삭제 시작`);
       const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error('API 호출 시간 초과')), TIMEOUT)
       );
 
-      const apiPromise = axios.delete(`/api/buses/${busId}`, {
-        headers: { Authorization: `Bearer ${getToken()}` }
+      const token = getToken();
+      if (!token) {
+        throw new Error('인증 토큰이 없습니다. 다시 로그인해주세요.');
+      }
+
+      const apiPromise = axios.delete(`/api/admin/buses/${busId}`, {
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
       });
 
-      await Promise.race([apiPromise, timeoutPromise]);
+      const response = await Promise.race([apiPromise, timeoutPromise]);
+      console.log(`🚌 [useBusAPI] 버스 ${busId} 삭제 응답:`, response.data);
       
       // 로컬 상태 업데이트
-      setBuses(prev => prev.filter(bus => bus.busId !== busId));
+      setBuses(prev => prev.filter(bus => bus.busId !== parseInt(busId)));
       return { success: true };
     } catch (err) {
-      console.error("버스 삭제 실패:", err);
-      const errorMessage = err.response?.data?.message || "버스 삭제에 실패했습니다.";
+      console.error(`❌ [useBusAPI] 버스 ${busId} 삭제 실패:`, err);
+      let errorMessage = '버스 삭제에 실패했습니다.';
+      
+      if (err.response?.status === 401) {
+        errorMessage = '인증이 필요합니다. 다시 로그인해주세요.';
+      } else if (err.response?.status === 403) {
+        errorMessage = '관리자 권한이 필요합니다.';
+      } else if (err.response?.status === 404) {
+        errorMessage = '해당 버스를 찾을 수 없습니다.';
+      } else if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      }
+      
       setError(errorMessage);
       return { success: false, error: errorMessage };
     } finally {

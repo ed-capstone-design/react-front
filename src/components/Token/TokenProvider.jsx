@@ -2,15 +2,18 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import axios from 'axios';
 
 const TokenContext = createContext({
+  // 토큰 관련
+  token: null,
   getToken: () => null,
   setToken: () => {},
   removeToken: () => {},
-  isTokenValid: () => true,
+  isTokenValid: () => false,
   getUserInfoFromToken: () => null,
-  // 새로운 사용자 정보 관리 함수들
+  // 사용자 정보 관리
   getUserInfo: () => null,
   setUserInfo: () => {},
   clearUserInfo: () => {},
+  // 인증 관리
   login: () => {},
   logout: () => {},
 });
@@ -21,14 +24,14 @@ export const TokenProvider = ({ children }) => {
   // 사용자 정보 상태 관리
   const [userInfo, setUserInfoState] = useState(null);
 
+
+
   // axios 요청 인터셉터 설정 (디버깅용)
   useEffect(() => {
     const requestInterceptor = axios.interceptors.request.use(
       (config) => {
-        console.log("📡 Axios 요청 인터셉터:");
-        console.log("- URL:", config.url);
-        console.log("- Method:", config.method?.toUpperCase());
-        console.log("- Authorization 헤더:", config.headers?.Authorization?.substring(0, 30) + "...");
+        console.log("📡 Axios 요청:", config.method?.toUpperCase(), config.url);
+        console.log("📡 Authorization 헤더:", config.headers?.Authorization || '헤더 없음');
         return config;
       },
       (error) => {
@@ -57,22 +60,23 @@ export const TokenProvider = ({ children }) => {
     };
   }, []);
 
-  // 토큰 가져오기
+  // 토큰 가져오기 (간단하게)
   const getToken = () => {
-    return localStorage.getItem('token');
+    const token = localStorage.getItem('authToken'); // 하나의 키만 사용
+    console.log("🔑 [TokenProvider] 토큰 조회:", token ? `${token.substring(0, 20)}...` : '토큰 없음');
+    return token;
   };
 
-  // 사용자 정보 가져오기
+  // 사용자 정보 가져오기 (렌더링 중 상태 변경 방지)
   const getUserInfo = () => {
     if (userInfo) return userInfo;
     
-    // 메모리에 없으면 localStorage에서 가져오기
+    // 메모리에 없으면 localStorage에서 가져오기 (상태 업데이트 없이)
     const storedUserInfo = localStorage.getItem('userInfo');
     if (storedUserInfo) {
       try {
         const parsed = JSON.parse(storedUserInfo);
-        setUserInfoState(parsed);
-        return parsed;
+        return parsed; // 상태 업데이트하지 않고 바로 반환
       } catch (e) {
         console.error('사용자 정보 파싱 오류:', e);
         localStorage.removeItem('userInfo');
@@ -93,17 +97,15 @@ export const TokenProvider = ({ children }) => {
     localStorage.removeItem('userInfo');
   };
 
-  // 토큰 저장 (axios 헤더 자동 설정)
+  // 토큰 저장 (간단하게)
   const setToken = (token) => {
-    console.log("🔧 setToken 호출:", token ? `${token.substring(0, 20)}...` : "null");
-    localStorage.setItem('token', token);
+    localStorage.setItem('authToken', token);
     axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-    console.log("🔧 axios 헤더 설정 완료:", axios.defaults.headers.common['Authorization']?.substring(0, 30) + "...");
   };
 
-  // 토큰 삭제 (헤더도 삭제)
+  // 토큰 삭제
   const removeToken = () => {
-    localStorage.removeItem('token');
+    localStorage.removeItem('authToken');
     delete axios.defaults.headers.common['Authorization'];
   };
 
@@ -144,24 +146,29 @@ export const TokenProvider = ({ children }) => {
     clearUserInfo();
   };
 
-  // 앱 시작 시 기존 토큰이 있으면 axios 헤더에 설정하고 사용자 정보 복원
+    // 초기화: 기존 토큰 복원 및 axios 헤더 설정
   useEffect(() => {
-    const existingToken = getToken();
-    console.log("🚀 TokenProvider 초기화:");
-    console.log("- 기존 토큰 존재:", !!existingToken);
-    console.log("- 토큰 앞 20자:", existingToken ? existingToken.substring(0, 20) + "..." : "없음");
+    const existingToken = localStorage.getItem('authToken');
+    console.log("🚀 [TokenProvider] 초기화 시작");
     
-    if (existingToken && isTokenValid()) {
-      console.log("✅ 유효한 토큰 발견 - axios 헤더 설정");
+    if (existingToken) {
+      console.log("✅ 기존 토큰 발견 - axios 헤더 설정");
       axios.defaults.headers.common['Authorization'] = `Bearer ${existingToken}`;
-      console.log("- 설정된 헤더:", axios.defaults.headers.common['Authorization']?.substring(0, 30) + "...");
+      
       // 사용자 정보도 복원
-      const restoredUserInfo = getUserInfo();
-      console.log("- 복원된 사용자 정보:", restoredUserInfo);
+      const storedUserInfo = localStorage.getItem('userInfo');
+      if (storedUserInfo) {
+        try {
+          const parsed = JSON.parse(storedUserInfo);
+          setUserInfoState(parsed);
+          console.log("✅ 사용자 정보 복원:", parsed.username);
+        } catch (e) {
+          console.error('사용자 정보 파싱 오류:', e);
+          localStorage.removeItem('userInfo');
+        }
+      }
     } else {
-      console.log("❌ 토큰이 없거나 유효하지 않음 - 로그아웃 처리");
-      // 토큰이 유효하지 않으면 모든 정보 삭제
-      logout();
+      console.log("⚠️ 토큰 없음 - 로그인 필요");
     }
   }, []);
 
@@ -269,16 +276,18 @@ export const TokenProvider = ({ children }) => {
 
   return (
     <TokenContext.Provider value={{ 
-      // 기존 토큰 관련 함수들
+      // 토큰 값과 함수들
+      token: getToken(),
       getToken, 
       setToken, 
       removeToken, 
       isTokenValid, 
       getUserInfoFromToken,
-      // 새로운 사용자 정보 관리 함수들
+      // 사용자 정보 관리
       getUserInfo,
       setUserInfo,
       clearUserInfo,
+      // 인증 관리
       login,
       logout
     }}>

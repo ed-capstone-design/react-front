@@ -60,7 +60,7 @@ const Drivers = () => {
         <button onClick={() => setAddOpen(true)} className="bg-blue-500 text-white px-3 py-1 rounded text-sm font-semibold">+ 운전자 추가</button>
       </div> */}
       
-      {!loading && drivers.length > 0 && (
+      {!loading && (
         <table className="w-full bg-white border border-gray-100 rounded-lg shadow-sm text-left">
           <thead>
             <tr>
@@ -73,48 +73,50 @@ const Drivers = () => {
             </tr>
           </thead>
           <tbody>
-            {drivers.map((d, idx) => (
-              <tr 
-                key={d.userId || idx} 
-                className="hover:bg-blue-50 transition cursor-pointer"
-                onClick={() => handleRowClick(d)}
-            >
-              <td className="py-3 px-4 text-gray-900">{d.username}</td>
-              <td className="py-3 px-4">{d.licenseNumber}</td>
-              <td className="py-3 px-4">{d.careerYears}</td>
-              <td className="py-3 px-4">{d.avgDrivingScore}</td>
-              <td className="py-3 px-4">
-                <span className={`px-3 py-1 rounded-full text-xs font-bold shadow-sm
-                  ${d.grade === "A" ? "bg-green-100 text-green-700" : 
-                    d.grade === "B" ? "bg-blue-100 text-blue-700" : 
-                    d.grade === "C" ? "bg-yellow-100 text-yellow-700" : 
-                    d.grade === "D" ? "bg-orange-100 text-orange-700" : 
-                    "bg-red-100 text-red-700"}`}>
-                  {d.grade}
-                </span>
-              </td>
+            {drivers.length === 0 && !error ? (
+              <tr>
+                <td colSpan="6" className="py-8 px-4 text-center text-gray-500">
+                  등록된 운전자가 없습니다.
+                </td>
+              </tr>
+            ) : (
+              drivers.map((d, idx) => (
+                <tr 
+                  key={d.userId || idx} 
+                  className="hover:bg-blue-50 transition cursor-pointer"
+                  onClick={() => handleRowClick(d)}
+              >
+                <td className="py-3 px-4 text-gray-900">{d.username}</td>
+                <td className="py-3 px-4">{d.licenseNumber}</td>
+                <td className="py-3 px-4">{d.careerYears}</td>
+                <td className="py-3 px-4">{d.avgDrivingScore}</td>
+                <td className="py-3 px-4">
+                  <span className={`px-3 py-1 rounded-full text-xs font-bold shadow-sm
+                    ${d.grade === "A" ? "bg-green-100 text-green-700" : 
+                      d.grade === "B" ? "bg-blue-100 text-blue-700" : 
+                      d.grade === "C" ? "bg-yellow-100 text-yellow-700" : 
+                      d.grade === "D" ? "bg-orange-100 text-orange-700" : 
+                      "bg-red-100 text-red-700"}`}>
+                    {d.grade}
+                  </span>
+                </td>
 
-              <td className="py-3 px-4">
-                <button
-                  className="text-blue-600 hover:underline font-semibold"
-                  onClick={(e) => {
-                    e.stopPropagation(); // 행 클릭 이벤트 전파 방지
-                    openEditModal(d);
-                  }}
-                >
-                  수정
-                </button>
-              </td>
-            </tr>
-          ))}
+                <td className="py-3 px-4">
+                  <button
+                    className="text-blue-600 hover:underline font-semibold"
+                    onClick={(e) => {
+                      e.stopPropagation(); // 행 클릭 이벤트 전파 방지
+                      openEditModal(d);
+                    }}
+                  >
+                    수정
+                  </button>
+                </td>
+              </tr>
+            ))
+            )}
           </tbody>
         </table>
-      )}
-      
-      {!loading && drivers.length === 0 && !error && (
-        <div className="text-center py-8">
-          <p className="text-gray-500">등록된 운전자가 없습니다.</p>
-        </div>
       )}
 
       <EditDriverModal 

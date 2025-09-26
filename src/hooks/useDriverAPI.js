@@ -45,13 +45,14 @@ export const useDriverAPI = () => {
         setTimeout(() => reject(new Error('API 호출 시간 초과')), TIMEOUT)
       );
 
-      const apiPromise = axios.get("/api/drivers/me", {
+      const apiPromise = axios.get("/api/admin/drivers", {
         headers: { Authorization: `Bearer ${getToken()}` }
       });
 
       const response = await Promise.race([apiPromise, timeoutPromise]);
-      setDrivers(response.data);
-      return response.data;
+      const driversData = response.data?.data || response.data;
+      setDrivers(driversData);
+      return driversData;
     } catch (err) {
       console.log("운전자 목록 조회 실패, 예시 데이터 사용");
       setError(err.message);
@@ -74,12 +75,12 @@ export const useDriverAPI = () => {
         setTimeout(() => reject(new Error('API 호출 시간 초과')), TIMEOUT)
       );
 
-      const apiPromise = axios.get(`/api/drivers/${driverId}`, {
+      const apiPromise = axios.get(`/api/admin/drivers/${driverId}`, {
         headers: { Authorization: `Bearer ${getToken()}` }
       });
 
       const response = await Promise.race([apiPromise, timeoutPromise]);
-      return response.data;
+      return response.data?.data || response.data;
     } catch (err) {
       console.log(`운전자 ${driverId} 상세 정보 조회 실패`);
       setError(err.message);
@@ -108,7 +109,7 @@ export const useDriverAPI = () => {
       });
 
       const response = await Promise.race([apiPromise, timeoutPromise]);
-      return response.data;
+      return response.data?.data || response.data;
     } catch (err) {
       console.log("가용 운전자 조회 실패, 전체 운전자 목록 반환");
       setError(err.message);
@@ -121,28 +122,31 @@ export const useDriverAPI = () => {
   /**
    * 운전자 정보 수정
    */
-  const updateDriver = useCallback(async (driver) => {
+  const updateDriver = useCallback(async (userId, updateData) => {
     setLoading(true);
     setError(null);
+
+    console.log('📡 운전자 수정 API 호출:', `/api/admin/drivers/${userId}`, updateData);
 
     try {
       const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error('API 호출 시간 초과')), TIMEOUT)
       );
 
-      const apiPromise = axios.put(`/api/drivers/me/${driver.userId}`, driver, {
+      const apiPromise = axios.patch(`/api/admin/drivers/${userId}`, updateData, {
         headers: { Authorization: `Bearer ${getToken()}` }
       });
 
-      await Promise.race([apiPromise, timeoutPromise]);
+      const response = await Promise.race([apiPromise, timeoutPromise]);
       
       // 로컬 상태 업데이트
-      setDrivers(prev => prev.map(d => d.userId === driver.userId ? driver : d));
-      return { success: true };
+      setDrivers(prev => prev.map(d => d.userId === userId ? { ...d, ...updateData } : d));
+      return { success: true, data: response.data?.data || response.data };
     } catch (err) {
       console.error("운전자 수정 실패:", err);
+      console.error("에러 응답:", err.response?.data);
       setError(err.message);
-      return { success: false, error: err.message };
+      return { success: false, error: err.response?.data?.message || err.message };
     } finally {
       setLoading(false);
     }
@@ -160,7 +164,7 @@ export const useDriverAPI = () => {
         setTimeout(() => reject(new Error('API 호출 시간 초과')), TIMEOUT)
       );
 
-      const apiPromise = axios.delete(`/api/drivers/${userId}`, {
+      const apiPromise = axios.delete(`/api/admin/drivers/${userId}`, {
         headers: { Authorization: `Bearer ${getToken()}` }
       });
 
@@ -196,9 +200,10 @@ export const useDriverAPI = () => {
 
       const response = await Promise.race([apiPromise, timeoutPromise]);
       
+      const newDriverData = response.data?.data || response.data;
       // 로컬 상태 업데이트
-      setDrivers(prev => [...prev, response.data]);
-      return { success: true, data: response.data };
+      setDrivers(prev => [...prev, newDriverData]);
+      return { success: true, data: newDriverData };
     } catch (err) {
       console.error("운전자 추가 실패:", err);
       setError(err.message);
@@ -226,7 +231,7 @@ export const useDriverAPI = () => {
       });
 
       const response = await Promise.race([apiPromise, timeoutPromise]);
-      return response.data;
+      return response.data?.data || response.data;
     } catch (err) {
       console.log(`운전자 ${driverId} 스케줄 이력 조회 실패`);
       setError(err.message);

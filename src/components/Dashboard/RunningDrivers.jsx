@@ -45,6 +45,8 @@ const RunningDrivers = () => {
   const [runningDrivers, setRunningDrivers] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // 운행중인 운전자 데이터 로드 - 주석처리
+  /*
   useEffect(() => {
     const loadRunningDrivers = async () => {
       try {
@@ -60,13 +62,35 @@ const RunningDrivers = () => {
 
     loadRunningDrivers();
   }, []); // 의존성 배열을 빈 배열로 변경
+  */
+
+  // 임시로 loading을 false로 설정
+  useEffect(() => {
+    setLoading(false);
+  }, []);
 
   if (loading) {
-    return <div className="text-gray-400">운전자 정보를 불러오는 중...</div>;
-  }
-
-  if (runningDrivers.length === 0) {
-    return <div className="text-gray-400">현재 운행중인 운전자가 없습니다.</div>;
+    return (
+      <div>
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="border-b border-gray-200">
+              <th className="py-2 px-2 text-gray-700 font-semibold text-sm">운전자</th>
+              <th className="py-2 px-2 text-gray-700 font-semibold text-sm">전화번호</th>
+              <th className="py-2 px-2 text-gray-700 font-semibold text-sm">예정출발</th>
+              <th className="py-2 px-2 text-gray-700 font-semibold text-sm">상태</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td colSpan="4" className="py-4 px-2 text-center text-gray-400">
+                운전자 정보를 불러오는 중...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    );
   }
 
   return (
@@ -80,30 +104,38 @@ const RunningDrivers = () => {
         </tr>
       </thead>
       <tbody>
-        {runningDrivers.map(driver => (
-          <tr key={driver.driverId} className="border-b border-gray-100">
-            <td className="py-2 px-2">
-              <div>
-                <div className="font-medium text-sm">{driver.driverName}</div>
-                <div className="text-xs text-gray-500">배차 #{driver.dispatchId}</div>
-              </div>
-            </td>
-            <td className="py-2 px-2">{driver.phoneNumber || '-'}</td>
-            <td className="py-2 px-2 text-sm font-mono">
-              {driver.scheduledDeparture || '-'}
-              {driver.actualDeparture && (
-                <div className="text-xs text-green-600">
-                  실제: {driver.actualDeparture}
-                </div>
-              )}
-            </td>
-            <td className="py-2 px-2">
-              <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusStyle(driver.status)}`}>
-                {getDispatchStatusLabel(driver.status)}
-              </span>
+        {runningDrivers.length === 0 ? (
+          <tr>
+            <td colSpan="4" className="py-4 px-2 text-center text-gray-400">
+              현재 운행중인 운전자가 없습니다.
             </td>
           </tr>
-        ))}
+        ) : (
+          runningDrivers.map(driver => (
+            <tr key={driver.driverId} className="border-b border-gray-100">
+              <td className="py-2 px-2">
+                <div>
+                  <div className="font-medium text-sm">{driver.driverName}</div>
+                  <div className="text-xs text-gray-500">배차 #{driver.dispatchId}</div>
+                </div>
+              </td>
+              <td className="py-2 px-2">{driver.phoneNumber || '-'}</td>
+              <td className="py-2 px-2 text-sm font-mono">
+                {driver.scheduledDeparture || '-'}
+                {driver.actualDeparture && (
+                  <div className="text-xs text-green-600">
+                    실제: {driver.actualDeparture}
+                  </div>
+                )}
+              </td>
+              <td className="py-2 px-2">
+                <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusStyle(driver.status)}`}>
+                  {getDispatchStatusLabel(driver.status)}
+                </span>
+              </td>
+            </tr>
+          ))
+        )}
       </tbody>
     </table>
   );

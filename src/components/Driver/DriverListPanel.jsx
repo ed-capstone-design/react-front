@@ -16,12 +16,13 @@ const DriverListPanel = ({ onDriverClick }) => {
         fetchDrivers();
     }, [fetchDrivers]);
 
-    // 상태별로 필터링 (영문 ENUM)
-    // status: 'DRIVING', 'BREAK', 'OFF'
+    // 상태별로 필터링 (백엔드 기준에 맞춤)
+    // status: 'RUNNING', 'DRIVING', 'BREAK', 'OFF'
     const statusLabel = {
+        RUNNING: "운행중",
         DRIVING: "운행중"
     };
-    const 운행중 = drivers.filter((d) => d.status === "DRIVING");
+    const 운행중 = drivers.filter((d) => d.status === "RUNNING" || d.status === "DRIVING");
 
     // 운전자 수정
     const handleUpdate = async (driver) => {
@@ -52,7 +53,7 @@ const DriverListPanel = ({ onDriverClick }) => {
             <div className="flex justify-between items-center mb-2">
                 <span className="font-bold text-blue-700">{statusLabel.DRIVING}</span>
             </div>
-            {운행중.length === 0 ? <div className="text-xs text-gray-400 mb-2">{statusLabel.DRIVING}인 운전자가 없습니다.</div> :
+            {운행중.length === 0 ? <div className="text-xs text-gray-400 mb-2">운행중인 운전자가 없습니다.</div> :
                 운행중.map((driver) => (
                     <div key={driver.driverId} onClick={() => handleCardClick(driver)} className="cursor-pointer">
                         <DriverCard driver={driver} onNameClick={handleNameClick} />

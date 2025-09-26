@@ -1,104 +1,111 @@
 import React, { useState, useEffect } from "react";
-import KakaoMap from "../components/Map/Map";
-import DriverListPanel from "../components/Driver/DriverListPanel";
-import { useNotificationCount } from "../components/Notification/NotificationCountProvider";
-import axios from "axios";
+// 실시간 지도/드라이버 패널은 현재 비활성화 상태이므로 import 제거
+import { useNotificationCount } from '../components/Notification/NotificationCountProvider';
+import { useWebSocket } from '../components/WebSocket/WebSocketProvider';
+import { useToken } from '../components/Token/TokenProvider';
+// axios 기반 알림 API는 현재 비활성화 상태
 import {
   IoAlert,
   IoWarning,
   IoInformationCircle,
   IoCheckmarkCircle,
-  IoTrendingUpOutline,
-  IoStatsChartOutline,
-  IoCalendarOutline,
-  IoTimeOutline,
-  IoPersonOutline,
-  IoCarOutline
+  IoCalendarOutline
 } from "react-icons/io5";
 
 const Insight = ({ onDriverClick }) => {
-  const [busLocations, setBusLocations] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [notifications, setNotifications] = useState([]);
-  const [notificationLoading, setNotificationLoading] = useState(true);
+  // const [busLocations, setBusLocations] = useState([]); // 주석처리
+  const [loading, setLoading] = useState(false); // 버스 위치 로딩 비활성화
+  const [notifications, setNotifications] = useState([]); // 빈 배열로 초기화
+  const [notificationLoading, setNotificationLoading] = useState(false); // 로딩 비활성화
   const { unreadCount } = useNotificationCount();
+  const { notifications: wsNotifications, isConnected, clearNotifications } = useWebSocket();
+  const { token, getUserInfoFromToken } = useToken();
+  const [userRole, setUserRole] = useState(null);
 
   useEffect(() => {
-    fetchBusLocations();
-    fetchNotifications();
-    // 실시간 위치 업데이트를 위한 인터벌 (150ms마다)
-    const interval = setInterval(fetchBusLocations, 150);
-    return () => clearInterval(interval);
-  }, []);
-
-  const fetchNotifications = async () => {
-    try {
-      setNotificationLoading(true);
-      const response = await axios.get('/api/notifications/me/unread');
-      setNotifications(response.data);
-    } catch (error) {
-      console.error("알림 로딩 실패:", error);
-      // 에러 시 빈 배열로 설정
-      setNotifications([]);
-    } finally {
-      setNotificationLoading(false);
+    // 토큰에서 사용자 역할 추출
+    const userInfo = getUserInfoFromToken();
+    if (userInfo && userInfo.roles) {
+      setUserRole(userInfo.roles[0]); // 첫 번째 역할 사용
+      console.log("🔍 사용자 역할:", userInfo.roles);
     }
-  };
+    // 실시간 위치 업데이트를 위한 인터벌 (150ms마다) - 주석처리
+    // const interval = setInterval(fetchBusLocations, 150);
+    // return () => clearInterval(interval);
+  }, [token]);
 
-  const markAsRead = async (notificationId) => {
-    try {
-      await axios.patch(`/api/notifications/${notificationId}/read`);
-      // 읽음 처리 후 해당 알림을 목록에서 제거 (읽지 않은 알림만 표시하므로)
-      setNotifications(prev => prev.filter(n => n.id !== notificationId));
-    } catch (error) {
-      console.error("알림 읽음 처리 실패:", error);
-    }
-  };
+  // 알림 API 호출 함수 - 백엔드 미구현으로 주석처리
+  // const fetchNotifications = async () => {
+  //   try {
+  //     setNotificationLoading(true);
+  //     const response = await axios.get('/api/notifications/me/unread');
+  //     setNotifications(response.data?.data || response.data);
+  //   } catch (error) {
+  //     console.error("알림 로딩 실패:", error);
+  //     // 에러 시 빈 배열로 설정
+  //     setNotifications([]);
+  //   } finally {
+  //     setNotificationLoading(false);
+  //   }
+  // };
 
-  useEffect(() => {
-    fetchBusLocations();
-    // 실시간 위치 업데이트를 위한 인터벌 (150ms마다)
-    const interval = setInterval(fetchBusLocations, 150);
-    return () => clearInterval(interval);
-  }, []);
+  // 알림 읽음 처리 함수 - 백엔드 미구현으로 주석처리
+  // const markAsRead = async (notificationId) => {
+  //   try {
+  //     await axios.patch(`/api/notifications/${notificationId}/read`);
+  //     // 읽음 처리 후 해당 알림을 목록에서 제거 (읽지 않은 알림만 표시하므로)
+  //     setNotifications(prev => prev.filter(n => n.id !== notificationId));
+  //   } catch (error) {
+  //     console.error("알림 읽음 처리 실패:", error);
+  //   }
+  // };
 
-  const fetchBusLocations = async () => {
-    try {
-      // 현재 운행 중인 버스들의 위치 정보 가져오기
-      const response = await axios.get('/api/buses/locations');
-      const locations = response.data.map(bus => ({
-        lat: bus.location?.latitude || 37.5665,
-        lng: bus.location?.longitude || 126.9780,
-        imageSrc: "https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/marker_red.png",
-        busInfo: {
-          plateNumber: bus.plateNumber,
-          busNumber: bus.busNumber,
-          driverName: bus.driverName,
-          status: bus.status
-        }
-      }));
-      setBusLocations(locations);
-    } catch (error) {
-      console.error("버스 위치 정보 로딩 실패:", error);
-      // 에러 시 기본 위치들로 설정
-      setBusLocations([
-        { 
-          lat: 37.54699, 
-          lng: 127.09598, 
-          imageSrc: "https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/marker_red.png",
-          busInfo: { plateNumber: "데모 01", busNumber: "101", status: "운행중" }
-        },
-        { 
-          lat: 37.55000, 
-          lng: 127.10000, 
-          imageSrc: "https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/marker_red.png",
-          busInfo: { plateNumber: "데모 02", busNumber: "102", status: "운행중" }
-        },
-      ]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // useEffect(() => {
+  //   fetchBusLocations();
+  //   // 실시간 위치 업데이트를 위한 인터벌 (150ms마다)
+  //   const interval = setInterval(fetchBusLocations, 150);
+  //   return () => clearInterval(interval);
+  // }, []); // 주석처리
+
+  // 버스 위치 관련 함수 주석처리
+  // const fetchBusLocations = async () => {
+  //   try {
+  //     // 현재 운행 중인 버스들의 위치 정보 가져오기
+  //     const response = await axios.get('/api/buses/locations');
+  //     const busData = response.data?.data || response.data;
+  //     const locations = busData.map(bus => ({
+  //       lat: bus.location?.latitude || 37.5665,
+  //       lng: bus.location?.longitude || 126.9780,
+  //       imageSrc: "https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/marker_red.png",
+  //       busInfo: {
+  //         plateNumber: bus.plateNumber,
+  //         busNumber: bus.busNumber,
+  //         driverName: bus.driverName,
+  //         status: bus.status
+  //       }
+  //     }));
+  //     setBusLocations(locations);
+  //   } catch (error) {
+  //     console.error("버스 위치 정보 로딩 실패:", error);
+  //     // 에러 시 기본 위치들로 설정
+  //     setBusLocations([
+  //       { 
+  //         lat: 37.54699, 
+  //         lng: 127.09598, 
+  //         imageSrc: "https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/marker_red.png",
+  //         busInfo: { plateNumber: "데모 01", busNumber: "101", status: "운행중" }
+  //       },
+  //       { 
+  //         lat: 37.55000, 
+  //         lng: 127.10000, 
+  //         imageSrc: "https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/marker_red.png",
+  //         busInfo: { plateNumber: "데모 02", busNumber: "102", status: "운행중" }
+  //       },
+  //     ]);
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
 
   // 알림 관련 상태/로직
   const [selectedPeriod, setSelectedPeriod] = React.useState("today");
@@ -186,7 +193,27 @@ const Insight = ({ onDriverClick }) => {
 
   return (
     <div className="max-w-6xl mx-auto py-8 px-2 md:px-6">
-      <h2 className="text-3xl font-bold mb-6 text-gray-900 tracking-tight">인사이트</h2>
+      {/* 헤더와 WebSocket 상태 */}
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-3xl font-bold text-gray-900 tracking-tight">인사이트</h2>
+        <div className="flex items-center gap-2">
+          <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${
+            isConnected 
+              ? 'bg-green-100 text-green-700' 
+              : 'bg-red-100 text-red-700'
+          }`}>
+            <div className={`w-2 h-2 rounded-full ${
+              isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'
+            }`}></div>
+            실시간 연결 {isConnected ? '활성' : '비활성'}
+          </div>
+          {wsNotifications.length > 0 && (
+            <div className="bg-sky-100 text-sky-700 px-3 py-2 rounded-lg text-sm font-medium">
+              실시간 알림 {wsNotifications.length}개
+            </div>
+          )}
+        </div>
+      </div>
       {/* 통계+지도+드라이버+카테고리 통합 카드 */}
       <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-0 md:p-8 flex flex-col gap-6">
         {/* 통계 대시보드: 한 줄, 미니멀 카드 */}
@@ -213,8 +240,8 @@ const Insight = ({ onDriverClick }) => {
           </div>
         </div>
 
-        {/* 지도와 운전자 리스트 */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* 지도와 운전자 리스트 - 주석처리 */}
+        {/* <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2">
             <h3 className="text-xl font-bold mb-4 text-blue-700 flex items-center gap-2">
               <IoCarOutline />
@@ -235,7 +262,7 @@ const Insight = ({ onDriverClick }) => {
             </h3>
             <DriverListPanel onDriverClick={onDriverClick} />
           </div>
-        </div>
+        </div> */}
 
         {/* 카테고리별 알림 통계 */}
         <div>
@@ -245,6 +272,7 @@ const Insight = ({ onDriverClick }) => {
               알림 현황
             </h3>
             <div className="flex gap-2">
+              {/* 관리자용 테스트 전송 버튼은 WebSocket 최소화 단계에서 비활성화 */}
               {["today", "week", "month"].map(period => (
                 <button
                   key={period}
@@ -293,9 +321,88 @@ const Insight = ({ onDriverClick }) => {
           
           {/* 알림 리스트 */}
           <div className="max-h-64 overflow-y-auto border border-gray-200 rounded-lg">
-            {notificationLoading ? (
+            {/* 실시간 WebSocket 알림 섹션 */}
+            {wsNotifications.length > 0 && (
+              <>
+                <div className="bg-sky-50 border-b-2 border-sky-200 p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                      <span className="font-semibold text-sky-700 text-sm">실시간 알림</span>
+                      <span className="bg-sky-500 text-white text-xs px-2 py-1 rounded-full">
+                        {wsNotifications.length}
+                      </span>
+                    </div>
+                    <button
+                      onClick={clearNotifications}
+                      className="text-xs text-sky-600 hover:text-sky-800 underline"
+                    >
+                      모두 지우기
+                    </button>
+                  </div>
+                </div>
+                {wsNotifications.slice(0, 5).map((notification, index) => (
+                  <div
+                    key={`ws-${index}`}
+                    className="border-b border-sky-100 p-3 bg-sky-25 hover:bg-sky-50 transition"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          {/* 운전 경고 아이콘 */}
+                          {notification.eventType === "DROWSINESS" && <IoWarning className="text-orange-500 text-sm" />}
+                          {notification.eventType === "ACCELERATION" && <IoAlert className="text-red-500 text-sm" />}
+                          {notification.eventType === "BRAKING" && <IoAlert className="text-red-600 text-sm" />}
+                          {notification.eventType === "ABNORMAL" && <IoInformationCircle className="text-blue-500 text-sm" />}
+                          
+                          {/* 일반 알림 아이콘 */}
+                          {!notification.eventType && notification.type === "EMERGENCY" && <IoAlert className="text-red-500 text-sm" />}
+                          {!notification.eventType && notification.type === "WARNING" && <IoWarning className="text-orange-500 text-sm" />}
+                          {!notification.eventType && notification.type === "INFO" && <IoInformationCircle className="text-blue-500 text-sm" />}
+                          
+                          <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                            notification.eventType === "DROWSINESS" ? "bg-orange-100 text-orange-700" :
+                            notification.eventType === "ACCELERATION" ? "bg-red-100 text-red-700" :
+                            notification.eventType === "BRAKING" ? "bg-red-100 text-red-700" :
+                            notification.eventType === "ABNORMAL" ? "bg-blue-100 text-blue-700" :
+                            notification.type === "EMERGENCY" ? "bg-red-100 text-red-700" :
+                            notification.type === "WARNING" ? "bg-orange-100 text-orange-700" :
+                            "bg-blue-100 text-blue-700"
+                          }`}>
+                            {notification.eventType === "DROWSINESS" ? "졸음감지" :
+                             notification.eventType === "ACCELERATION" ? "급가속" :
+                             notification.eventType === "BRAKING" ? "급정거" :
+                             notification.eventType === "ABNORMAL" ? "이상감지" :
+                             notification.type === "EMERGENCY" ? "긴급" :
+                             notification.type === "WARNING" ? "경고" : "정보"}
+                          </span>
+                          <span className="text-xs text-green-600 font-medium">실시간</span>
+                        </div>
+                        <div className="text-sm text-gray-800 mb-1">
+                          {notification.driverName && (
+                            <span className="font-semibold text-gray-900">{notification.driverName}: </span>
+                          )}
+                          {notification.message || `${notification.eventType} 이벤트가 감지되었습니다.`}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {new Date(notification.timestamp).toLocaleString('ko-KR')}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {wsNotifications.length > 5 && (
+                  <div className="p-2 text-center text-xs text-sky-600 bg-sky-25">
+                    {wsNotifications.length - 5}개의 추가 알림이 있습니다
+                  </div>
+                )}
+              </>
+            )}
+            
+            {/* 기존 백엔드 알림 - 백엔드 미구현으로 주석처리 */}
+            {/* {notificationLoading ? (
               <div className="p-4 text-center text-gray-500">알림을 불러오는 중...</div>
-            ) : periodNotifications.length === 0 ? (
+            ) : periodNotifications.length === 0 && wsNotifications.length === 0 ? (
               <div className="p-4 text-center text-gray-500">선택된 기간에 알림이 없습니다.</div>
             ) : (
               periodNotifications
@@ -315,6 +422,7 @@ const Insight = ({ onDriverClick }) => {
                             <IoTimeOutline className="text-gray-400 text-xs" />
                             <span className="text-xs text-gray-400">{formatDateTime(notification.warningtime)}</span>
                             {getWarningTypeBadge(notification.warningType)}
+                            <span className="text-xs px-2 py-1 rounded-full bg-gray-200 text-gray-600">기록</span>
                           </div>
                         </div>
                       </div>
@@ -330,6 +438,13 @@ const Insight = ({ onDriverClick }) => {
                     </div>
                   </div>
                 ))
+            )} */}
+            
+            {/* WebSocket 알림이 없을 때 빈 상태 표시 */}
+            {wsNotifications.length === 0 && (
+              <div className="p-4 text-center text-gray-500">
+                실시간 알림을 기다리는 중입니다...
+              </div>
             )}
           </div>
         </div>

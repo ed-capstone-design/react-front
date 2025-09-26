@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useScheduleAPI } from "../../hooks/useScheduleAPI";
 
 const TodayScheduleList = () => {
-  const { fetchSchedulesByDate, fetchDriverById, fetchBusById } = useScheduleAPI();
+  const { fetchSchedulesByPeriod, fetchDriverById, fetchBusById } = useScheduleAPI();
   const [todaySchedules, setTodaySchedules] = useState([]);
   const [scheduleDetails, setScheduleDetails] = useState({});
 
@@ -10,7 +10,7 @@ const TodayScheduleList = () => {
     const fetchData = async () => {
       try {
         const today = new Date().toISOString().split('T')[0];
-        const schedules = await fetchSchedulesByDate(today);
+        const schedules = await fetchSchedulesByPeriod(today, today);
         setTodaySchedules(schedules);
 
         // 각 스케줄의 운전자와 버스 정보를 병렬로 가져오기

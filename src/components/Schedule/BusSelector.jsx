@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { useBusAPI } from "../../hooks/useBusAPI";
+import { useScheduleAPI } from "../../hooks/useScheduleAPI";
 
 const BusSelector = ({ value, onChange, required = false, selectedDate, selectedTime }) => {
-  const { fetchAvailableBuses } = useBusAPI();
+  const { fetchAvailableBuses } = useScheduleAPI();
   const [buses, setBuses] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -20,7 +20,11 @@ const BusSelector = ({ value, onChange, required = false, selectedDate, selected
     setLoading(true);
     setError(null);
     try {
-      const availableBuses = await fetchAvailableBuses(selectedDate, selectedTime);
+      // selectedDate와 selectedTime을 startTime, endTime 형식으로 변환
+      const startTime = `${selectedDate}T${selectedTime}:00`;
+      const endTime = `${selectedDate}T${selectedTime}:00`; // 임시로 같은 시간 사용
+      
+      const availableBuses = await fetchAvailableBuses(startTime, endTime);
       setBuses(availableBuses);
     } catch (err) {
       setError("가용 버스 조회에 실패했습니다.");

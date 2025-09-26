@@ -3,10 +3,9 @@ import { useDriverAPI } from "../../hooks/useDriverAPI";
 import { useToast } from "../Toast/ToastProvider";
 
 const EditDriverModal = ({ open, onClose, driver, onUpdateSuccess }) => {
-  const [username, setUsername] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [licenseNumber, setlicenseNumber] = useState("");
-  const [operatorName, setOperatorName] = useState("");
+  const [careerYears, setCareerYears] = useState("");
   const [grade, setGrade] = useState("");
   const [loading, setLoading] = useState(false);
   const toast = useToast();
@@ -14,40 +13,37 @@ const EditDriverModal = ({ open, onClose, driver, onUpdateSuccess }) => {
   
   useEffect(() => {
     if (driver) {
-      setUsername(driver.username || "");
       setPhoneNumber(driver.phoneNumber || "");
       setlicenseNumber(driver.licenseNumber || "");
-      setOperatorName(driver.operatorName || "");
+      setCareerYears(driver.careerYears  || "");
       setGrade(driver.grade || "");
     }
   }, [driver]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!username || !phoneNumber) {
-      toast.warning("이름과 전화번호를 입력해주세요.");
+    if (!phoneNumber || !licenseNumber || !careerYears || !grade) {
+      toast.warning("모든 필드를 입력해주세요.");
       return;
     }
     setLoading(true);
     try {
-      const updatedDriver = {
-        userId: driver.userId,
-        username: username,
+      const updateData = {
         phoneNumber,
         licenseNumber,
-        operatorName: operatorName ? parseInt(operatorName) : undefined,
+        careerYears: parseInt(careerYears),
         grade
       };
       
-      const result = await updateDriverAPI(updatedDriver);
+      console.log('🔄 운전자 수정 요청 데이터:', updateData);
+      const result = await updateDriverAPI(driver.userId, updateData);
       
       if (result.success) {
         onClose();
         toast.success("운전자 정보가 수정되었습니다!");
-        setUsername("");
         setPhoneNumber("");
         setlicenseNumber("");
-        setOperatorName("");
+        setCareerYears("");
         setGrade("");
         // 부모 컴포넌트에 업데이트 성공 알림
         if (onUpdateSuccess) {
@@ -100,19 +96,8 @@ const EditDriverModal = ({ open, onClose, driver, onUpdateSuccess }) => {
           ×
         </button>
         <div className="p-7 pb-4">
-          <h3 className="text-xl font-bold mb-6 text-gray-800 tracking-tight leading-tight pl-1">운전자 정보 수정</h3>
+          <h3 className="text-xl font-bold mb-6 text-gray-800 tracking-tight leading-tight pl-1">{driver?.username} 정보 수정</h3>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block mb-1 text-xs font-medium text-gray-600">이름 <span className="text-red-400">*</span></label>
-              <input
-                type="text"
-                className="w-full border border-gray-200 focus:border-blue-400 rounded px-3 py-2 text-sm outline-none bg-white focus:bg-blue-50 transition"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                required
-                placeholder="이름"
-              />
-            </div>
             <div>
               <label className="block mb-1 text-xs font-medium text-gray-600">전화번호 <span className="text-red-400">*</span></label>
               <input
@@ -136,11 +121,24 @@ const EditDriverModal = ({ open, onClose, driver, onUpdateSuccess }) => {
               />
             </div>
             <div>
-              <label className="block mb-1 text-xs font-medium text-gray-600">등급</label>
+              <label className="block mb-1 text-xs font-medium text-gray-600">경력 (년) <span className="text-red-400">*</span></label>
+              <input
+                type="number"
+                className="w-full border border-gray-200 focus:border-blue-400 rounded px-3 py-2 text-sm outline-none bg-white focus:bg-blue-50 transition"
+                value={careerYears}
+                onChange={(e) => setCareerYears(e.target.value)}
+                required
+                placeholder="경력 년수"
+                min="0"
+              />
+            </div>
+            <div>
+              <label className="block mb-1 text-xs font-medium text-gray-600">등급 <span className="text-red-400">*</span></label>
               <select
                 className="w-full border border-gray-200 focus:border-blue-400 rounded px-3 py-2 text-sm outline-none bg-white focus:bg-blue-50 transition"
                 value={grade}
                 onChange={(e) => setGrade(e.target.value)}
+                required
               >
                 <option value="">선택하세요</option>
                 <option value="A">A</option>

@@ -4,6 +4,7 @@ import { IoPersonCircle, IoArrowBack } from "react-icons/io5";
 import axios from "axios";
 import { useToast } from "../components/Toast/ToastProvider";
 import { useScheduleAPI } from "../hooks/useScheduleAPI";
+import { useToken } from "../components/Token/TokenProvider";
 
 // axios 기본 URL 설정
 axios.defaults.baseURL = "http://localhost:8080";
@@ -13,6 +14,7 @@ const UserDetailPage = () => {
   const navigate = useNavigate();
   const toast = useToast();
   const { fetchSchedulesByDriver } = useScheduleAPI();
+  const { getToken } = useToken();
   
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -47,40 +49,43 @@ const UserDetailPage = () => {
   // 1. 운전자 정보 API - 운전자 기본 정보 조회
   const fetchUserData = async (userId) => {
     try {
-      // 목업 데이터로 임시 대체 (API 연결 안되어 있을 때)
-      const mockData = {
-        username: "김운전",
-        email: "kim.driver@example.com", 
-        licenseNumber: "11-22-333333-44",
-        careerYears: 5,
-        avgDrivingScore: 85,
-        grade: "A"
-      };
+      console.log(`👤 [UserDetailPage] 운전자 ${userId} 정보 조회 시작`);
       
-      // 목업 데이터를 state에 저장
-      setUserName(mockData.username);
-      setEmail(mockData.email);
-      setLicenseNumber(mockData.licenseNumber);
-      setCareerYears(mockData.careerYears);
-      setAvgDrivingScore(mockData.avgDrivingScore);
-      setGrade(mockData.grade);
+      const token = getToken();
+      if (!token) {
+        throw new Error('인증 토큰이 없습니다. 다시 로그인해주세요.');
+      }
+
+      // 실제 API 호출
+      const response = await axios.get(`/api/admin/drivers/${userId}`, {
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
       
-      console.log("✅ 운전자 정보 로드 완료 (목업 데이터)");
-      return mockData;
+      console.log(`👤 [UserDetailPage] 운전자 ${userId} 정보 응답:`, response.data);
+      const driverData = response.data?.data || response.data;
+      setUserName(driverData.username || "");
+      setEmail(driverData.email || "");
+      setLicenseNumber(driverData.licenseNumber || "");
+      setCareerYears(driverData.careerYears || "");
+      setAvgDrivingScore(driverData.avgDrivingScore || "");
+      setGrade(driverData.grade || "");
       
-      // 실제 API 호출 (나중에 활성화)
-      // const response = await axios.get(`/api/drivers/${userId}`);
-      // const driverData = response.data;
-      // setUserName(driverData.username || "");
-      // setEmail(driverData.email || "");
-      // setLicenseNumber(driverData.licenseNumber || "");
-      // setCareerYears(driverData.careerYears || "");
-      // setAvgDrivingScore(driverData.avgDrivingScore || "");
-      // setGrade(driverData.grade || "");
-      // return driverData;
+      console.log("✅ 운전자 정보 로드 완료");
+      return driverData;
     } catch (error) {
       console.error("❌ 운전자 정보 로딩 실패:", error);
-      toast.error("운전자 정보를 불러오지 못했습니다.");
+      if (error.response?.status === 401) {
+        toast.error("인증이 필요합니다. 다시 로그인해주세요.");
+      } else if (error.response?.status === 403) {
+        toast.error("관리자 권한이 필요합니다.");
+      } else if (error.response?.status === 404) {
+        toast.error("해당 운전자를 찾을 수 없습니다.");
+      } else {
+        toast.error(error.response?.data?.message || "운전자 정보를 불러오지 못했습니다.");
+      }
       throw error; // 실패시 에러 throw
     }
   };
@@ -88,40 +93,24 @@ const UserDetailPage = () => {
   // 2. 배차 이력 API - 운전자의 배차 기록 조회
   const loadDispatchHistory = async (userId) => {
     try {
-      // 목업 데이터로 임시 대체
-      const mockDispatchHistory = [
-        {
-          id: 1,
-          routeName: "1번 노선",
-          busNumber: "서울01가1234",
-          date: "2024-01-15",
-          startTime: "06:00",
-          endTime: "14:00",
-          status: "완료"
-        },
-        {
-          id: 2,
-          routeName: "2번 노선", 
-          busNumber: "서울01나5678",
-          date: "2024-01-16",
-          startTime: "14:00",
-          endTime: "22:00",
-          status: "완료"
-        }
-      ];
+      console.log(`📅 [UserDetailPage] 운전자 ${userId} 배차 이력 조회 시작`);
+      // 실제 API 호출 - 관리자가 특정 운전자의 배차 이력 조회
+      const options = { limit: dateRange.limit };
+      if (dateRange.startDate) options.startDate = dateRange.startDate;
+      if (dateRange.endDate) options.endDate = dateRange.endDate;
       
-      setDispatchHistory(mockDispatchHistory);
-      console.log("✅ 배차 이력 로드 완료 (목업 데이터):", mockDispatchHistory.length, "건");
-      
-      // 실제 API 호출 (나중에 활성화)
-      // const options = { limit: dateRange.limit };
-      // if (dateRange.startDate) options.startDate = dateRange.startDate;
-      // if (dateRange.endDate) options.endDate = dateRange.endDate;
-      // const history = await fetchSchedulesByDriver(userId, options);
-      // setDispatchHistory(history);
+      const history = await fetchSchedulesByDriver(userId, options);
+      setDispatchHistory(history || []);
+      console.log("✅ 배차 이력 로드 완료:", history?.length || 0, "건");
     } catch (error) {
       console.error("❌ 배차 이력 조회 실패:", error);
-      toast.error("배차 이력을 불러올 수 없습니다.");
+      if (error.response?.status === 401) {
+        toast.error("인증이 필요합니다. 다시 로그인해주세요.");
+      } else if (error.response?.status === 403) {
+        toast.error("관리자 권한이 필요합니다.");
+      } else {
+        toast.error(error.response?.data?.message || "배차 이력을 불러올 수 없습니다.");
+      }
       setDispatchHistory([]); // 실패 시 빈 배열로 초기화
     }
   };
@@ -129,39 +118,33 @@ const UserDetailPage = () => {
   // 3. 경고 이력 API - 운전자의 경고 기록 조회 (날짜 범위 지원)
   const loadWarningHistory = async (userId) => {
     try {
-      // 목업 데이터로 임시 대체
-      const mockWarningHistory = [
-        {
-          id: 1,
-          warningType: "Drowsiness",
-          warningTime: "2024-01-15T08:30:00",
-          location: "서울시 강남구",
-          severity: "중간",
-          resolved: true
-        },
-        {
-          id: 2,
-          warningType: "Acceleration", 
-          warningTime: "2024-01-16T14:15:00",
-          location: "서울시 서초구",
-          severity: "높음",
-          resolved: false
-        },
-        {
-          id: 3,
-          warningType: "Braking",
-          warningTime: "2024-01-17T10:45:00", 
-          location: "서울시 송파구",
-          severity: "낮음",
-          resolved: true
-        }
-      ];
+      console.log(`⚠️ [UserDetailPage] 운전자 ${userId} 경고 이력 조회 시작`);
       
-      setWarningHistory(mockWarningHistory);
+      const token = getToken();
+      if (!token) {
+        throw new Error('인증 토큰이 없습니다. 다시 로그인해주세요.');
+      }
+
+      // 실제 API 호출
+      const params = { limit: warningDateRange.limit };
+      if (warningDateRange.startDate) params.startDate = warningDateRange.startDate;
+      if (warningDateRange.endDate) params.endDate = warningDateRange.endDate;
+      
+      const response = await axios.get(`/api/warnings/driver/${userId}`, { 
+        params,
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      console.log(`⚠️ [UserDetailPage] 운전자 ${userId} 경고 이력 응답:`, response.data);
+      const warnings = response.data?.data || response.data || [];
+      setWarningHistory(warnings);
       
       // 경고 통계 계산
       const stats = {
-        total: mockWarningHistory.length,
+        total: warnings.length,
         byType: {},
         thisMonth: 0
       };
@@ -169,7 +152,7 @@ const UserDetailPage = () => {
       const currentMonth = new Date().getMonth();
       const currentYear = new Date().getFullYear();
       
-      mockWarningHistory.forEach(warning => {
+      warnings.forEach(warning => {
         // 타입별 통계
         stats.byType[warning.warningType] = (stats.byType[warning.warningType] || 0) + 1;
         
@@ -181,15 +164,7 @@ const UserDetailPage = () => {
       });
       
       setWarningStats(stats);
-      console.log("✅ 경고 이력 로드 완료 (목업 데이터):", mockWarningHistory.length, "건");
-      
-      // 실제 API 호출 (나중에 활성화)
-      // const params = { limit: warningDateRange.limit };
-      // if (warningDateRange.startDate) params.startDate = warningDateRange.startDate;
-      // if (warningDateRange.endDate) params.endDate = warningDateRange.endDate;
-      // const response = await axios.get(`/api/warnings/driver/${userId}`, { params });
-      // const warnings = response.data;
-      // setWarningHistory(warnings);
+      console.log("✅ 경고 이력 로드 완료:", warnings.length, "건");
     } catch (error) {
       console.error("❌ 경고 이력 조회 실패:", error);
       toast.error("경고 이력을 불러올 수 없습니다.");
@@ -254,8 +229,6 @@ const UserDetailPage = () => {
       [field]: value
     }));
   };
-
-  
 
   // 경고 타입 한글 변환-> 수정해야됨
   const getWarningTypeLabel = (type) => {
@@ -351,8 +324,8 @@ const UserDetailPage = () => {
               </div>
               <div className="border-t pt-3">
                 <div className="text-sm text-gray-600 mb-2">타입별 통계</div>
-                {Object.entries(warningStats.byType).map(([type, count]) => (
-                  <div key={type} className="flex justify-between text-sm">
+                {Object.entries(warningStats.byType || {}).map(([type, count], index) => (
+                  <div key={`warning-type-${type}-${index}`} className="flex justify-between text-sm">
                     <span className="text-gray-500">{getWarningTypeLabel(type)}</span>
                     <span className="text-gray-700">{count}건</span>
                   </div>
@@ -428,8 +401,8 @@ const UserDetailPage = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {dispatchHistory.map((dispatch) => (
-                    <tr key={dispatch.dispatchId} className="hover:bg-blue-50 transition rounded">
+                  {(dispatchHistory || []).map((dispatch, index) => (
+                    <tr key={`dispatch-${dispatch?.dispatchId || index}`} className="hover:bg-blue-50 transition rounded">
                       <td className="py-2 px-4 rounded-l">{dispatch.dispatchId}</td>
                       <td className="py-2 px-4">{dispatch.dispatchDate}</td>
                       <td className="py-2 px-4">{dispatch.busId}번</td>
@@ -507,8 +480,8 @@ const UserDetailPage = () => {
               <p className="text-gray-400 text-center py-8">경고 이력이 없습니다.</p>
             ) : (
               <div className="space-y-3">
-                {warningHistory.map((warning) => (
-                  <div key={warning.warningId} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition">
+                {(warningHistory || []).map((warning, index) => (
+                  <div key={`warning-${warning?.warningId || index}`} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition">
                     <div className="flex justify-between items-start">
                       <div>
                         <div className="flex items-center gap-2 mb-2">

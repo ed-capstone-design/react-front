@@ -1,6 +1,9 @@
+// NOTE: 이 파일은 이전 회원가입 화면입니다. 현재 라우팅에서는 /signin, /signup 모두 Auth.jsx가 담당합니다.
+// 필요 시 Auth.jsx로 통합된 폼을 사용하세요. 혼선을 피하기 위해 유지하되, 실제 라우트에서는 사용하지 않습니다.
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import { useToken } from "../components/Token/TokenProvider";
 
 // axios 기본 URL 설정
 axios.defaults.baseURL = "http://localhost:8080";
@@ -20,14 +23,15 @@ const Signup = () => {
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { getToken } = useToken();
 
   // 이미 로그인된 사용자라면 대시보드로 리다이렉트
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    const token = getToken();
     if (token) {
       navigate("/dashboard");
     }
-  }, [navigate]);
+  }, [navigate, getToken]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -63,7 +67,8 @@ const Signup = () => {
       }, 2000);
     } catch (error) {
       if (error.response) {
-        setError(error.response.data.message || "회원가입에 실패했습니다.");
+        const errorMessage = error.response.data?.message || error.response.data.message || "회원가입에 실패했습니다.";
+        setError(errorMessage);
       } else {
         setError("서버 연결에 실패했습니다.");
       }
