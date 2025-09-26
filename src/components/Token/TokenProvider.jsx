@@ -215,6 +215,8 @@ export const TokenProvider = ({ children }) => {
         username: payload.username || payload.preferred_username || payload.sub, // 사용자명
         email: payload.email || "", // 이메일
         roles: payload.roles || payload.authorities || payload.scope?.split(' ') || [], // 권한/역할
+        // 운영사 식별자(백엔드에서 발급 시 사용) — 다양한 키 후보를 안전하게 병합
+        operatorId: payload.operatorId || payload.operator_id || payload.operator?.id || null,
         // JWT 표준 클레임들
         sub: payload.sub, // Subject (사용자 식별자)
         aud: payload.aud, // Audience (토큰 대상)

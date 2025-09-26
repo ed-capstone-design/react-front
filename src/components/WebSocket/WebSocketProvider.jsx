@@ -18,7 +18,7 @@ export const WebSocketProvider = ({ children }) => {
   const [isConnected, setIsConnected] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const stompClient = useRef(null);
-  const { getToken, getUserInfo, isTokenValid } = useToken();
+  const { getToken, getUserInfo, getUserInfoFromToken, isTokenValid } = useToken();
   const toast = useToast();
 
   // 연결 설정
@@ -147,10 +147,77 @@ export const WebSocketProvider = ({ children }) => {
     }
   }, [isConnected, toast]);
 
-  // 테스트 메시지 전송
+  // 구독 수락 여부 테스트 (receipt 기반)
+  const testSubscribe = useCallback(async (destination) => {
+    if (!stompClient.current || !isConnected) {
+      toast.warning("먼저 연결 버튼으로 STOMP에 연결해주세요.");
+      return false;
+    }
+    try {
+      const receiptId = `sub-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      let subscription = null;
+      const result = await new Promise((resolve) => {
+        let finished = false;
+        const timeoutId = setTimeout(() => {
+          if (finished) return;
+          finished = true;
+          // 권한 거부 또는 서버 미응답 가능
+          if (subscription) {
+            try { subscription.unsubscribe(); } catch (_) {}
+          }
+          resolve(false);
+        }, 3000);
+
+        // receipt 도착 시 성공으로 판단
+        stompClient.current.watchForReceipt(receiptId, () => {
+          if (finished) return;
+          finished = true;
+          clearTimeout(timeoutId);
+          if (subscription) {
+            try { subscription.unsubscribe(); } catch (_) {}
+          }
+          resolve(true);
+        });
+
+        // 실제 구독 시도 (콜백은 테스트 목적이라 no-op)
+        try {
+          // SUBSCRIBE 시에도 Authorization 헤더 첨부
+          const token = getToken && getToken();
+          subscription = stompClient.current.subscribe(
+            destination,
+            () => {},
+            {
+              receipt: receiptId,
+              ...(token ? { Authorization: `Bearer ${token}` } : {})
+            }
+          );
+        } catch (e) {
+          if (finished) return;
+          finished = true;
+          clearTimeout(timeoutId);
+          resolve(false);
+        }
+      });
+
+      if (result) {
+        toast.success(`구독 성공: ${destination}`);
+      } else {
+        toast.error(`구독 실패: ${destination} (권한 또는 서버 거부 가능)`);
+      }
+      return result;
+    } catch (error) {
+      console.error("[WebSocket] 구독 테스트 에러:", error);
+      toast.error("구독 테스트 중 오류가 발생했습니다.");
+      return false;
+    }
+  }, [isConnected, toast, getToken]);
+
+  // operatorId 기반 구독 테스트: /topic/operator/{operatorId}/warnings
   const sendTestMessage = useCallback(() => {
-    sendMessage("/hello", { content: "테스트 메시지입니다!" });
-  }, [sendMessage]);
+        const token = getToken();
+    const destination = `/topic/operator/1/warnings`;
+    testSubscribe(destination);
+  }, [getUserInfoFromToken, testSubscribe, toast]);
 
   // 불필요한 부가 기능 제거(알림/운전 이벤트 발행 등) — 최소 기능만 유지
 
@@ -172,6 +239,7 @@ export const WebSocketProvider = ({ children }) => {
     notifications,
     sendMessage,
     sendTestMessage,
+    testSubscribe,
     connect,
     disconnect,
     clearNotifications: () => setNotifications([])
