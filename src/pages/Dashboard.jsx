@@ -1,234 +1,94 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { IoCarSportOutline, IoPeopleOutline, IoStatsChartOutline, IoNotificationsOutline } from "react-icons/io5";
-import { useNavigate } from "react-router-dom";
-import axios from "axios";
-import Layout from "../components/Layout/Layout";
-// import { useNotificationCount } from "../components/Notification/NotificationCountProvider";
-import { useScheduleAPI } from "../hooks/useScheduleAPI";
-import RunningDrivers from "../components/Dashboard/RunningDrivers";
-import TodayScheduleList from "../components/Dashboard/TodayScheduleList";
-
-// axios 기본 URL 설정
-axios.defaults.baseURL = "http://localhost:8080";
+import { useDashboardData } from "../hooks/useDashboardData";
+import WeeklyDispatchBar from "../components/Dashboard/charts/WeeklyDispatchBar";
+import HourlyDepartureColumn from "../components/Dashboard/charts/HourlyDepartureColumn";
 
 const DashboardContent = () => {
-  // const { unreadCount } = useNotificationCount(); // 백엔드 미구현으로 주석처리
-  const { fetchSchedulesByPeriod } = useScheduleAPI();
-  const navigate = useNavigate();
-  const [stats, setStats] = useState([
-    { icon: <IoCarSportOutline className="text-blue-500 text-3xl" />, label: "오늘 스케줄", value: "로딩중..." },
-    { icon: <IoPeopleOutline className="text-green-500 text-3xl" />, label: "운전자 수", value: "로딩중..." },
-    { icon: <IoStatsChartOutline className="text-purple-500 text-3xl" />, label: "완료 운행", value: "로딩중..." },
-  ]);
-  const [recentDrives, setRecentDrives] = useState([]);
-  // const [recentNotifications, setRecentNotifications] = useState([]); // 백엔드 미구현
-  const [loading, setLoading] = useState(true);
-  // const [notificationLoading, setNotificationLoading] = useState(true); // 백엔드 미구현
+  const { loading, kpiCounts, weeklyCounts, hourlyDistribution, todayDispatches, refresh } = useDashboardData();
 
-  // 통계 데이터 불러오기
-  useEffect(() => {
-    fetchDashboardStats();
-    fetchRecentDrives();
-    // fetchRecentNotifications(); // 백엔드 미구현으로 주석처리
-  }, []);
-
-  // unreadCount 변경 시 stats 업데이트 - 백엔드 미구현으로 주석처리
-  /*
-  useEffect(() => {
-    setStats(prev => prev.map(stat => 
-      stat.label === "미읽은 알림" 
-        ? { ...stat, value: unreadCount }
-        : stat
-    ));
-  }, [unreadCount]);
-  */
-
-  // 백엔드 미구현으로 전체 주석처리
-  /*
-  const fetchRecentNotifications = async () => {
-    setNotificationLoading(true);
-    try {
-      // 읽지 않은 알림만 가져오기
-      const response = await axios.get("/api/notifications/me/unread?limit=5");
-      setRecentNotifications(response.data);
-    } catch (error) {
-      console.log("읽지 않은 알림 조회 실패, 예시 데이터 사용");
-      setRecentNotifications([
-        {
-          warningType: "Acceleration",
-          warningtime: new Date(Date.now() - 1000 * 60 * 30).toISOString(), // 30분 전
-          isRead: false
-        },
-        {
-          warningType: "Drowsiness",
-          warningtime: new Date(Date.now() - 1000 * 60 * 60).toISOString(), // 1시간 전
-          isRead: false
-        },
-        {
-          warningType: "Abnormal",
-          warningtime: new Date(Date.now() - 1000 * 60 * 10).toISOString(), // 10분 전
-          isRead: false
-        }
-      ]);
-    } finally {
-      setNotificationLoading(false);
-    }
-  };
-  */
-
-  // warningType별 라벨 반환 - 백엔드 미구현으로 주석처리
-  /*
-  const getWarningTypeLabel = (warningType) => {
-    switch (warningType) {
-      case "Acceleration": return "급과속";
-      case "Braking": return "급정거";
-      case "Drowsiness": return "졸음";
-      case "Abnormal": return "이상감지";
-    }
-  };
-  */
-
-  const fetchDashboardStats = async () => {
-    try {
-      // 1. 오늘 스케줄 조회 (최적화)
-      const today = new Date().toISOString().split('T')[0];
-      const todaySchedules = await fetchSchedulesByPeriod(today, today);
-      const completedToday = todaySchedules.filter(d => d.status === "COMPLETED").length;
-
-      // 2. 운전자 수 (driver 테이블에서)
-      const driversResponse = await axios.get("/api/admin/drivers");
-      const totalDrivers = driversResponse.data?.data?.length || driversResponse.data?.length || 0;
-
-      setStats([
-        { icon: <IoCarSportOutline className="text-blue-500 text-3xl" />, label: "오늘 스케줄", value: `${todaySchedules.length}건` },
-        { icon: <IoPeopleOutline className="text-green-500 text-3xl" />, label: "운전자 수", value: `${totalDrivers}명` },
-        { icon: <IoStatsChartOutline className="text-purple-500 text-3xl" />, label: "완료 운행", value: `${completedToday}건` },
-      ]);
-    } catch (error) {
-      console.error("통계 데이터 로딩 실패:", error);
-      setStats([
-        { icon: <IoCarSportOutline className="text-blue-500 text-3xl" />, label: "오늘 스케줄", value: "오류" },
-        { icon: <IoPeopleOutline className="text-green-500 text-3xl" />, label: "운전자 수", value: "오류" },
-        { icon: <IoStatsChartOutline className="text-purple-500 text-3xl" />, label: "완료 운행", value: "오류" }
-      ]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchRecentDrives = async () => {
-    try {
-      // 오늘 스케줄만 가져와서 최근 운행으로 표시
-      const today = new Date().toISOString().split('T')[0];
-      const todaySchedules = await fetchSchedulesByPeriod(today, today);
-      const recent = todaySchedules
-        .filter(d => d.status === "COMPLETED" || d.status === "SCHEDULED")
-        .slice(0, 2); // 최근 2개만
-      setRecentDrives(recent);
-    } catch (error) {
-      console.error("최근 운행 데이터 로딩 실패:", error);
-      setRecentDrives([
-        { dispatchId: 1, status: "COMPLETED", busId: 101 },
-        { dispatchId: 2, status: "SCHEDULED", busId: 202 }
-      ]);
-    }
-  };
-  
-  // 알림 카드 클릭 핸들러 - 백엔드 미구현으로 주석처리
-  /*
-  const handleNotificationCardClick = () => {
-    navigate('/insight');
-  };
-  
-  // 오늘 날짜로 필터링 (warningtime을 사용)
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const todayNotis = recentNotifications.filter(n => {
-    const notiDate = new Date(n.warningtime);
-    notiDate.setHours(0, 0, 0, 0);
-    return notiDate.getTime() === today.getTime();
-  });
-
-  // 읽지 않은 오늘 알림 (모든 알림이 읽지 않은 알림이므로 그대로 사용)
-  const todayUnreadNotis = todayNotis;
-  */
+  const stats = [
+    { icon: <IoCarSportOutline className="text-blue-500 text-3xl" />, label: "오늘 스케줄", value: loading ? "—" : `${kpiCounts.todayTotal}건` },
+    { icon: <IoPeopleOutline className="text-green-500 text-3xl" />, label: "운전자 수", value: loading ? "—" : `${kpiCounts.totalDrivers}명` },
+    { icon: <IoStatsChartOutline className="text-purple-500 text-3xl" />, label: "운행중 배차", value: loading ? "—" : `${kpiCounts.ongoing}건` },
+    { icon: <IoNotificationsOutline className="text-orange-500 text-3xl" />, label: "미읽은 알림", value: loading ? "—" : `${kpiCounts.unreadNotifications}개` },
+  ];
 
   return (
-    <div className="max-w-6xl mx-auto py-12 px-4">
-      <h2 className="text-3xl font-bold mb-10 text-gray-900 tracking-tight">대시보드</h2>
-      {/* 상단 통계 3개 그리드 (알림 카드 제거) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
+    <div className="max-w-6xl mx-auto py-10 px-4">
+
+      {/* 상단 통계 */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
         {stats.map((item, idx) => (
           <div
             key={idx}
-            className="bg-white border border-gray-100 rounded-xl p-8 flex flex-col items-center gap-3 shadow-sm hover:shadow transition"
+            className="bg-white ring-1 ring-gray-100 rounded-xl p-6 flex flex-col items-center gap-2 shadow-sm hover:shadow-md transition"
           >
             <div className="mb-2">{item.icon}</div>
-            <div className="text-base font-semibold text-gray-700">{item.label}</div>
+            <div className="text-sm font-semibold text-gray-600">{item.label}</div>
             <div className="text-2xl font-extrabold text-gray-900">{item.value}</div>
           </div>
         ))}
-        {/* 알림 카드 - 백엔드 미구현으로 주석처리 */}
-        {/*
-        <div
-          className="bg-white border border-blue-100 rounded-xl p-8 flex flex-col items-center gap-3 shadow-sm hover:shadow-md transition cursor-pointer relative"
-          onClick={handleNotificationCardClick}
-          title="알림 상세 보기"
-        >
-          <div className="mb-2 text-blue-500 text-3xl font-bold">🔔</div>
-          {unreadCount > 0 && (
-            <div className="absolute top-2 right-2 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
-              {unreadCount > 99 ? '99+' : unreadCount}
-            </div>
-          )}
-          <div className="text-base font-semibold text-blue-700">금일 알림</div>
-          <div className="text-2xl font-extrabold text-blue-700">
-            {todayUnreadNotis.length}/{todayNotis.length}
-          </div>
-          <div className="w-full mt-4 max-h-24 overflow-y-auto scrollbar-thin scrollbar-thumb-blue-100">
-            {todayNotis.length === 0 ? (
-              <div className="text-gray-400 text-sm text-center">금일 알림 없음</div>
-            ) : (
-              todayNotis
-                .slice(0, 5) // 최대 5개만 표시
-                .map((n, index) => (
-                  <div 
-                    key={index} 
-                    className="text-xs py-1 border-b last:border-b-0 border-gray-50 truncate text-gray-900 font-medium"
-                  >
-                    {getWarningTypeLabel(n.warningType)}: {new Date(n.warningtime).toLocaleTimeString()}
-                  </div>
-                ))
-            )}
-            {todayNotis.length > 5 && (
-              <div className="text-xs text-blue-500 text-center pt-2">
-                +{todayNotis.length - 5}개 더보기
-              </div>
-            )}
-          </div>
-        </div>
-        */}
       </div>
 
-      {/* 추가컨텐츠: 운행중인 운전자 리스트, 당일 배차목록 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
-        {/* 운행중인 운전자 리스트 */}
-        <section className="bg-white rounded-xl shadow p-6">
-          <h3 className="text-lg font-bold mb-4 text-blue-700">운행중인 운전자</h3>
-          <RunningDrivers />
+      {/* 중단: 좌-최근 7일 Bar / 우-최근 7일 시간대별 Column */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
+        <section className="bg-white rounded-xl shadow p-6 ring-1 ring-gray-100">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-bold text-gray-900">최근 7일 일별 배차 수</h3>
+            <button
+              className="inline-flex items-center justify-center w-9 h-9 rounded-lg bg-gray-50 hover:bg-gray-100 text-gray-600 hover:text-blue-600 transition"
+              onClick={refresh}
+              disabled={loading}
+              title="리프레시"
+              aria-label="리프레시"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+                <path d="M12 6v3l4-4-4-4v3C7.58 4 4 7.58 4 12c0 1.85.63 3.55 1.69 4.9l1.46-1.46A6.01 6.01 0 0 1 6 12c0-3.31 2.69-6 6-6zm6.31 1.1-1.46 1.46A6.01 6.01 0 0 1 18 12c0 3.31-2.69 6-6 6v-3l-4 4 4 4v-3c4.42 0 8-3.58 8-8 0-1.85-.63-3.55-1.69-4.9z"/>
+              </svg>
+            </button>
+          </div>
+          <WeeklyDispatchBar data={weeklyCounts} />
         </section>
-        {/* 당일 배차목록 */}
-        <section className="bg-white rounded-xl shadow p-6">
-          <h3 className="text-lg font-bold mb-4 text-green-700">오늘의 배차목록</h3>
-          <TodayScheduleList />
+        <section className="bg-white rounded-xl shadow p-6 ring-1 ring-gray-100">
+          <h3 className="text-lg font-bold mb-4 text-gray-900">시간대별 출발 분포 (최근 7일)</h3>
+          <HourlyDepartureColumn data={hourlyDistribution} />
         </section>
       </div>
+
+      {/* 하단: 금일 배차 간략 리스트 (운행중 하이라이트) */}
+      <section className="bg-white rounded-xl shadow p-6 mt-8 ring-1 ring-gray-100">
+        <h3 className="text-lg font-bold mb-4 text-gray-900">오늘의 배차 (간략)</h3>
+        {loading ? (
+          <div className="text-sm text-gray-500">로딩 중…</div>
+        ) : (
+          <ul className="divide-y divide-gray-100">
+            {todayDispatches.length === 0 ? (
+              <li className="py-3 text-sm text-gray-400">금일 배차 없음</li>
+            ) : (
+              todayDispatches.map((d) => {
+                const now = new Date();
+                const dep = new Date(`${d.dispatchDate}T${(d.departureTime?.length===5? d.departureTime+':00': d.departureTime) || '00:00:00'}`);
+                const arr = new Date(`${d.dispatchDate}T${(d.arrivalTime?.length===5? d.arrivalTime+':00': d.arrivalTime) || '23:59:59'}`);
+                const running = now >= dep && now <= arr;
+                return (
+                  <li key={d.dispatchId || `${d.dispatchDate}-${d.departureTime}-${d.driverId}`}
+                      className={`py-3 px-3 flex justify-between items-center rounded-lg ${running ? 'bg-green-50 ring-1 ring-green-200' : ''}`}>
+                    <div className="text-sm font-medium text-gray-900">
+                      {d.dispatchDate} {d.departureTime}
+                    </div>
+                    <div className="text-xs text-gray-500">버스 {d.busId} · 운전자 {d.driverId}</div>
+                  </li>
+                );
+              })
+            )}
+          </ul>
+        )}
+      </section>
     </div>
   );
-}
+};
 
-const Dashboard = () => (
-    <DashboardContent />
-);
+const Dashboard = () => <DashboardContent />;
 
 export default Dashboard;

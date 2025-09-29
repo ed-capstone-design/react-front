@@ -51,11 +51,12 @@ const DriverListPanel = ({ onDriverClick }) => {
         <div className="h-[600px] overflow-y-auto pr-1 group relative custom-scrollbar">
             {/* 운행중 */}
             <div className="flex justify-between items-center mb-2">
-                <span className="font-bold text-blue-700">{statusLabel.DRIVING}</span>
+                <span className="font-bold text-gray-900">운행중</span>
+                <span className="text-xs text-gray-500">{운행중.length}명</span>
             </div>
             {운행중.length === 0 ? <div className="text-xs text-gray-400 mb-2">운행중인 운전자가 없습니다.</div> :
                 운행중.map((driver) => (
-                    <div key={driver.driverId} onClick={() => handleCardClick(driver)} className="cursor-pointer">
+                    <div key={driver.userId} onClick={() => handleCardClick(driver)} className="cursor-pointer">
                         <DriverCard driver={driver} onNameClick={handleNameClick} />
                     </div>
                 ))}

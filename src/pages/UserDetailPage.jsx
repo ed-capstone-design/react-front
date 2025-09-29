@@ -22,7 +22,7 @@ const UserDetailPage = () => {
   
   // 운전자 기본 정보 상태
   const [username, setUserName] = useState("");
-  const [email, setEmail] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [licenseNumber, setLicenseNumber] = useState("");
   const [careerYears, setCareerYears] = useState("");
   const [avgDrivingScore, setAvgDrivingScore] = useState("");
@@ -37,13 +37,21 @@ const UserDetailPage = () => {
   });
   const [dateRange, setDateRange] = useState({
     startDate: "",
-    endDate: "",
-    limit: 20
+    endDate: ""
+  });
+  // 입력 바인딩용 보류 상태
+  const [pendingDateRange, setPendingDateRange] = useState({
+    startDate: "",
+    endDate: ""
   });
   const [warningDateRange, setWarningDateRange] = useState({
     startDate: "",
-    endDate: "",
-    limit: 20
+    endDate: ""
+  });
+  // 입력 바인딩용 보류 상태
+  const [pendingWarningDateRange, setPendingWarningDateRange] = useState({
+    startDate: "",
+    endDate: ""
   });
 
   // 1. 운전자 정보 API - 운전자 기본 정보 조회
@@ -67,7 +75,15 @@ const UserDetailPage = () => {
       console.log(`👤 [UserDetailPage] 운전자 ${userId} 정보 응답:`, response.data);
       const driverData = response.data?.data || response.data;
       setUserName(driverData.username || "");
-      setEmail(driverData.email || "");
+      // 휴대폰 번호를 프로필 표시에 사용
+      setPhoneNumber(
+        driverData.phoneNumber ||
+        driverData.phone ||
+        driverData.mobile ||
+        driverData.contactPhone ||
+        driverData.contact?.phoneNumber ||
+        ""
+      );
       setLicenseNumber(driverData.licenseNumber || "");
       setCareerYears(driverData.careerYears || "");
       setAvgDrivingScore(driverData.avgDrivingScore || "");
@@ -95,7 +111,7 @@ const UserDetailPage = () => {
     try {
       console.log(`📅 [UserDetailPage] 운전자 ${userId} 배차 이력 조회 시작`);
       // 실제 API 호출 - 관리자가 특정 운전자의 배차 이력 조회
-      const options = { limit: dateRange.limit };
+  const options = {};
       if (dateRange.startDate) options.startDate = dateRange.startDate;
       if (dateRange.endDate) options.endDate = dateRange.endDate;
       
@@ -126,7 +142,7 @@ const UserDetailPage = () => {
       }
 
       // 실제 API 호출
-      const params = { limit: warningDateRange.limit };
+  const params = {};
       if (warningDateRange.startDate) params.startDate = warningDateRange.startDate;
       if (warningDateRange.endDate) params.endDate = warningDateRange.endDate;
       
@@ -215,19 +231,13 @@ const UserDetailPage = () => {
   }, [warningDateRange]);
 
   // 배차 이력 날짜 범위 변경 핸들러
-  const handleDateRangeChange = (field, value) => {
-    setDateRange(prev => ({
-      ...prev,
-      [field]: value
-    }));
+  const handleApplyDateRange = () => {
+    setDateRange({ ...pendingDateRange });
   };
 
   // 경고 이력 날짜 범위 변경 핸들러
-  const handleWarningDateRangeChange = (field, value) => {
-    setWarningDateRange(prev => ({
-      ...prev,
-      [field]: value
-    }));
+  const handleApplyWarningDateRange = () => {
+    setWarningDateRange({ ...pendingWarningDateRange });
   };
 
   // 경고 타입 한글 변환-> 수정해야됨
@@ -284,7 +294,7 @@ const UserDetailPage = () => {
             <div className="text-center">
               <IoPersonCircle className="text-blue-500 text-8xl mx-auto mb-4 drop-shadow" />
               <div className="text-xl font-bold text-gray-900 mb-2">{username || "이름 없음"}</div>
-              <div className="text-gray-500 text-sm mb-3">{email || "이메일 없음"}</div>
+              <div className="text-gray-500 text-sm mb-3">{phoneNumber || "전화번호 없음"}</div>
               <div className="space-y-2 text-xs">
                 {licenseNumber && (
                   <div className="bg-gray-50 text-gray-700 px-3 py-2 rounded">
@@ -343,45 +353,32 @@ const UserDetailPage = () => {
             
             {/* 날짜 필터 */}
             <div className="bg-gray-50 rounded-lg p-4 mb-6">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-                <div>
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+                <div className="md:col-span-5">
                   <label className="block text-sm font-medium text-gray-700 mb-1">시작 날짜</label>
                   <input
                     type="date"
-                    value={dateRange.startDate}
-                    onChange={(e) => handleDateRangeChange('startDate', e.target.value)}
+                    value={pendingDateRange.startDate}
+                    onChange={(e) => setPendingDateRange(prev => ({ ...prev, startDate: e.target.value }))}
                     className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
-                <div>
+                <div className="md:col-span-5">
                   <label className="block text-sm font-medium text-gray-700 mb-1">종료 날짜</label>
                   <input
                     type="date"
-                    value={dateRange.endDate}
-                    onChange={(e) => handleDateRangeChange('endDate', e.target.value)}
+                    value={pendingDateRange.endDate}
+                    onChange={(e) => setPendingDateRange(prev => ({ ...prev, endDate: e.target.value }))}
                     className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">조회 개수</label>
-                  <select
-                    value={dateRange.limit}
-                    onChange={(e) => handleDateRangeChange('limit', parseInt(e.target.value))}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value={10}>최근 10개</option>
-                    <option value={20}>최근 20개</option>
-                    <option value={50}>최근 50개</option>
-                    <option value={100}>최근 100개</option>
-                  </select>
-                </div>
-                <div>
+                <div className="md:col-span-2 flex md:justify-end">
                   <button
                     type="button"
-                    onClick={() => setDateRange({ startDate: "", endDate: "", limit: 20 })}
-                    className="w-full px-4 py-2 text-sm bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition"
+                    onClick={handleApplyDateRange}
+                    className="px-3 py-1.5 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-md transition focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    필터 초기화
+                    조회
                   </button>
                 </div>
               </div>
@@ -432,45 +429,32 @@ const UserDetailPage = () => {
             
             {/* 날짜 필터 */}
             <div className="bg-gray-50 rounded-lg p-4 mb-6">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-                <div>
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+                <div className="md:col-span-5">
                   <label className="block text-sm font-medium text-gray-700 mb-1">시작 날짜</label>
                   <input
                     type="date"
-                    value={warningDateRange.startDate}
-                    onChange={(e) => handleWarningDateRangeChange('startDate', e.target.value)}
+                    value={pendingWarningDateRange.startDate}
+                    onChange={(e) => setPendingWarningDateRange(prev => ({ ...prev, startDate: e.target.value }))}
                     className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
-                <div>
+                <div className="md:col-span-5">
                   <label className="block text-sm font-medium text-gray-700 mb-1">종료 날짜</label>
                   <input
                     type="date"
-                    value={warningDateRange.endDate}
-                    onChange={(e) => handleWarningDateRangeChange('endDate', e.target.value)}
+                    value={pendingWarningDateRange.endDate}
+                    onChange={(e) => setPendingWarningDateRange(prev => ({ ...prev, endDate: e.target.value }))}
                     className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">조회 개수</label>
-                  <select
-                    value={warningDateRange.limit}
-                    onChange={(e) => handleWarningDateRangeChange('limit', parseInt(e.target.value))}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value={10}>최근 10개</option>
-                    <option value={20}>최근 20개</option>
-                    <option value={50}>최근 50개</option>
-                    <option value={100}>최근 100개</option>
-                  </select>
-                </div>
-                <div>
+                <div className="md:col-span-2 flex md:justify-end">
                   <button
                     type="button"
-                    onClick={() => setWarningDateRange({ startDate: "", endDate: "", limit: 20 })}
-                    className="w-full px-4 py-2 text-sm bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition"
+                    onClick={handleApplyWarningDateRange}
+                    className="px-3 py-1.5 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-md transition focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    필터 초기화
+                    조회
                   </button>
                 </div>
               </div>

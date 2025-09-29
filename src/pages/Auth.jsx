@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import axios from "axios";
+import api from "../api/client";
 import { useToast } from "../components/Toast/ToastProvider";
 import { useToken } from "../components/Token/TokenProvider";
 
 // axios 기본 URL 설정
-axios.defaults.baseURL = "http://localhost:8080";
+// API 호출은 중앙 클라이언트 사용
 
 const Auth = () => {
   const location = useLocation();
@@ -70,7 +70,7 @@ const Auth = () => {
     
     try {
       console.log("🔐 로그인 요청 전송:", { email: loginData.email });
-      const response = await axios.post("/api/auth/login", {
+      const response = await api.post("/api/auth/login", {
         email: loginData.email,
         password: loginData.password
       });
@@ -128,13 +128,13 @@ const Auth = () => {
         password: signupData.password,
         ...(signupData.role === "DRIVER" && {
           licenseNumber: signupData.licenseNumber,
-          career: parseInt(signupData.career)
+          careerYears: parseInt(signupData.careerYears)
         })
       };
 
       console.log("📝 회원가입 요청 전송:", payload);
 
-      const response = await axios.post("/api/auth/register", payload);
+  const response = await api.post("/api/auth/signup", payload);
 
       console.log("📝 백엔드 응답:", response.data);
 

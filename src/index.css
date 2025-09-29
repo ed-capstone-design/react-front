@@ -3,6 +3,7 @@
 @tailwind utilities;
 
 /* ...existing code... */
+
 .custom-scrollbar::-webkit-scrollbar {
   width: 8px;
   background: transparent;

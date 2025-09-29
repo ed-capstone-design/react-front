@@ -96,19 +96,19 @@ const BusListPanel = () => {
 
         {/* 통계 */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white p-4 rounded-lg shadow">
+          <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
             <h3 className="text-sm font-medium text-gray-500">전체 버스</h3>
             <p className="text-2xl font-bold text-gray-900">{stats.total}대</p>
           </div>
-          <div className="bg-white p-4 rounded-lg shadow">
+          <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
             <h3 className="text-sm font-medium text-gray-500">평균 차령</h3>
             <p className="text-2xl font-bold text-gray-900">{stats.avgAge}년</p>
           </div>
-          <div className="bg-white p-4 rounded-lg shadow">
+          <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
             <h3 className="text-sm font-medium text-gray-500">시내버스</h3>
             <p className="text-2xl font-bold text-blue-600">{stats.byRouteType.CITY || 0}대</p>
           </div>
-          <div className="bg-white p-4 rounded-lg shadow">
+          <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
             <h3 className="text-sm font-medium text-gray-500">친환경차량</h3>
             <p className="text-2xl font-bold text-green-600">
               {(stats.byFuelType.ELECTRIC || 0) + (stats.byFuelType.HYBRID || 0)}대

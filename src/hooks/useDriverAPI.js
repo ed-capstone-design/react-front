@@ -2,8 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { useToken } from '../components/Token/TokenProvider';
 
-// axios 기본 URL 설정
-axios.defaults.baseURL = "http://localhost:8080";
+// baseURL은 TokenProvider에서 중앙 설정합니다.
 
 /**
  * 운전자 관련 API를 관리하는 커스텀 훅
@@ -19,18 +18,7 @@ export const useDriverAPI = () => {
   const TIMEOUT = 5000;
 
   // 기본 fallback 데이터
-  const fallbackDrivers = [
-    {
-      userId: 1,
-      username: "홍길동",
-      email: "honggildong@example.com",
-      phoneNumber: "010-1234-5678",
-      licenseNumber: "12가3456",
-      operatorName: "운수사A",
-      grade: "A",
-      careerYears: 5,
-      avgDrivingScore: 4.5,
-    }
+  const fallbackDrivers = [{}
   ];
 
   /**
@@ -66,7 +54,7 @@ export const useDriverAPI = () => {
   /**
    * 특정 운전자 상세 정보 조회
    */
-  const fetchDriverDetail = useCallback(async (driverId) => {
+  const fetchDriverDetail = useCallback(async (userId) => {
     setLoading(true);
     setError(null);
 
@@ -75,17 +63,17 @@ export const useDriverAPI = () => {
         setTimeout(() => reject(new Error('API 호출 시간 초과')), TIMEOUT)
       );
 
-      const apiPromise = axios.get(`/api/admin/drivers/${driverId}`, {
+      const apiPromise = axios.get(`/api/admin/drivers/${userId}`, {
         headers: { Authorization: `Bearer ${getToken()}` }
       });
 
       const response = await Promise.race([apiPromise, timeoutPromise]);
       return response.data?.data || response.data;
     } catch (err) {
-      console.log(`운전자 ${driverId} 상세 정보 조회 실패`);
+      console.log(`운전자 ${userId} 상세 정보 조회 실패`);
       setError(err.message);
       // fallback 데이터에서 해당 운전자 찾기
-      return fallbackDrivers.find(driver => driver.userId === parseInt(driverId)) || fallbackDrivers[0];
+      return fallbackDrivers.find(driver => driver.userId === parseInt(userId)) || fallbackDrivers[0];
     } finally {
       setLoading(false);
     }

@@ -1,8 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from "react";
 import axios from "axios";
 
-// axios 기본 URL 설정
-axios.defaults.baseURL = "http://localhost:8080";
+// baseURL은 TokenProvider에서 중앙 설정합니다.
 
 const NotificationCountContext = createContext();
 

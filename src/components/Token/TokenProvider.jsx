@@ -1,6 +1,95 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import axios from 'axios';
 
+// 앱 시작 시점에 공용 baseURL을 즉시 설정 (초기 렌더 타이밍 경쟁 방지)
+if (!axios.defaults.baseURL) {
+  axios.defaults.baseURL = 'http://localhost:8080';
+}
+
+// 저장된 토큰이 있으면 즉시 Authorization 기본 헤더 세팅
+try {
+  const bootToken = localStorage.getItem('authToken');
+  if (bootToken) {
+    axios.defaults.headers.common['Authorization'] = `Bearer ${bootToken}`;
+  }
+} catch {}
+
+// 전역 요청/응답 인터셉터를 모듈 로드 시 한 번만 설치 (초기 요청도 커버)
+if (!axios.__legacyRewriteInstalled) {
+  axios.__legacyRewriteInstalled = true;
+  axios.interceptors.request.use(
+    (config) => {
+      try {
+        const method = (config.method || 'get').toLowerCase();
+        const rawUrl = config.url || '';
+        let pathname = rawUrl;
+        try {
+          const full = new URL(rawUrl, config.baseURL || axios.defaults.baseURL || window.location.origin);
+          pathname = full.pathname.replace(/\/$/, '');
+        } catch {
+          pathname = String(rawUrl).replace(/\/$/, '');
+        }
+
+        if (method === 'get') {
+          if (pathname === '/api/drivers') {
+            config.url = '/api/admin/drivers';
+          }
+          if (pathname === '/api/notifications') {
+            config.url = '/api/notifications/me';
+          }
+        }
+      } catch {}
+
+      const finalUrl = (() => {
+        try {
+          return new URL(config.url || '', config.baseURL || axios.defaults.baseURL || window.location.origin).toString();
+        } catch {
+          return String(config.url);
+        }
+      })();
+      const debug = (() => {
+        try { return !!localStorage.getItem('DEBUG_AXIOS'); } catch { return false; }
+      })();
+      if (debug) {
+        console.log('📡 Axios 요청:', config.method?.toUpperCase(), finalUrl);
+        console.log('📡 Authorization 헤더:', config.headers?.Authorization || '헤더 없음');
+      }
+      return config;
+    },
+    (error) => Promise.reject(error)
+  );
+
+  axios.interceptors.response.use(
+    (response) => response,
+    (error) => {
+      // React StrictMode의 이중 이펙트로 인해 첫 요청이 취소되며 발생하는 에러는 로그를 억제
+      if (axios.isCancel?.(error) || error?.code === 'ERR_CANCELED' || error?.name === 'CanceledError') {
+        // console.debug('📡 Axios 요청 취소:', error.config?.url);
+        return Promise.reject(error);
+      }
+      const finalUrl = (() => {
+        try {
+          return new URL(
+            error.config?.url || '',
+            error.config?.baseURL || axios.defaults.baseURL || window.location.origin
+          ).toString();
+        } catch {
+          return String(error.config?.url);
+        }
+      })();
+      const log = {
+        url: finalUrl,
+        status: error.response?.status,
+        data: error.response?.data,
+        code: error.code,
+        message: error.message,
+      };
+      console.error('📡 Axios 응답 에러:', log);
+      return Promise.reject(error);
+    }
+  );
+}
+
 const TokenContext = createContext({
   // 토큰 관련
   token: null,
@@ -26,44 +115,16 @@ export const TokenProvider = ({ children }) => {
 
 
 
-  // axios 요청 인터셉터 설정 (디버깅용)
-  useEffect(() => {
-    const requestInterceptor = axios.interceptors.request.use(
-      (config) => {
-        console.log("📡 Axios 요청:", config.method?.toUpperCase(), config.url);
-        console.log("📡 Authorization 헤더:", config.headers?.Authorization || '헤더 없음');
-        return config;
-      },
-      (error) => {
-        console.error("📡 Axios 요청 에러:", error);
-        return Promise.reject(error);
-      }
-    );
-
-    const responseInterceptor = axios.interceptors.response.use(
-      (response) => {
-        console.log("📡 Axios 응답 성공:", response.status, response.config.url);
-        return response;
-      },
-      (error) => {
-        console.error("📡 Axios 응답 에러:");
-        console.error("- URL:", error.config?.url);
-        console.error("- 상태:", error.response?.status);
-        console.error("- 메시지:", error.response?.data);
-        return Promise.reject(error);
-      }
-    );
-
-    return () => {
-      axios.interceptors.request.eject(requestInterceptor);
-      axios.interceptors.response.eject(responseInterceptor);
-    };
-  }, []);
+  // 컴포넌트 레벨에서는 별도 인터셉터 설정 불필요 (전역으로 이미 설치됨)
 
   // 토큰 가져오기 (간단하게)
   const getToken = () => {
     const token = localStorage.getItem('authToken'); // 하나의 키만 사용
-    console.log("🔑 [TokenProvider] 토큰 조회:", token ? `${token.substring(0, 20)}...` : '토큰 없음');
+    try {
+      if (localStorage.getItem('DEBUG_AXIOS')) {
+        console.log("🔑 [TokenProvider] 토큰 조회:", token ? `${token.substring(0, 20)}...` : '토큰 없음');
+      }
+    } catch {}
     return token;
   };
 
@@ -198,7 +259,11 @@ export const TokenProvider = ({ children }) => {
       const payload = parseJwt(token);
       if (!payload) return null;
       
-      console.log("🔍 JWT 페이로드 내용:", payload);
+      try {
+        if (localStorage.getItem('DEBUG_AXIOS')) {
+          console.log("🔍 JWT 페이로드 내용:", payload);
+        }
+      } catch {}
       
       // JWT 표준 클레임 검증
       const currentTime = Math.floor(Date.now() / 1000);
@@ -242,12 +307,16 @@ export const TokenProvider = ({ children }) => {
       const payload = JSON.parse(atob(token.split('.')[1]));
       const currentTime = Math.floor(Date.now() / 1000);
       
-      console.log("🔍 토큰 유효성 검사:");
-      console.log("- 현재 시간:", currentTime);
-      console.log("- 토큰 만료 시간:", payload.exp);
-      console.log("- 토큰 발급 시간:", payload.iat);
-      console.log("- 토큰 대상자:", payload.aud);
-      console.log("- 토큰 발급자:", payload.iss);
+      try {
+        if (localStorage.getItem('DEBUG_AXIOS')) {
+          console.log("🔍 토큰 유효성 검사:");
+          console.log("- 현재 시간:", currentTime);
+          console.log("- 토큰 만료 시간:", payload.exp);
+          console.log("- 토큰 발급 시간:", payload.iat);
+          console.log("- 토큰 대상자:", payload.aud);
+          console.log("- 토큰 발급자:", payload.iss);
+        }
+      } catch {}
       
       // 만료 시간 확인
       if (payload.exp && payload.exp < currentTime) {
