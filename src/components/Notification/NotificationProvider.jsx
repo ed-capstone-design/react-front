@@ -64,6 +64,11 @@ export const NotificationProvider = ({ children }) => {
   const handleRealtime = useCallback((payload) => {
     try {
       const raw = typeof payload?.body === 'string' ? JSON.parse(payload.body) : payload;
+      // 경고 메시지면 토스트 알림
+      if (raw.notificationType === 'WARNING' || raw.notificationType === 'ALERT') {
+        toast.warning(raw.message || '경고 알림이 도착했습니다.');
+      }
+      // 알림 리스트는 항상 갱신
       const incoming = {
         id: raw.notificationId,
         message: raw.message,
@@ -90,20 +95,21 @@ export const NotificationProvider = ({ children }) => {
     } catch (e) {
       console.error('[Notification] 실시간 메시지 처리 실패', e);
     }
-  }, []);
+  }, [toast]);
 
   // 초기 로드: 토큰이 있을 때만 시도
   useEffect(() => {
     refresh();
   }, [refresh]);
 
+  // 연결되었을 때 단 1회만 구독 (중복 방지)
   useEffect(() => {
     if (!isConnected) return;
-    // 연결이 켜질 때마다 안전하게 재시도 (WebSocketProvider가 중복 활성화를 방지)
+    if (didSubscribeRef.current) return; // 이미 구독 완료
     const ok = subscribePersistent('/user/queue/notifications', handleRealtime);
     if (ok) didSubscribeRef.current = true;
     return () => {
-      // 구독 해제는 WebSocketProvider에서 관리됨(지속 구독), 여기서는 no-op
+      // 지속 구독은 Provider가 관리하므로 여기서는 해제 안 함
     };
   }, [isConnected, subscribePersistent, handleRealtime]);
 

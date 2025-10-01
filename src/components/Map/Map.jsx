@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from "react";
 
-const KakaoMap = ({ markers = [], width = "100%", height = "400px", style = {} }) => {
+const KakaoMap = ({ markers = [], polyline = [], width = "100%", height = "400px", style = {} }) => {
   const mapRef = useRef(null);
   const mapObj = useRef(null);
 
@@ -28,9 +28,10 @@ const KakaoMap = ({ markers = [], width = "100%", height = "400px", style = {} }
   useEffect(() => {
     if (window.kakao && mapObj.current) {
       renderMarkers();
+      renderPolyline();
     }
     // eslint-disable-next-line
-  }, [markers]);
+  }, [markers, polyline]);
 
   const renderMap = () => {
     if (!window.kakao || !mapRef.current) return;
@@ -41,6 +42,9 @@ const KakaoMap = ({ markers = [], width = "100%", height = "400px", style = {} }
     if (markers.length > 0) {
       centerLat = markers.reduce((sum, m) => sum + m.lat, 0) / markers.length;
       centerLng = markers.reduce((sum, m) => sum + m.lng, 0) / markers.length;
+    } else if (polyline.length > 0) {
+      centerLat = polyline.reduce((sum, p) => sum + p.lat, 0) / polyline.length;
+      centerLng = polyline.reduce((sum, p) => sum + p.lng, 0) / polyline.length;
     }
     const mapOption = {
       center: new kakao.maps.LatLng(centerLat, centerLng),
@@ -48,16 +52,22 @@ const KakaoMap = ({ markers = [], width = "100%", height = "400px", style = {} }
     };
     mapObj.current = new kakao.maps.Map(mapRef.current, mapOption);
     renderMarkers();
+    renderPolyline();
   };
 
   const renderMarkers = () => {
     const { kakao } = window;
     if (!mapObj.current) return;
-    // 기존 마커 모두 제거
+    // 기존 마커/오버레이 모두 제거 (먼저 정리)
     if (mapObj.current.markers) {
       mapObj.current.markers.forEach(marker => marker.setMap(null));
     }
+    if (mapObj.current.overlays) {
+      mapObj.current.overlays.forEach(ov => ov.setMap(null));
+    }
     mapObj.current.markers = [];
+    mapObj.current.overlays = [];
+
     if (markers.length === 0) return; // 마커 없으면 아무것도 표시하지 않음
     markers.forEach((marker) => {
       const markerPosition = new kakao.maps.LatLng(marker.lat, marker.lng);
@@ -70,10 +80,42 @@ const KakaoMap = ({ markers = [], width = "100%", height = "400px", style = {} }
         position: markerPosition,
         image: markerImage,
       });
-
       kakaoMarker.setMap(mapObj.current);
       mapObj.current.markers.push(kakaoMarker);
+
+      // 운전자명/차량번호 오버레이
+      if (marker.label || marker.vehicleNumber) {
+        const overlayContent = `<div style="background:rgba(255,255,255,0.95);border-radius:8px;padding:2px 8px;font-size:13px;box-shadow:0 1px 4px #0001;white-space:nowrap;">
+          <b>${marker.label || ''}</b> <span style="color:#888;">${marker.vehicleNumber || ''}</span>
+        </div>`;
+        const overlay = new kakao.maps.CustomOverlay({
+          position: markerPosition,
+          content: overlayContent,
+          yAnchor: 1.1
+        });
+        overlay.setMap(mapObj.current);
+        mapObj.current.overlays.push(overlay);
+      }
     });
+  };
+
+  const renderPolyline = () => {
+    const { kakao } = window;
+    if (!mapObj.current) return;
+    if (mapObj.current.polyline) {
+      mapObj.current.polyline.setMap(null);
+    }
+    if (!polyline || polyline.length < 2) return;
+    const linePath = polyline.map(coord => new kakao.maps.LatLng(coord.lat, coord.lng));
+    const polylineObj = new kakao.maps.Polyline({
+      path: linePath,
+      strokeWeight: 5,
+      strokeColor: '#3b82f6',
+      strokeOpacity: 0.7,
+      strokeStyle: 'solid'
+    });
+    polylineObj.setMap(mapObj.current);
+    mapObj.current.polyline = polylineObj;
   };
 
   return (

@@ -5,13 +5,17 @@ import { useWebSocket } from '../components/WebSocket/WebSocketProvider';
 import { useNotification } from '../components/Notification/NotificationProvider';
 import { useDashboardData } from "../hooks/useDashboardData";
 import KakaoMap from "../components/Map/Map";
+import { useToken } from "../components/Token/TokenProvider";
 import DriverListPanel from "../components/Driver/DriverListPanel";
 
 const Insight = () => {
   const navigate = useNavigate();
-  const { isConnected } = useWebSocket();
+  const { isConnected, subscribeDispatchLocation, subscribedDestinations } = useWebSocket();
+  const { getUserInfo, getUserInfoFromToken } = useToken();
+  const roles = (getUserInfo()?.roles || getUserInfoFromToken()?.roles || []);
+  const isAdmin = roles.includes('ROLE_ADMIN') || roles.includes('ADMIN');
   const { notifications, unreadCount, markAsRead } = useNotification();
-  const { loading, kpiCounts, todayDispatches, ongoingCount } = useDashboardData();
+  const { loading, kpiCounts, todayDispatches, ongoingCount, dispatches7d } = useDashboardData();
 
   // 금일 완료/남은 계산
   const now = new Date();
@@ -33,8 +37,110 @@ const Insight = () => {
     }).length;
   }, [todayDispatches, now]);
 
-  // 지도 마커(아직 백엔드 연동 전이라 비워둡니다)
-  const markers = React.useMemo(() => [], []);
+  // 실시간 운전자 위치 상태
+  const [driverLocations, setDriverLocations] = React.useState([]);
+  // destination -> unsubscribe 함수 매핑 (증분 관리용)
+  // 키를 '/topic/dispatch/{id}/location' 문자열로 고정해 숫자/문자 id 혼용으로 인한 진동을 방지
+  const dispatchUnsubsRef = React.useRef(new Map());
+
+  // 구독: 최근 7일 중 상태가 RUNNING/DRIVING인 모든 배차의 실시간 위치
+  // NOTE: 실시간 WS 구독은 Insight에서만 수행합니다.
+  //       DriveDetail(완료 배차 상세)는 REST 데이터(경로/이벤트/기록)만 사용합니다.
+  React.useEffect(() => {
+    // ADMIN 전용 토픽이면 권한 없을 때 건너뜀
+    if (!isAdmin) return;
+
+    // 상태 판정 유틸 (백엔드 필드명 변동 대비)
+    const getStatus = (d) => String(d?.status || d?.state || '').toUpperCase();
+    const isRunning = (d) => {
+      const s = getStatus(d);
+      return s === 'RUNNING' || s === 'DRIVING';
+    };
+
+    const running = (dispatches7d || []).filter(isRunning);
+    // 목적지 문자열로 키를 통일
+    const toDest = (d) => {
+      const raw = d?.id ?? d?.dispatchId;
+      if (raw === undefined || raw === null) return null;
+      const idStr = String(raw);
+      return `/topic/dispatch/${idStr}/location`;
+    };
+    const targetDests = new Set(
+      running.map(toDest).filter(Boolean)
+    );
+
+    // 1) 신규 대상: 구독 추가
+    targetDests.forEach((dest) => {
+      if (!dispatchUnsubsRef.current.has(dest)) {
+        // dest에서 id만 추출
+        const idForSub = dest.split('/')[3]; // ['','topic','dispatch','{id}','location']
+        const unsub = subscribeDispatchLocation(idForSub, (locationData) => {
+          // 디버그 로그
+          console.log('[Insight] 위치 수신:', idForSub, locationData);
+          setDriverLocations(prev => {
+            const idx = prev.findIndex(l => l.dispatchId === locationData.dispatchId);
+            const enriched = { ...locationData, lastUpdated: Date.now() };
+            if (idx !== -1) {
+              const updated = [...prev];
+              updated[idx] = enriched;
+              return updated;
+            } else {
+              return [...prev, enriched];
+            }
+          });
+        });
+        if (unsub) {
+          dispatchUnsubsRef.current.set(dest, unsub);
+          console.log('[Insight] 구독 추가:', dest);
+        }
+      }
+    });
+
+    // 2) 제외 대상: 구독 해제
+    Array.from(dispatchUnsubsRef.current.keys()).forEach((dest) => {
+      if (!targetDests.has(dest)) {
+        const unsub = dispatchUnsubsRef.current.get(dest);
+        try { unsub && unsub(); } catch {}
+        dispatchUnsubsRef.current.delete(dest);
+        console.log('[Insight] 구독 해제(제외):', dest);
+      }
+    });
+
+    // 의존성 변경 시에는 차집합 기반으로만 추가/해제 처리하고,
+    // 전체 해제는 언마운트 전용 effect에서 수행합니다.
+    return undefined;
+  }, [dispatches7d, subscribeDispatchLocation, isAdmin]);
+
+  // 언마운트 시 전체 구독 정리 (한 번만)
+  React.useEffect(() => {
+    return () => {
+      Array.from(dispatchUnsubsRef.current.values()).forEach((u) => {
+        try { u && u(); } catch {}
+      });
+      dispatchUnsubsRef.current.clear();
+    };
+  }, []);
+
+  // 지도 마커: 실시간 위치로 변환
+  const markers = React.useMemo(() =>
+    driverLocations.map(loc => ({
+      lat: Number(loc.latitude),
+      lng: Number(loc.longitude),
+      label: loc.driverName,
+      vehicleNumber: loc.vehicleNumber,
+      imageSrc: 'https://cdn-icons-png.flaticon.com/512/61/61231.png', // 차량 아이콘
+    })),
+    [driverLocations]
+  );
+
+  // 실시간 추적 중 운전자 리스트 (최근 업데이트 순)
+  const liveDrivers = React.useMemo(() => {
+    const uniq = new Map(); // dispatchId 기준으로 고유화
+    driverLocations.forEach((l) => {
+      uniq.set(l.dispatchId, l);
+    });
+    return Array.from(uniq.values()).sort((a, b) => (b.lastUpdated || 0) - (a.lastUpdated || 0));
+  }, [driverLocations]);
 
   // 최신 알림 정렬(최신순) + 페이지네이션
   const [page, setPage] = React.useState(1);
@@ -120,12 +226,37 @@ const Insight = () => {
               </div>
             </div>
             <div className="min-h-[420px]">
-              <h3 className="text-lg font-bold mb-3 text-gray-900">운행중 운전자</h3>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-lg font-bold text-gray-900">운행중 운전자(실시간)</h3>
+                <div className="text-xs text-gray-500">{liveDrivers.length}명</div>
+              </div>
               <div className="bg-white rounded-xl ring-1 ring-gray-100 h-[420px] overflow-hidden">
                 <div className="h-full overflow-y-auto px-3 py-2 custom-scrollbar">
-                  <DriverListPanel />
+                  {liveDrivers.length === 0 ? (
+                    <div className="text-xs text-gray-400">실시간으로 수신 중인 운전자가 없습니다.</div>
+                  ) : (
+                    <ul className="space-y-2">
+                      {liveDrivers.map((d) => (
+                        <li key={d.dispatchId} className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50">
+                          <div className="min-w-0">
+                            <div className="text-sm font-medium text-gray-900 truncate">{d.driverName || '운전자'}</div>
+                            <div className="text-xs text-gray-500">{d.vehicleNumber || '차량'}</div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-green-100 text-green-700">LIVE</span>
+                            <button
+                              className="text-xs text-blue-600 hover:text-blue-800 underline"
+                              onClick={() => navigate(`/drivedetail/${d.dispatchId}`)}
+                            >상세</button>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
               </div>
+              {/* 구독 배차 힌트 (선택) */}
+              <div className="mt-2 text-[11px] text-gray-400">구독 중: {subscribedDestinations.filter(x => x.includes('/topic/dispatch/')).length}개</div>
             </div>
           </div>
         </section>
