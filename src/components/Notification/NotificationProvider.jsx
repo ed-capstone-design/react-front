@@ -17,12 +17,10 @@ export const NotificationProvider = ({ children }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const { getToken } = useToken();
-  const { subscribePersistent, isConnected } = useWebSocket();
+  const { subscribePersistent, isConnected, subscribedDestinations } = useWebSocket();
   const didSubscribeRef = React.useRef(false);
   const toast = useToast();
-  // 각 탭을 구분하기 위한 고유 ID (문자열이어야 postMessage에 실을 수 있음)
-  const tabIdRef = useRef(`${Date.now()}-${Math.random().toString(36).slice(2)}`);
-  const bcRef = useRef(null);
+  const didLogSubscribedRef = useRef(false);
 
   const unreadCount = useMemo(() => notifications.filter(n => !n.isRead).length, [notifications]);
 
@@ -116,7 +114,18 @@ export const NotificationProvider = ({ children }) => {
     };
   }, [isConnected, subscribePersistent, handleRealtime]);
 
-  // 프론트 임의 알림 추가용 함수
+  // 구독 성공 여부 콘솔 로깅: 실제 구독 목록에 대상이 나타날 때 1회 출력
+  useEffect(() => {
+    try {
+      if (didLogSubscribedRef.current) return;
+      if (Array.isArray(subscribedDestinations) && subscribedDestinations.includes('/user/queue/notifications')) {
+        console.log('[Notification] 구독 성공: /user/queue/notifications');
+        didLogSubscribedRef.current = true;
+      }
+    } catch {}
+  }, [subscribedDestinations]);
+
+  // 프론트 임의 알림 추가용 함수 (탭 간 동기화 제거)
   const addNotification = (notification) => {
     const normalized = {
       ...notification,
@@ -132,43 +141,7 @@ export const NotificationProvider = ({ children }) => {
     } catch {}
 
     setNotifications(prev => [normalized, ...prev]);
-
-    // 다른 탭에도 전파 (BroadcastChannel). createdAt은 직렬화를 위해 ISO 문자열로 변환
-    try {
-      if (bcRef.current) {
-        bcRef.current.postMessage({
-          type: 'ADD_NOTIFICATION',
-          sourceId: tabIdRef.current,
-          notification: { ...normalized, createdAt: normalized.createdAt.toISOString() },
-        });
-      }
-    } catch {}
   };
-
-  // 다른 탭에서 온 테스트 알림 수신 → 동일하게 반영
-  useEffect(() => {
-    try {
-      const bc = new BroadcastChannel('app.notifications.test');
-      bcRef.current = bc;
-      bc.onmessage = (ev) => {
-        const data = ev?.data;
-        if (!data || data.sourceId === tabIdRef.current) return;
-        if (data.type === 'ADD_NOTIFICATION' && data.notification) {
-          const incoming = { ...data.notification, createdAt: data.notification.createdAt ? new Date(data.notification.createdAt) : new Date() };
-          try {
-            const t = incoming?.type;
-            if (t === 'WARNING' || t === 'ALERT') {
-              toast.warning(incoming?.message || '경고 알림이 도착했습니다.');
-            }
-          } catch {}
-          setNotifications(prev => [incoming, ...prev]);
-        }
-      };
-      return () => { try { bc.close(); } catch {} };
-    } catch {
-      // BroadcastChannel 미지원 브라우저에서는 크로스 탭 동기화 비활성화
-    }
-  }, [toast]);
 
   const value = { notifications, unreadCount, loading, error, refresh, markAsRead, addNotification };
   return (
