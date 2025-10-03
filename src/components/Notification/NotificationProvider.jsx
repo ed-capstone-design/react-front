@@ -17,7 +17,7 @@ export const NotificationProvider = ({ children }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const { getToken } = useToken();
-  const { subscribePersistent, isConnected, subscribedDestinations } = useWebSocket();
+  const { subscribePersistent, isConnected, subscribedDestinations, testSubscribe } = useWebSocket();
   const didSubscribeRef = React.useRef(false);
   const toast = useToast();
   const didLogSubscribedRef = useRef(false);
@@ -62,25 +62,65 @@ export const NotificationProvider = ({ children }) => {
     }
   }, [getToken, refresh]);
 
-  const handleRealtime = useCallback((payload) => {
+  const handleRealtime = useCallback((payloadFrame) => {
     try {
-      const raw = typeof payload?.body === 'string' ? JSON.parse(payload.body) : payload;
-      // 경고 메시지면 토스트 알림
-      if (raw.notificationType === 'WARNING' || raw.notificationType === 'ALERT') {
-        toast.warning(raw.message || '경고 알림이 도착했습니다.');
+      const rawRoot = typeof payloadFrame?.body === 'string' ? JSON.parse(payloadFrame.body) : payloadFrame;
+      // 백엔드가 보낸 nested payload 병합
+      const raw = rawRoot && rawRoot.payload ? { ...rawRoot, ...rawRoot.payload } : rawRoot;
+
+      // createdAt 안전 파싱 (마이크로초 -> 밀리초로 truncate 시도)
+      let createdAtDate;
+      if (raw?.createdAt) {
+        const truncated = raw.createdAt.replace(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3})(\d+)(Z|[+\-].*)?$/, '$1$3');
+        createdAtDate = new Date(truncated || raw.createdAt);
+      } else {
+        createdAtDate = new Date();
       }
-      // 알림 리스트는 항상 갱신
+
+      // 토스트 정책 확장: WARNING, ALERT, DRIVING_WARNING
+      const toastTypes = ['WARNING', 'ALERT', 'DRIVING_WARNING'];
+      if (toastTypes.includes(raw?.notificationType)) {
+        const isAlertish = raw.notificationType === 'ALERT';
+        const isDrivingWarn = raw.notificationType === 'DRIVING_WARNING';
+        const msg = raw?.message || (isAlertish ? '긴급 알림이 도착했습니다.' : isDrivingWarn ? '운행 경고가 도착했습니다.' : '경고 알림이 도착했습니다.');
+        if (isAlertish) {
+          toast.error(msg);
+        } else {
+          toast.warning(msg);
+        }
+      }
+
+      // 콘솔 로깅
+      try {
+        console.log('[Notification][INCOMING]', {
+          id: raw?.notificationId,
+          type: raw?.notificationType,
+          message: raw?.message,
+          createdAt: raw?.createdAt,
+          dispatchId: raw?.dispatchId,
+          vehicleNumber: raw?.vehicleNumber,
+          driverName: raw?.driverName,
+          latitude: raw?.latitude,
+          longitude: raw?.longitude,
+          scheduledDepartureTime: raw?.scheduledDepartureTime,
+        });
+      } catch {}
+
       const incoming = {
         id: raw.notificationId,
         message: raw.message,
         type: raw.notificationType,
         url: raw.relatedUrl,
-        createdAt: new Date(raw.createdAt),
+        createdAt: createdAtDate,
         dispatchId: raw.dispatchId ?? null,
         vehicleNumber: raw.vehicleNumber ?? null,
         driverName: raw.driverName ?? null,
+        latitude: raw.latitude ?? null,
+        longitude: raw.longitude ?? null,
+        scheduledDepartureTime: raw.scheduledDepartureTime ? new Date(raw.scheduledDepartureTime) : null,
         isRead: !!raw.isRead,
       };
+
       setNotifications(prev => {
         const map = new Map(prev.map(n => [n.id, n]));
         const existed = map.get(incoming.id);
@@ -114,36 +154,33 @@ export const NotificationProvider = ({ children }) => {
     };
   }, [isConnected, subscribePersistent, handleRealtime]);
 
-  // 구독 성공 여부 콘솔 로깅: 실제 구독 목록에 대상이 나타날 때 1회 출력
+  // 구독 로깅: (1) 낙관적 등록 로그 (2) receipt 기반 확정 로그 시도
   useEffect(() => {
     try {
       if (didLogSubscribedRef.current) return;
       if (Array.isArray(subscribedDestinations) && subscribedDestinations.includes('/user/queue/notifications')) {
-        console.log('[Notification] 구독 성공: /user/queue/notifications');
+        console.log('[Notification] 구독 핸들러 등록됨(낙관): /user/queue/notifications');
         didLogSubscribedRef.current = true;
+        // 백그라운드로 receipt 기반 확정 검증 시도
+        try {
+          testSubscribe?.('/user/queue/notifications').then((ok) => {
+            if (ok) {
+              console.log('[Notification] 구독 확정 성공(receipt): /user/queue/notifications');
+            } else {
+              console.warn('[Notification] 구독 확정 실패/미확인(receipt 미지원 또는 거부): /user/queue/notifications');
+            }
+          }).catch(() => {
+            console.warn('[Notification] 구독 확정 검증 중 오류 발생');
+          });
+        } catch {}
       }
     } catch {}
   }, [subscribedDestinations]);
 
   // 프론트 임의 알림 추가용 함수 (탭 간 동기화 제거)
-  const addNotification = (notification) => {
-    const normalized = {
-      ...notification,
-      createdAt: notification.createdAt ? new Date(notification.createdAt) : new Date(),
-    };
 
-    // WARNING/ALERT 타입이면 실시간과 동일하게 토스트도 노출
-    try {
-      const t = normalized?.type;
-      if (t === 'WARNING' || t === 'ALERT') {
-        toast.warning(normalized?.message || '경고 알림이 도착했습니다.');
-      }
-    } catch {}
 
-    setNotifications(prev => [normalized, ...prev]);
-  };
-
-  const value = { notifications, unreadCount, loading, error, refresh, markAsRead, addNotification };
+  const value = { notifications, unreadCount, loading, error, refresh, markAsRead };
   return (
     <NotificationContext.Provider value={value}>
       {children}
