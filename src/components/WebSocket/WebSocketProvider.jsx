@@ -165,9 +165,13 @@ export const WebSocketProvider = ({ children }) => {
   const sendMessage = useCallback((destination, message) => {
     if (stompClient.current && isConnected) {
       try {
+        // 요청: 모든 STOMP frame에 토큰 포함 (publish 시에도 Authorization 헤더 전달)
+        const token = getToken && getToken();
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
         stompClient.current.publish({
           destination: `/app${destination}`,
-          body: JSON.stringify(message)
+          body: JSON.stringify(message),
+          headers
         });
         console.log("[WebSocket] 메시지 전송:", destination, message);
       } catch (error) {
@@ -201,8 +205,8 @@ export const WebSocketProvider = ({ children }) => {
       return true;
     }
 
-    const token = getToken && getToken();
-    const headers = { ...(token ? { Authorization: `Bearer ${token}` } : {}) };
+  const token = getToken && getToken();
+  const headers = token ? { Authorization: `Bearer ${token}` } : {}; // SUBSCRIBE 시에도 토큰 포함
 
     // 연결이 아직 아니면: 정의를 저장해두고 onConnect에서 자동 복원
     if (!stompClient.current || !isConnected) {
@@ -346,8 +350,8 @@ export const WebSocketProvider = ({ children }) => {
 
     try {
       // 실제 구독 시도 (receipt 의존 제거: 일부 브로커는 SUBSCRIBE에 대해 RECEIPT를 보내지 않음)
-      const token = getToken && getToken();
-      const subHeaders = { ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(headers || {}) };
+  const token = getToken && getToken();
+  const subHeaders = { ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(headers || {}) }; // 모든 구독 프레임에 토큰 포함
       const subscription = stompClient.current.subscribe(
         destination,
         (message) => {

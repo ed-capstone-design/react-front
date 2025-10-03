@@ -17,7 +17,7 @@ export const NotificationProvider = ({ children }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const { getToken } = useToken();
-  const { subscribePersistent, isConnected, subscribedDestinations } = useWebSocket();
+  const { subscribePersistent, isConnected, subscribedDestinations, testSubscribe } = useWebSocket();
   const didSubscribeRef = React.useRef(false);
   const toast = useToast();
   const didLogSubscribedRef = useRef(false);
@@ -143,32 +143,45 @@ export const NotificationProvider = ({ children }) => {
     refresh();
   }, [refresh]);
 
-  // 연결되었을 때 단 1회만 구독 (중복 방지)
-  useEffect(() => {
-    if (!isConnected) return;
-    if (didSubscribeRef.current) return; // 이미 구독 완료
-    const ok = subscribePersistent('/user/queue/notifications', handleRealtime);
-    if (ok) didSubscribeRef.current = true;
-    return () => {
-      // 지속 구독은 Provider가 관리하므로 여기서는 해제 안 함
-    };
-  }, [isConnected, subscribePersistent, handleRealtime]);
+  // 자동 구독 제거: 버튼을 통한 수동 구독만 허용
 
-  // 구독 로깅: 낙관적 등록 로그만 (receipt 프로브 제거)
-  useEffect(() => {
-    try {
-      if (didLogSubscribedRef.current) return;
-      if (Array.isArray(subscribedDestinations) && subscribedDestinations.includes('/user/queue/notifications')) {
-        console.log('[Notification] 구독 핸들러 등록됨: /user/queue/notifications');
-        didLogSubscribedRef.current = true;
-      }
-    } catch {}
+  // 공통 destination 상수
+  const NOTIFICATION_DEST = '/user/queue/notifications';
+
+  const isNotificationSubscribed = useMemo(() => {
+    return Array.isArray(subscribedDestinations) && subscribedDestinations.includes(NOTIFICATION_DEST);
   }, [subscribedDestinations]);
+
+  const subscribeNotifications = useCallback(() => {
+    if (didSubscribeRef.current) {
+      return true;
+    }
+    if (!isConnected) {
+      toast.warning('WebSocket 연결 후 구독하세요.');
+      return false;
+    }
+    const ok = subscribePersistent(NOTIFICATION_DEST, handleRealtime);
+    if (ok) {
+      didSubscribeRef.current = true;
+    }
+    return ok;
+  }, [isConnected, subscribePersistent, handleRealtime, toast]);
+
+  // 자동/receipt 구독 로깅 제거: 사용자가 버튼으로 구독 시 콘솔 출력
 
   // 프론트 임의 알림 추가용 함수 (탭 간 동기화 제거)
 
 
-  const value = { notifications, unreadCount, loading, error, refresh, markAsRead };
+  const value = { 
+    notifications, 
+    unreadCount, 
+    loading, 
+    error, 
+    refresh, 
+    markAsRead,
+    subscribeNotifications,
+    isNotificationSubscribed,
+  };
   return (
     <NotificationContext.Provider value={value}>
       {children}

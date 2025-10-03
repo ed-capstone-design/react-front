@@ -1,5 +1,5 @@
 import React from "react";
-import { IoLogOut, IoMenu, IoPersonCircle, IoNotificationsOutline, IoWifi, IoWifiOutline } from "react-icons/io5";
+import { IoLogOut, IoMenu, IoPersonCircle, IoNotificationsOutline, IoFlask } from "react-icons/io5";
 // import { useNotificationCount } from "../Notification/NotificationCountProvider";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useToken } from "../Token/TokenProvider";
@@ -11,7 +11,24 @@ const TopNav = ({ onSidebarOpen, onLogoClick, sidebarOpen }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { logout, getUserInfo, getUserInfoFromToken } = useToken();
-  const { isConnected } = useWebSocket();
+  const { isConnected, subscribePersistent, subscribedDestinations } = useWebSocket();
+  // 수동 구독 버튼 핸들러
+  const handleManualSubscribe = () => {
+    if (!isConnected) {
+      alert('WebSocket이 아직 연결되지 않았습니다. (상단 연결 로직 확인)');
+      return;
+    }
+    if (subscribedDestinations.includes('/user/queue/notifications')) {
+      alert('이미 /user/queue/notifications 구독 중입니다.');
+      return;
+    }
+    const ok = subscribePersistent('/user/queue/notifications', (msg) => {
+      try { console.log('[ManualSubscribe] 수신:', msg.body); } catch {}
+    });
+    if (ok) {
+      console.log('[ManualSubscribe] 구독 시도 완료');
+    }
+  };
   const { unreadCount } = useNotification();
   
   // 안전하게 사용자 정보 가져오기
@@ -91,6 +108,14 @@ const TopNav = ({ onSidebarOpen, onLogoClick, sidebarOpen }) => {
             )}
           </button>
         )}
+        <button
+          onClick={handleManualSubscribe}
+          className="flex items-center gap-1 text-gray-700 hover:text-blue-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded"
+          title="/user/queue/notifications 구독"
+        >
+          <IoFlask className="text-xl" />
+          <span className="hidden sm:inline text-sm">구독</span>
+        </button>
         <button 
           onClick={handleLogout}
           className="text-gray-700 hover:underline flex items-center gap-2 hover:text-red-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded"

@@ -196,3 +196,141 @@ public String ping(String payload) {
 - 프론트는 Authorization을 STOMP CONNECT에 정상 전송하고 있으며, 토큰 만료도 아님.
 - 서버에서 STOMP CONNECT 인증(Authorization 헤더 → JWT 검증 → Principal 세팅)과 메시지 보안 규칙의 정렬이 필요합니다.
 - 위 가이드를 적용 후, 연결 성공(Connected) → 구독/발행 순차 확인으로 마무리하세요.
+
+---
+
+## 9) (추가) Optimistic 구독 & Receipt 프로브 전략
+프론트는 실제 사용 구독을 receipt 없이 먼저 수행(낙관적 구독)하고, 별도 testSubscribe로 receipt 지원 여부를 비동기 확인합니다.
+
+| 단계 | 목적 | 동작 |
+|------|------|------|
+| subscribePersistent('/user/queue/notifications') | 실사용 핸들러 등록 | receipt 없이 SUBSCRIBE 즉시 수행 |
+| testSubscribe 동일 경로 | 브로커 receipt 지원 여부 탐지 | receipt 기대, 미수신 시 경고 로그만 출력 |
+
+브로커가 SUBSCRIBE receipt를 지원하지 않아도 정상 동작하며, 경고 로그는 치명 아님.
+
+## 10) (추가) Notification Payload 표준 스키마
+백엔드 전송 예 (user queue):
+```jsonc
+{
+  "notificationId": 6,
+  "message": "경고: 서울2가124 차량(김테스트)에서 BRAKING 이벤트 발생",
+  "notificationType": "DRIVING_WARNING",
+  "relatedUrl": "/dispatches/2",
+  "createdAt": "2025-09-28T23:41:29.152382",
+  "isRead": false,
+  "payload": {               // 가변 필드 컨테이너
+    "dispatchId": 2,
+    "vehicleNumber": "서울2가124",
+    "driverName": "김테스트",
+    "latitude": null,
+    "longitude": null,
+    "scheduledDepartureTime": "2025-09-29T09:10:00"
+  }
+}
+```
+프론트 처리 규칙:
+1. JSON 파싱 후 `payload` 존재 시 평탄화: `{...root, ...root.payload}`
+2. 필드 충돌 시 payload 값이 우선(운영 필요 시 문서화 권장)
+3. `createdAt` 마이크로초(6자리) → 밀리초 3자리로 truncate 시도 후 Date 파싱
+
+권장: 백엔드에서 ISO 8601 UTC (예: `2025-09-28T23:41:29.152Z`) 일관 출력.
+
+## 11) (추가) Notification Type UX 정책
+| notificationType | Toast 레벨 | 설명 |
+|------------------|------------|------|
+| ALERT | error | 긴급(치명) 알림 |
+| WARNING | warning | 일반 경고 |
+| DRIVING_WARNING | warning | 운행 이벤트 경고 (브레이킹 등) |
+| 기타(INFO 등) | 없음 | 리스트에는 반영, 토스트 생략 |
+
+확장 방법: switch-case 또는 매핑 테이블로 error/warning/info 분리.
+
+## 12) (추가) 콘솔 진단 로그 패턴
+| 로그 태그 | 의미 |
+|-----------|------|
+| `[Notification] 구독 핸들러 등록됨(낙관)` | subscribePersistent 완료, handler 설치 |
+| `[Notification] 구독 확정 성공(receipt)` | testSubscribe에서 receipt 수신 |
+| `[Notification] 구독 확정 실패/미확인` | receipt 미지원 또는 미수신 (치명 아님) |
+| `[Notification][INCOMING] {...}` | 실시간 수신된 알림 payload 디버그 덤프 |
+
+운영 전환 시 receipt 실패 경고는 debug 레벨로 낮추는 것을 권장.
+
+## 13) (추가) 재연결 & 재구독 전략
+현재 구현: 최초 1회 구독 후 `didSubscribeRef` 플래그로 중복 방지.
+위험: 세션 재생성(네트워크 끊김) 후 재구독 누락 가능.
+개선안 중 하나:
+```js
+stompClient.onWebSocketClose = () => { didSubscribeRef.current = false; };
+// 또는 onConnect 내부에서 항상 구독하고 idempotent 처리
+```
+
+## 14) (추가) convertAndSendToUser 사용 주의
+올바른 호출:
+```java
+messagingTemplate.convertAndSendToUser(principalName, "/queue/notifications", payload);
+```
+실수 사례: `"/user/queue/notifications"`로 전송 → 매칭 실패.
+Principal 이름 = `Authentication.getName()` 과 동일해야 함.
+
+체크리스트:
+- [ ] Principal null 아님 (CONNECT 인터셉터 확인)
+- [ ] principalName 일관 (이메일 vs 내부 ID 혼용 금지)
+- [ ] destination prefix `/queue` 사용 (`/topic` 아님)
+
+## 15) (추가) Ping/Echo (User Queue) 진단 예제
+백엔드:
+```java
+@MessageMapping("/test/ping")
+@SendToUser("/queue/notifications")
+public Map<String,Object> ping(Map<String,Object> in, Principal p) {
+  return Map.of(
+    "notificationId", 999999,
+    "message", "pong:" + in.get("x"),
+    "notificationType", "WARNING",
+    "createdAt", Instant.now().toString(),
+    "isRead", false
+  );
+}
+```
+프론트:
+```js
+stompClient.publish({ destination: '/app/test/ping', body: JSON.stringify({ x: 'hello' }) });
+```
+수신되면 개인 큐 라우팅/Principal 정상.
+
+## 16) (추가) Heartbeat 설정 권장
+현재 서버 응답: `heart-beat:0,0` → 끊김 감지 취약.
+SimpleBroker heartbeat 예:
+```java
+registry.enableSimpleBroker("/topic", "/queue").setHeartbeatValue(new long[]{10000,10000})
+        .setTaskScheduler(taskScheduler());
+```
+
+## 17) (추가) Principal & JWT Claim 매핑
+문제 패턴: JWT `sub` = email, DB userId 별도 → convertAndSendToUser에 userId 사용 시 mismatch.
+정책 결정 필요:
+1) getAuthentication()에서 Username = email로 고정
+2) 아니면 프론트/토큰 생성 시 subject를 userId로 통일
+
+## 18) (추가) 운영 전환 시 Log Level 권장
+| 영역 | 개발 | 운영 |
+|------|------|------|
+| STOMP debug | 활성 | 비활성 |
+| 구독 receipt 경고 | warn | debug |
+| INCOMING payload | info | debug (PII/민감 데이터 주의) |
+
+---
+
+## 19) (추가) 빠른 종합 체크리스트
+- [ ] CONNECT 프레임 Authorization 헤더 포함
+- [ ] CONNECT 인터셉터에서 Principal 세팅 로그
+- [ ] SUBSCRIBE 로그 destination=/user/queue/notifications, user!=null
+- [ ] convertAndSendToUser dest="/queue/notifications" (앞에 /user 없음)
+- [ ] principalName 일치 (auth.getName())
+- [ ] 알림 payload 스키마 준수 (notificationId, notificationType, createdAt 등)
+- [ ] DRIVING_WARNING 토스트 경고로 표출
+- [ ] 재연결 시 재구독 보장 또는 설계적 불필요 확인
+- [ ] ping 테스트 통과
+- [ ] heartbeat 설정(운영)
+
