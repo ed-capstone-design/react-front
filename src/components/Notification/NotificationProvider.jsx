@@ -17,7 +17,7 @@ export const NotificationProvider = ({ children }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const { getToken } = useToken();
-  const { subscribePersistent, isConnected, subscribedDestinations, testSubscribe } = useWebSocket();
+  const { subscribePersistent, isConnected, subscribedDestinations } = useWebSocket();
   const didSubscribeRef = React.useRef(false);
   const toast = useToast();
   const didLogSubscribedRef = useRef(false);
@@ -154,25 +154,13 @@ export const NotificationProvider = ({ children }) => {
     };
   }, [isConnected, subscribePersistent, handleRealtime]);
 
-  // 구독 로깅: (1) 낙관적 등록 로그 (2) receipt 기반 확정 로그 시도
+  // 구독 로깅: 낙관적 등록 로그만 (receipt 프로브 제거)
   useEffect(() => {
     try {
       if (didLogSubscribedRef.current) return;
       if (Array.isArray(subscribedDestinations) && subscribedDestinations.includes('/user/queue/notifications')) {
-        console.log('[Notification] 구독 핸들러 등록됨(낙관): /user/queue/notifications');
+        console.log('[Notification] 구독 핸들러 등록됨: /user/queue/notifications');
         didLogSubscribedRef.current = true;
-        // 백그라운드로 receipt 기반 확정 검증 시도
-        try {
-          testSubscribe?.('/user/queue/notifications').then((ok) => {
-            if (ok) {
-              console.log('[Notification] 구독 확정 성공(receipt): /user/queue/notifications');
-            } else {
-              console.warn('[Notification] 구독 확정 실패/미확인(receipt 미지원 또는 거부): /user/queue/notifications');
-            }
-          }).catch(() => {
-            console.warn('[Notification] 구독 확정 검증 중 오류 발생');
-          });
-        } catch {}
       }
     } catch {}
   }, [subscribedDestinations]);
