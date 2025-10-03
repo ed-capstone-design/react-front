@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
+import { useNotification } from '../components/Notification/NotificationProvider';
 
 const WebSocketComponent = () => {
     // Stomp 클라이언트 인스턴스를 저장하기 위해 ref를 사용합니다.
     const clientRef = useRef(null);
     const [messages, setMessages] = useState([]);
     const [isConnected, setIsConnected] = useState(false);
+    const { addNotification } = useNotification();
 
     // JWT 토큰 (실제로는 로그인 후 LocalStorage, Redux 등에서 가져와야 합니다)
     const JWT_TOKEN = "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJhZG1pbjJAdGVzdC5jb20iLCJ1c2VySWQiOjIsIm9wZXJhdG9ySWQiOjIsInJvbGVzIjpbIlJPTEVfQURNSU4iXSwiaWF0IjoxNzU4OTc5NDcyLCJleHAiOjE3NTkwNjU4NzJ9.xNlN0Rlr8kHp0KNMjGwCJT05I1GpWTzL5R2DUChBhtyCjTFo7ggQSmu--LgvuYv_bCkp1-hXDQsYbcHylSlAaw";
@@ -87,6 +89,17 @@ const WebSocketComponent = () => {
         }
     };
 
+    const handleTestNotification = (overrides = {}) => {
+        addNotification({
+            id: Date.now(),
+            message: '프론트에서 발생시킨 테스트 알림입니다!',
+            type: 'INFO',
+            createdAt: new Date(),
+            isRead: false,
+            ...overrides,
+        });
+    };
+
     return (
         <div>
             <h2>WebSocket Connection</h2>
@@ -103,6 +116,17 @@ const WebSocketComponent = () => {
                         <li key={index}>{msg}</li>
                     ))}
                 </ul>
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+                <button onClick={() => handleTestNotification()} style={{padding: '8px 16px', background: '#2563eb', color: 'white', borderRadius: 4, border: 'none'}}>
+                    테스트 알림(INFO)
+                </button>
+                <button onClick={() => handleTestNotification({ type: 'WARNING', message: '경고! 속도 초과 감지' })} style={{padding: '8px 16px', background: '#ca8a04', color: 'white', borderRadius: 4, border: 'none'}}>
+                    테스트 알림(WARNING)
+                </button>
+                <button onClick={() => handleTestNotification({ type: 'ALERT', message: '긴급! 급정거 이벤트' })} style={{padding: '8px 16px', background: '#dc2626', color: 'white', borderRadius: 4, border: 'none'}}>
+                    테스트 알림(ALERT)
+                </button>
             </div>
         </div>
     );

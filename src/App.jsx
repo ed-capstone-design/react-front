@@ -36,75 +36,75 @@ const RootRedirect = () => {
     // return <Navigate to={token ? "signin" : "/dashboard"} replace />;
 };
 
-// 보안(보호) 구역: 라우트 매칭 시에만 WS/알림 공급자 마운트
+// 보안(보호) 구역: 전역 Provider 하에서 보호 라우트만 렌더링
 const PrivateShell = () => (
-  <WebSocketProvider>
-    <NotificationProvider>
-      <Routes>
-        <Route path="/dashboard" element={
-          <ProtectedRoute>
-            <Layout><Dashboard /></Layout>
-          </ProtectedRoute>
-        } />
-        <Route path="/drivers" element={
-          <ProtectedRoute>
-            <Layout><Drivers /></Layout>
-          </ProtectedRoute>
-        } />
-        <Route path="/buses" element={
-          <ProtectedRoute>
-            <Layout><Buses /></Layout>
-          </ProtectedRoute>
-        } />
-        <Route path="/operating-schedule" element={
-          <ProtectedRoute>
-            <Layout><OperatingSchedule /></Layout>
-          </ProtectedRoute>
-        } />
-        <Route path="/insight" element={
-          <ProtectedRoute>
-            <Layout><Insight /></Layout>
-          </ProtectedRoute>
-        } />
-        <Route path="/userdetailpage/:id" element={
-          <ProtectedRoute>
-            <Layout><UserDetailPage /></Layout>
-          </ProtectedRoute>
-        } />
-        <Route path="/drivedetail/:id" element={
-          <ProtectedRoute>
-            <Layout><DriveDetail /></Layout>
-          </ProtectedRoute>
-        } />
-        <Route path="/mypage" element={
-          <ProtectedRoute>
-            <MyPage />
-          </ProtectedRoute>
-        } />
-      </Routes>
-    </NotificationProvider>
-  </WebSocketProvider>
+  <Routes>
+    <Route path="/dashboard" element={
+      <ProtectedRoute>
+        <Layout><Dashboard /></Layout>
+      </ProtectedRoute>
+    } />
+    <Route path="/drivers" element={
+      <ProtectedRoute>
+        <Layout><Drivers /></Layout>
+      </ProtectedRoute>
+    } />
+    <Route path="/buses" element={
+      <ProtectedRoute>
+        <Layout><Buses /></Layout>
+      </ProtectedRoute>
+    } />
+    <Route path="/operating-schedule" element={
+      <ProtectedRoute>
+        <Layout><OperatingSchedule /></Layout>
+      </ProtectedRoute>
+    } />
+    <Route path="/insight" element={
+      <ProtectedRoute>
+        <Layout><Insight /></Layout>
+      </ProtectedRoute>
+    } />
+    <Route path="/userdetailpage/:id" element={
+      <ProtectedRoute>
+        <Layout><UserDetailPage /></Layout>
+      </ProtectedRoute>
+    } />
+    <Route path="/drivedetail/:id" element={
+      <ProtectedRoute>
+        <Layout><DriveDetail /></Layout>
+      </ProtectedRoute>
+    } />
+    <Route path="/mypage" element={
+      <ProtectedRoute>
+        <MyPage />
+      </ProtectedRoute>
+    } />
+  </Routes>
 );
 
 function App() {
   return (
     <TokenProvider>
       <ToastProvider>
-        <Router>
-          <div className="App">
-            <Routes>
+        <WebSocketProvider>
+          <NotificationProvider>
+            <Router>
+              <div className="App">
+                <Routes>
               {/* 공개(비보호) 경로 */}
-              <Route path="/" element={<RootRedirect />} />
-              <Route path="/signin" element={<Auth />} />
-              <Route path="/signup" element={<Auth />} />
-              <Route path="/auth" element={<Auth />} />
-              <Route path="/ws-test" element={<WsTest />} />
-              <Route path="/ws-component-test" element={<WebSocketComponent />} />
+                <Route path="/" element={<RootRedirect />} />
+                <Route path="/signin" element={<Auth />} />
+                <Route path="/signup" element={<Auth />} />
+                <Route path="/auth" element={<Auth />} />
+                <Route path="/ws-test" element={<WsTest />} />
+                <Route path="/ws-component-test" element={<WebSocketComponent />} />
               {/* 기타 모든 경로는 보호 쉘로 라우팅 */}
-              <Route path="/*" element={<PrivateShell />} />
-            </Routes>
-          </div>
-        </Router>
+                <Route path="/*" element={<PrivateShell />} />
+              </Routes>
+            </div>
+            </Router>
+          </NotificationProvider>
+        </WebSocketProvider>
       </ToastProvider>
     </TokenProvider>
   );

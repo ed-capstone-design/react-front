@@ -119,7 +119,7 @@ const MyPage = () => {
         newPassword: userInfo.newPassword
       };
       const token = getToken();
-      const res = await axios.post("/api/users/me/password", updateData, {
+      const res = await axios.patch("/api/users/me/password", updateData, {
         headers: { Authorization: `Bearer ${token}` }
       });
       // 서버에서 최신 사용자 정보를 반환하면 userInfo 상태를 갱신

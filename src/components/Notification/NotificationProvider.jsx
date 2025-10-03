@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { getMyNotifications, markAsRead as markAsReadApi } from '../../api/notifications';
 import { useToken } from '../Token/TokenProvider';
 import { useWebSocket } from '../WebSocket/WebSocketProvider';
@@ -20,6 +20,9 @@ export const NotificationProvider = ({ children }) => {
   const { subscribePersistent, isConnected } = useWebSocket();
   const didSubscribeRef = React.useRef(false);
   const toast = useToast();
+  // 각 탭을 구분하기 위한 고유 ID (문자열이어야 postMessage에 실을 수 있음)
+  const tabIdRef = useRef(`${Date.now()}-${Math.random().toString(36).slice(2)}`);
+  const bcRef = useRef(null);
 
   const unreadCount = useMemo(() => notifications.filter(n => !n.isRead).length, [notifications]);
 
@@ -113,7 +116,61 @@ export const NotificationProvider = ({ children }) => {
     };
   }, [isConnected, subscribePersistent, handleRealtime]);
 
-  const value = { notifications, unreadCount, loading, error, refresh, markAsRead };
+  // 프론트 임의 알림 추가용 함수
+  const addNotification = (notification) => {
+    const normalized = {
+      ...notification,
+      createdAt: notification.createdAt ? new Date(notification.createdAt) : new Date(),
+    };
+
+    // WARNING/ALERT 타입이면 실시간과 동일하게 토스트도 노출
+    try {
+      const t = normalized?.type;
+      if (t === 'WARNING' || t === 'ALERT') {
+        toast.warning(normalized?.message || '경고 알림이 도착했습니다.');
+      }
+    } catch {}
+
+    setNotifications(prev => [normalized, ...prev]);
+
+    // 다른 탭에도 전파 (BroadcastChannel). createdAt은 직렬화를 위해 ISO 문자열로 변환
+    try {
+      if (bcRef.current) {
+        bcRef.current.postMessage({
+          type: 'ADD_NOTIFICATION',
+          sourceId: tabIdRef.current,
+          notification: { ...normalized, createdAt: normalized.createdAt.toISOString() },
+        });
+      }
+    } catch {}
+  };
+
+  // 다른 탭에서 온 테스트 알림 수신 → 동일하게 반영
+  useEffect(() => {
+    try {
+      const bc = new BroadcastChannel('app.notifications.test');
+      bcRef.current = bc;
+      bc.onmessage = (ev) => {
+        const data = ev?.data;
+        if (!data || data.sourceId === tabIdRef.current) return;
+        if (data.type === 'ADD_NOTIFICATION' && data.notification) {
+          const incoming = { ...data.notification, createdAt: data.notification.createdAt ? new Date(data.notification.createdAt) : new Date() };
+          try {
+            const t = incoming?.type;
+            if (t === 'WARNING' || t === 'ALERT') {
+              toast.warning(incoming?.message || '경고 알림이 도착했습니다.');
+            }
+          } catch {}
+          setNotifications(prev => [incoming, ...prev]);
+        }
+      };
+      return () => { try { bc.close(); } catch {} };
+    } catch {
+      // BroadcastChannel 미지원 브라우저에서는 크로스 탭 동기화 비활성화
+    }
+  }, [toast]);
+
+  const value = { notifications, unreadCount, loading, error, refresh, markAsRead, addNotification };
   return (
     <NotificationContext.Provider value={value}>
       {children}

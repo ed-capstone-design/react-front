@@ -345,49 +345,33 @@ export const WebSocketProvider = ({ children }) => {
     subscribeAttemptingRef.current.add(destination);
 
     try {
-      const receiptId = `sub-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-      let subscription = null;
-      let timeoutId = null;
-
-      // receipt 수신 시 성공 처리
-      stompClient.current.watchForReceipt(receiptId, () => {
-        try { if (timeoutId) clearTimeout(timeoutId); } catch {}
-        subscribeAttemptingRef.current.delete(destination);
-        subscriptionsRef.current.set(destination, subscription);
-        setSubsState(subscriptionsRef.current);
-        // 실패 카운터 리셋
-        subscribeFailuresRef.current.delete(destination);
-        console.log('[WebSocket] 구독 성공(Receipt):', destination);
-        toast.success(`구독 시작: ${destination}`);
-      });
-
-      // 타임아웃 설정 (3초)
-      timeoutId = setTimeout(() => {
-        subscribeAttemptingRef.current.delete(destination);
-        // 실패 처리: 구독 취소 및 카운트 증가
-        if (subscription) {
-          try { subscription.unsubscribe(); } catch {}
-        }
-        const info = subscribeFailuresRef.current.get(destination) || { failCount: 0, blocked: false };
-        info.failCount += 1;
-        if (info.failCount >= 3) {
-          info.blocked = true;
-          // 더 이상 재구독하지 않도록 정의 제거
-          persistentDefsRef.current.delete(destination);
-          toast.error(`구독 3회 연속 실패로 재시도를 중단합니다: ${destination}`);
-          console.warn('[WebSocket] 구독 차단:', destination);
-        } else {
-          toast.warning(`구독 실패(${info.failCount}/3): ${destination}`);
-        }
-        subscribeFailuresRef.current.set(destination, info);
-      }, 3000);
-
-      // 실제 구독 시도
+      // 실제 구독 시도 (receipt 의존 제거: 일부 브로커는 SUBSCRIBE에 대해 RECEIPT를 보내지 않음)
       const token = getToken && getToken();
-      const subHeaders = { receipt: receiptId, ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(headers || {}) };
-      subscription = stompClient.current.subscribe(destination, (message) => {
-        try { onMessage?.(message); } catch (e) { console.error('[WebSocket] onMessage 처리 에러', e); }
-      }, subHeaders);
+      const subHeaders = { ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(headers || {}) };
+      const subscription = stompClient.current.subscribe(
+        destination,
+        (message) => {
+          try { onMessage?.(message); } catch (e) { console.error('[WebSocket] onMessage 처리 에러', e); }
+        },
+        subHeaders
+      );
+
+      // 성공으로 간주하고 상태 반영
+      subscribeAttemptingRef.current.delete(destination);
+      subscriptionsRef.current.set(destination, subscription);
+      setSubsState(subscriptionsRef.current);
+      subscribeFailuresRef.current.delete(destination);
+      console.log('[WebSocket] 구독 시작:', destination);
+      toast.success(`구독 시작: ${destination}`);
+
+      // 선택적: receipt 지원 브로커에서는 receipt를 요청해 로그만 남김
+      try {
+        const receiptId = `sub-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        stompClient.current.watchForReceipt?.(receiptId, () => {
+          console.log('[WebSocket] 구독 receipt 수신:', destination);
+        });
+        // receipt를 별도 전송하려면 재구독이 필요하지만, 안정성을 위해 여기서는 생략
+      } catch {}
 
       return true;
     } catch (e) {
