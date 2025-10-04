@@ -1,24 +1,41 @@
 import axios from 'axios';
 
-// 서버 응답을 프론트 표준 모델로 매핑
-const mapToNotification = (n) => ({
-  id: n.notificationId,
-  message: n.message,
-  type: n.notificationType,
-  url: n.relatedUrl,
-  createdAt: new Date(n.createdAt),
-  dispatchId: n.dispatchId ?? null,
-  vehicleNumber: n.vehicleNumber ?? null,
-  driverName: n.driverName ?? null,
-  isRead: !!n.isRead,
-});
+// createdAt 문자열이 마이크로초(6자리) 포함될 수 있으므로 3자리로 잘라 Date 파싱
+function safeDate(v) {
+  if (!v) return new Date();
+  try {
+    const truncated = String(v).replace(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3})(\d+)(Z|[+\-].*)?$/, '$1$3');
+    const d = new Date(truncated || v);
+    return isNaN(d.getTime()) ? new Date() : d;
+  } catch { return new Date(); }
+}
+
+// 서버 응답 flatten: 루트 + payload 병합
+const mapToNotification = (n) => {
+  if (!n) return null;
+  const p = n.payload || {};
+  return {
+    id: n.notificationId,
+    message: n.message,
+    type: n.notificationType,
+    url: n.relatedUrl,
+    createdAt: safeDate(n.createdAt),
+    dispatchId: p.dispatchId ?? null,
+    vehicleNumber: p.vehicleNumber ?? null,
+    driverName: p.driverName ?? null,
+    latitude: p.latitude ?? null,
+    longitude: p.longitude ?? null,
+    scheduledDepartureTime: p.scheduledDepartureTime ? safeDate(p.scheduledDepartureTime) : null,
+    isRead: !!n.isRead,
+  };
+};
 
 export async function getMyNotifications(token) {
   const res = await axios.get('/api/notifications/me', {
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
-  const list = res.data?.data ?? [];
-  return list.map(mapToNotification).sort((a, b) => b.createdAt - a.createdAt);
+  const list = Array.isArray(res.data?.data) ? res.data.data : [];
+  return list.map(mapToNotification).filter(Boolean).sort((a, b) => b.createdAt - a.createdAt);
 }
 
 export async function markAsRead(notificationId, token) {
