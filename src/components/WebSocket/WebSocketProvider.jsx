@@ -418,13 +418,24 @@ export const WebSocketProvider = ({ children }) => {
     if (prevTokenRef.current !== t) {
       console.log('[WebSocket] 토큰 변경 감지:', t ? '존재' : '없음');
       prevTokenRef.current = t;
-      if (t && !isConnected && !connectingRef.current) {
-        console.log('[WebSocket] 토큰 준비됨 - 자동 연결 시도');
-        connect();
-      }
-      if (!t && (stompClient.current || isConnected)) {
-        console.log('[WebSocket] 토큰 제거 - 연결 해제');
-        disconnect();
+      if (t) {
+        // 새 토큰 생김: 즉시 연결 시도
+        if (!isConnected && !connectingRef.current) {
+          console.log('[WebSocket] 토큰 준비됨 - 자동 연결 시도');
+          connect();
+        }
+      } else {
+        // 토큰 없음 감지 시 즉시 끊지 말고 200ms 후 재확인(로그인 직후 race 완화)
+        setTimeout(() => {
+          const recheck = getToken && getToken();
+          if (!recheck && (stompClient.current || isConnected)) {
+            console.log('[WebSocket] 토큰 제거 - 연결 해제(재확인)');
+            disconnect();
+          } else if (recheck && !isConnected && !connectingRef.current) {
+            console.log('[WebSocket] 재확인 토큰 존재 - 지연 연결 시도');
+            connect();
+          }
+        }, 200);
       }
     }
   }, [connect, disconnect, getToken, isConnected]);

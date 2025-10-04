@@ -17,7 +17,8 @@ export const NotificationProvider = ({ children }) => {
   const [version, setVersion] = useState(0); // 재렌더 트리거 용 카운터
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const { getToken } = useToken();
+  // token 값 자체를 구독해야 로그인 직후(effect 재실행) 초기 전체 fetch 가 동작함
+  const { getToken, token } = useToken();
   const { subscribePersistent, isConnected, subscribedDestinations, testSubscribe } = useWebSocket();
   const didSubscribeRef = React.useRef(false);
   const toast = useToast();
@@ -145,6 +146,18 @@ export const NotificationProvider = ({ children }) => {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  // 로그인 직후(토큰 생성 시점) 최초 1회 강제 전체 알림 로드
+  const initialFetchDoneRef = useRef(false);
+  useEffect(() => {
+    // token 이 존재하게 된 최초 시점에만 실행
+    if (initialFetchDoneRef.current) return;
+    if (token) {
+      initialFetchDoneRef.current = true;
+      refresh();
+      console.log('[Notification] 로그인 후 초기 전체 알림 로드 수행 (token effect)');
+    }
+  }, [token, refresh]);
 
   // 자동 구독 제거: 버튼을 통한 수동 구독만 허용
 

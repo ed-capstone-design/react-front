@@ -112,6 +112,10 @@ export const useToken = () => useContext(TokenContext);
 export const TokenProvider = ({ children }) => {
   // 사용자 정보 상태 관리
   const [userInfo, setUserInfoState] = useState(null);
+  // 토큰을 state로 보관하여 setToken/removeToken 시 하위 컴포넌트 재렌더 유도
+  const [tokenState, setTokenState] = useState(() => {
+    try { return localStorage.getItem('authToken'); } catch { return null; }
+  });
 
 
 
@@ -162,12 +166,14 @@ export const TokenProvider = ({ children }) => {
   const setToken = (token) => {
     localStorage.setItem('authToken', token);
     axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    setTokenState(token);
   };
 
   // 토큰 삭제
   const removeToken = () => {
     localStorage.removeItem('authToken');
     delete axios.defaults.headers.common['Authorization'];
+    setTokenState(null);
   };
 
   // 로그인 (토큰과 사용자 정보 함께 저장)
@@ -215,6 +221,7 @@ export const TokenProvider = ({ children }) => {
     if (existingToken) {
       console.log("✅ 기존 토큰 발견 - axios 헤더 설정");
       axios.defaults.headers.common['Authorization'] = `Bearer ${existingToken}`;
+      if (tokenState !== existingToken) setTokenState(existingToken);
       
       // 사용자 정보도 복원
       const storedUserInfo = localStorage.getItem('userInfo');
@@ -348,7 +355,7 @@ export const TokenProvider = ({ children }) => {
   return (
     <TokenContext.Provider value={{ 
       // 토큰 값과 함수들
-      token: getToken(),
+      token: tokenState,
       getToken, 
       setToken, 
       removeToken, 
