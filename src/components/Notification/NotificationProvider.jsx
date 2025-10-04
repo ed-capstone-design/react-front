@@ -14,6 +14,7 @@ export const useNotification = () => {
 
 export const NotificationProvider = ({ children }) => {
   const [notifications, setNotifications] = useState([]);
+  const [version, setVersion] = useState(0); // 재렌더 트리거 용 카운터
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const { getToken } = useToken();
@@ -133,6 +134,8 @@ export const NotificationProvider = ({ children }) => {
         map.set(merged.id, merged);
         return Array.from(map.values()).sort((a, b) => b.createdAt - a.createdAt).slice(0, 1000);
       });
+      // 강제 재렌더 필요 시 버전 증가
+      setVersion(v => v + 1);
     } catch (e) {
       console.error('[Notification] 실시간 메시지 처리 실패', e);
     }
@@ -167,6 +170,20 @@ export const NotificationProvider = ({ children }) => {
     return ok;
   }, [isConnected, subscribePersistent, handleRealtime, toast]);
 
+  // 연결이 된 뒤 아직 수동 구독을 안 했다면 자동으로 한 번 시도 (사용자 실수 방지)
+  useEffect(() => {
+    if (isConnected && !didSubscribeRef.current) {
+      const already = Array.isArray(subscribedDestinations) && subscribedDestinations.includes(NOTIFICATION_DEST);
+      if (!already) {
+        const ok = subscribePersistent(NOTIFICATION_DEST, handleRealtime);
+        if (ok) {
+          didSubscribeRef.current = true;
+          console.log('[Notification] 연결 후 자동 보조 구독 완료');
+        }
+      }
+    }
+  }, [isConnected, subscribedDestinations, subscribePersistent, handleRealtime]);
+
   // 자동/receipt 구독 로깅 제거: 사용자가 버튼으로 구독 시 콘솔 출력
 
   // 프론트 임의 알림 추가용 함수 (탭 간 동기화 제거)
@@ -181,6 +198,7 @@ export const NotificationProvider = ({ children }) => {
     markAsRead,
     subscribeNotifications,
     isNotificationSubscribed,
+    version,
   };
   return (
     <NotificationContext.Provider value={value}>
