@@ -8,12 +8,13 @@ import OperatingSchedule from './pages/OperatingSchedule';
 import Insight from './pages/Insight';
 import UserDetailPage from './pages/UserDetailPage';
 import DriveDetail from './pages/DriveDetail';
+import RealtimeOperation from './pages/RealtimeOperation';
 import MyPage from './pages/MyPage';
 import Layout from './components/Layout/Layout';
 import WsTest from './pages/WsTest';
 import ToastProvider from './components/Toast/ToastProvider';
 // import { NotificationCountProvider } from './components/Notification/NotificationCountProvider';
-import { NotificationProvider } from './components/Notification/NotificationProvider';
+import { NotificationProvider } from './components/Notification/contexts/NotificationProvider';
 import { checkBackendConnection } from './utils/apiUtils';
 import { useEffect, useState } from 'react';
 import './App.css';
@@ -72,6 +73,11 @@ const PrivateShell = () => (
     <Route path="/drivedetail/:id" element={
       <ProtectedRoute>
         <Layout><DriveDetail /></Layout>
+      </ProtectedRoute>
+    } />
+    <Route path="/realtime-operation/:id" element={
+      <ProtectedRoute>
+        <Layout><RealtimeOperation /></Layout>
       </ProtectedRoute>
     } />
     <Route path="/mypage" element={

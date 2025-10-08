@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
 import { IoCheckmarkCircle, IoWarning, IoAlert, IoInformationCircle, IoClose } from 'react-icons/io5';
 
 const ToastContext = createContext();
@@ -44,8 +44,11 @@ const ToastProvider = ({ children }) => {
   const warning = useCallback((message, duration) => addToast(message, 'warning', duration), [addToast]);
   const info = useCallback((message, duration) => addToast(message, 'info', duration), [addToast]);
 
+  // value 객체를 memoize하여 toasts 변경으로 인한 불필요한 소비자 재렌더 & useCallback 재생성 연쇄를 차단
+  const ctxValue = useMemo(() => ({ addToast, removeToast, success, error, warning, info }), [addToast, removeToast, success, error, warning, info]);
+
   return (
-    <ToastContext.Provider value={{ addToast, removeToast, success, error, warning, info }}>
+    <ToastContext.Provider value={ctxValue}>
       {children}
       <ToastContainer toasts={toasts} onRemove={removeToast} />
     </ToastContext.Provider>

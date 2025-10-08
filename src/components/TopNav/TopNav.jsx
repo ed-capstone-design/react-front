@@ -1,34 +1,13 @@
-import React from "react";
-import { IoLogOut, IoMenu, IoPersonCircle, IoNotificationsOutline, IoFlask } from "react-icons/io5";
-// import { useNotificationCount } from "../Notification/NotificationCountProvider";
-import { useNavigate, useLocation } from "react-router-dom";
-import { useToken } from "../Token/TokenProvider";
-import { useWebSocket } from "../WebSocket/WebSocketProvider";
-import { useNotification } from "../Notification/NotificationProvider";
+import React from 'react';
+import { IoLogOut, IoMenu, IoPersonCircle, IoNotificationsOutline } from 'react-icons/io5';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useToken } from '../Token/TokenProvider';
+import { useNotification } from '../Notification/contexts/NotificationProvider';
 
 const TopNav = ({ onSidebarOpen, onLogoClick, sidebarOpen }) => {
-  // const { unreadCount } = useNotificationCount(); // wsConnected 제거 - 백엔드 미구현
   const navigate = useNavigate();
   const location = useLocation();
   const { logout, getUserInfo, getUserInfoFromToken } = useToken();
-  const { isConnected, subscribePersistent, subscribedDestinations } = useWebSocket();
-  // 수동 구독 버튼 핸들러
-  const handleManualSubscribe = () => {
-    if (!isConnected) {
-      alert('WebSocket이 아직 연결되지 않았습니다. (상단 연결 로직 확인)');
-      return;
-    }
-    if (subscribedDestinations.includes('/user/queue/notifications')) {
-      alert('이미 /user/queue/notifications 구독 중입니다.');
-      return;
-    }
-    const ok = subscribePersistent('/user/queue/notifications', (msg) => {
-      try { console.log('[ManualSubscribe] 수신:', msg.body); } catch {}
-    });
-    if (ok) {
-      console.log('[ManualSubscribe] 구독 시도 완료');
-    }
-  };
   const { unreadCount } = useNotification();
   
   // 안전하게 사용자 정보 가져오기
@@ -47,10 +26,10 @@ const TopNav = ({ onSidebarOpen, onLogoClick, sidebarOpen }) => {
   };
 
   return (
-  <nav className="w-full sticky top-0 z-30 backdrop-blur bg-white/70 border-b border-gray-200/70">
-  <div className="w-full px-4 sm:px-6 py-3 flex items-center">
+    <nav className="w-full sticky top-0 z-30 backdrop-blur bg-white/70 border-b border-gray-200/70">
+      <div className="w-full px-4 sm:px-6 py-3 flex items-center">
       {/* Left: Hamburger + Logo (hide when sidebar open) */}
-      {!sidebarOpen ? (
+        {!sidebarOpen ? (
         <div className="flex items-center gap-3">
           <button onClick={onSidebarOpen} aria-label="사이드바 열기" className="p-1 rounded hover:bg-blue-50 active:bg-blue-100 transition focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
             <IoMenu className="text-blue-600 text-2xl cursor-pointer" />
@@ -79,10 +58,10 @@ const TopNav = ({ onSidebarOpen, onLogoClick, sidebarOpen }) => {
             </span>
           </button>
         </div>
-      ) : (
-        <div className="h-8" />
-      )}
-  <div className="space-x-6 flex items-center ml-auto">
+        ) : (
+          <div className="h-8" />
+        )}
+        <div className="space-x-6 flex items-center ml-auto">
         <button 
           className="flex items-center gap-2 text-gray-700 hover:text-blue-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded"
           onClick={handleProfileClick}
@@ -94,7 +73,7 @@ const TopNav = ({ onSidebarOpen, onLogoClick, sidebarOpen }) => {
 
 
         {/* 알림 버튼 */}
-        {location.pathname !== "/insight" && (
+        {location.pathname !== '/insight' && (
           <button 
             className="relative focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded"
             onClick={() => navigate('/insight')}
@@ -108,14 +87,6 @@ const TopNav = ({ onSidebarOpen, onLogoClick, sidebarOpen }) => {
             )}
           </button>
         )}
-        <button
-          onClick={handleManualSubscribe}
-          className="flex items-center gap-1 text-gray-700 hover:text-blue-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded"
-          title="/user/queue/notifications 구독"
-        >
-          <IoFlask className="text-xl" />
-          <span className="hidden sm:inline text-sm">구독</span>
-        </button>
         <button 
           onClick={handleLogout}
           className="text-gray-700 hover:underline flex items-center gap-2 hover:text-red-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded"
@@ -124,7 +95,7 @@ const TopNav = ({ onSidebarOpen, onLogoClick, sidebarOpen }) => {
           <IoLogOut />
           로그아웃
         </button>
-      </div>
+        </div>
       </div>
     </nav>
   );

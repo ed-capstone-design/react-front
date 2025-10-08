@@ -31,6 +31,10 @@ export const WebSocketProvider = ({ children }) => {
   const subscribeAttemptingRef = useRef(new Set());
   const [subscribedDestinations, setSubscribedDestinations] = useState([]);
   const { getToken, getUserInfo, getUserInfoFromToken, isTokenValid } = useToken();
+  // 권한 실패 캐시 (destination -> timestamp) 재시도 폭주 방지
+  const permissionDeniedRef = useRef(new Map());
+  // 최근 access token refresh 타임스탬프 (TokenProvider에서 추후 노출 시 연동 예정)
+  const lastRefreshRef = useRef(0); // placeholder: TokenProvider 확장 전까지 수동 사용
   const toast = useToast();
 
   // 구독 목록 상태를 안전하게 갱신 (실제 변화가 있을 때만)
@@ -58,7 +62,7 @@ export const WebSocketProvider = ({ children }) => {
     if (connectingRef.current) { console.log("[WebSocket] 이미 연결 시도 중"); return; }
     if (stompClient.current && stompClient.current.connected) { console.log("[WebSocket] 이미 연결되어 있음"); return; }
 
-    const token = getToken();
+  const token = getToken(); // access token (legacy alias maintained)
     const userInfo = getUserInfo && getUserInfo();
     if (!token) { console.log("[WebSocket] 토큰이 없어 연결하지 않음"); return; }
     const valid = isTokenValid && isTokenValid();
@@ -67,13 +71,14 @@ export const WebSocketProvider = ({ children }) => {
     try {
       connectingRef.current = true;
       const baseHttp = resolveWsHttpBase();
-      const sockUrl = `${baseHttp}/ws${token ? `?token=${encodeURIComponent(token)}` : ''}`;
+  // 요구사항: CONNECT 시에만 헤더 검사 → URL query token 제거
+  const sockUrl = `${baseHttp}/ws`;
       console.log("[WebSocket] 연결 시작:", sockUrl);
       const socket = new SockJS(sockUrl);
 
       stompClient.current = new Client({
         webSocketFactory: () => socket,
-        connectHeaders: { 'Authorization': `Bearer ${token}` },
+  connectHeaders: token ? { 'Authorization': `Bearer ${token}` } : {},
         debug: (str) => console.log('[STOMP Debug]', str),
         reconnectDelay: 0,
         heartbeatIncoming: 4000,
@@ -165,13 +170,9 @@ export const WebSocketProvider = ({ children }) => {
   const sendMessage = useCallback((destination, message) => {
     if (stompClient.current && isConnected) {
       try {
-        // 요청: 모든 STOMP frame에 토큰 포함 (publish 시에도 Authorization 헤더 전달)
-        const token = getToken && getToken();
-        const headers = token ? { Authorization: `Bearer ${token}` } : {};
         stompClient.current.publish({
           destination: `/app${destination}`,
           body: JSON.stringify(message),
-          headers
         });
         console.log("[WebSocket] 메시지 전송:", destination, message);
       } catch (error) {
@@ -194,25 +195,27 @@ export const WebSocketProvider = ({ children }) => {
     }
     // 이미 정의된 지속 구독이면 중복 방지
     if (persistentDefsRef.current.has(destination)) {
+      // 이미 active
       if (subscriptionsRef.current.has(destination)) {
-        console.log('[WebSocket] 이미 구독 중:', destination);
-        toast.info(`이미 구독 중: ${destination}`);
+        // 조용히 성공 반환 (반복 호출 suppress)
         return true;
       }
-      // 정의만 있고 현재 비활성인 경우: onConnect에서 복원되므로 성공으로 간주
-      console.log('[WebSocket] 구독 예약 상태(복원 대기):', destination);
-      if (!isConnected) connect();
-      return true;
+      // 예약 상태 재호출: 불필요한 로그/토스트 억제
+      if (!isConnected) {
+        console.log('[WebSocket] 구독 이미 예약됨(중복 무시):', destination);
+        connect();
+      }
+      return true; // onConnect에서 복원 예정
     }
 
-  const token = getToken && getToken();
-  const headers = token ? { Authorization: `Bearer ${token}` } : {}; // SUBSCRIBE 시에도 토큰 포함
+  // 정책 변경: SUBSCRIBE 시 Authorization 헤더 제거 (CONNECT 검증에만 의존)
+  const headers = {}; 
 
     // 연결이 아직 아니면: 정의를 저장해두고 onConnect에서 자동 복원
     if (!stompClient.current || !isConnected) {
       persistentDefsRef.current.set(destination, { onMessage, headers });
-      // 예약 상태에서는 subscriptionsRef 변동 없음 → 상태 업데이트 생략
-      toast.info(`구독 예약: ${destination} (연결 후 자동 구독)`);
+      // 예약 알림 과다 방지: 로그만 출력
+      console.log('[WebSocket] 구독 예약(연결 후 복원):', destination);
       connect();
       return true;
     }
@@ -227,25 +230,32 @@ export const WebSocketProvider = ({ children }) => {
   const unsubscribePersistent = useCallback((destination) => {
     const sub = subscriptionsRef.current.get(destination);
     if (!sub) {
-      toast.warning(`구독을 찾지 못했습니다: ${destination}`);
+      // 활성 구독은 없지만 예약 정의만 존재할 수 있음 → 조용히 제거
+      if (persistentDefsRef.current.has(destination)) {
+        persistentDefsRef.current.delete(destination);
+        subscribeFailuresRef.current.delete(destination);
+        console.log('[WebSocket] 활성 구독 없음 - 예약 정의 제거:', destination);
+        return true;
+      }
+      // 완전 미존재: 무시
+      console.log('[WebSocket] 구독 해제 요청 대상 없음(무시):', destination);
       return false;
     }
     try {
       sub.unsubscribe();
       subscriptionsRef.current.delete(destination);
       persistentDefsRef.current.delete(destination);
-      // 실패 카운터/차단 해제
       subscribeFailuresRef.current.delete(destination);
       setSubsState(subscriptionsRef.current);
-      console.log("[WebSocket] 지속 구독 해제:", destination);
-      toast.info(`구독 해제: ${destination}`);
+      console.log('[WebSocket] 지속 구독 해제:', destination);
+      // 과도한 toast 억제
       return true;
     } catch (error) {
-      console.error("[WebSocket] 구독 해제 실패:", error);
-      toast.error("구독 해제에 실패했습니다.");
+      console.error('[WebSocket] 구독 해제 실패:', error);
+      toast.error('구독 해제에 실패했습니다.');
       return false;
     }
-  }, [toast]);
+  }, []);
 
   // 구독 수락 여부 테스트 (receipt 기반)
   const testSubscribe = useCallback(async (destination) => {
@@ -323,6 +333,14 @@ export const WebSocketProvider = ({ children }) => {
   const subscribeDispatchLocation = useCallback((dispatchId, onLocation) => {
     if (!dispatchId) return null;
     const destination = `/topic/dispatch/${dispatchId}/location`;
+    // ROLE_DRIVER 권한 제한 (백엔드 로그 상 ADMIN 전용 토픽일 시 사전 차단)
+    try {
+      const info = getUserInfo && getUserInfo();
+      if (info && Array.isArray(info.roles) && info.roles.includes('ROLE_DRIVER')) {
+        console.warn('[WebSocket] DRIVER 권한으로 location 구독 차단:', destination);
+        return () => {};
+      }
+    } catch {}
     // 메시지 파싱 및 콜백 전달
     const handler = (msg) => {
       try {
@@ -337,6 +355,29 @@ export const WebSocketProvider = ({ children }) => {
     return () => unsubscribePersistent(destination);
   }, [subscribePersistent, unsubscribePersistent]);
 
+  // 특정 배차 OBD 구독 (향후 1초 주기 또는 10초 주기 변경 가능, 메시지 스키마 미확정 방어 포함)
+  const subscribeDispatchObd = useCallback((dispatchId, onObd) => {
+    if (!dispatchId) return null;
+    const destination = `/topic/dispatch/${dispatchId}/obd`;
+    try {
+      const info = getUserInfo && getUserInfo();
+      if (info && Array.isArray(info.roles) && info.roles.includes('ROLE_DRIVER')) {
+        console.warn('[WebSocket] DRIVER 권한으로 OBD 구독 차단:', destination);
+        return () => {};
+      }
+    } catch {}
+    const handler = (msg) => {
+      try {
+        const data = JSON.parse(msg.body);
+        onObd && onObd(data);
+      } catch (e) {
+        console.error('[WebSocket] OBD 메시지 파싱 실패', e, msg);
+      }
+    };
+    const ok = subscribePersistent(destination, handler);
+    return () => unsubscribePersistent(destination);
+  }, [subscribePersistent, unsubscribePersistent]);
+
   // 내부 유틸: 구독 시도(Receipt 기반) + 실패 카운트/차단 관리
   const attemptSubscribe = useCallback((destination, onMessage, headers = {}) => {
     if (!stompClient.current || !isConnected) return false;
@@ -346,12 +387,17 @@ export const WebSocketProvider = ({ children }) => {
       console.warn('[WebSocket] 차단된 구독 - 시도 건너뜀:', destination);
       return false;
     }
+    // 최근 권한 실패 캐시 (30초 내 재시도 억제)
+    const deniedAt = permissionDeniedRef.current.get(destination);
+    if (deniedAt && Date.now() - deniedAt < 30_000) {
+      console.warn('[WebSocket] 최근 권한 거부된 구독 - 재시도 지연:', destination);
+      return false;
+    }
     subscribeAttemptingRef.current.add(destination);
 
     try {
       // 실제 구독 시도 (receipt 의존 제거: 일부 브로커는 SUBSCRIBE에 대해 RECEIPT를 보내지 않음)
-  const token = getToken && getToken();
-  const subHeaders = { ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(headers || {}) }; // 모든 구독 프레임에 토큰 포함
+  const subHeaders = { ...(headers || {}) }; // 토큰 제외
       const subscription = stompClient.current.subscribe(
         destination,
         (message) => {
@@ -366,7 +412,10 @@ export const WebSocketProvider = ({ children }) => {
       setSubsState(subscriptionsRef.current);
       subscribeFailuresRef.current.delete(destination);
       console.log('[WebSocket] 구독 시작:', destination);
-      toast.success(`구독 시작: ${destination}`);
+      // 시스템 잦은 토픽(location/obd)은 toast 생략
+      if (!/\/topic\/dispatch\/\d+\/(location|obd)/.test(destination)) {
+        toast.success(`구독 시작: ${destination}`);
+      }
 
       // 선택적: receipt 지원 브로커에서는 receipt를 요청해 로그만 남김
       try {
@@ -381,6 +430,11 @@ export const WebSocketProvider = ({ children }) => {
     } catch (e) {
       subscribeAttemptingRef.current.delete(destination);
       console.error('[WebSocket] 구독 시도 에러:', destination, e);
+      // 권한 관련 메시지 탐지 시 캐시
+      const msg = String(e?.message || e).toLowerCase();
+      if (msg.includes('access') || msg.includes('denied') || msg.includes('unauthorized')) {
+        permissionDeniedRef.current.set(destination, Date.now());
+      }
       const info = subscribeFailuresRef.current.get(destination) || { failCount: 0, blocked: false };
       info.failCount += 1;
       if (info.failCount >= 3) {
@@ -393,7 +447,7 @@ export const WebSocketProvider = ({ children }) => {
       subscribeFailuresRef.current.set(destination, info);
       return false;
     }
-  }, [isConnected, getToken, toast, setSubsState]);
+  }, [isConnected, getToken, setSubsState]);
 
   // Context value
   const value = {
@@ -409,6 +463,7 @@ export const WebSocketProvider = ({ children }) => {
     disconnect,
     clearNotifications: () => setNotifications([]),
     subscribeDispatchLocation, // 추가됨
+    subscribeDispatchObd,
   };
 
   // 토큰 변화 감지로 자동 연결 트리거: 이전 토큰과 현재 토큰을 비교하여, 새 토큰이 생기면 connect(), 토큰이 사라지면 disconnect().
@@ -439,6 +494,9 @@ export const WebSocketProvider = ({ children }) => {
       }
     }
   }, [connect, disconnect, getToken, isConnected]);
+
+  // (미래 확장) access token refresh 타임스탬프 기반 강제 재연결 훅 자리
+  // ex) if (externallyProvidedLastRefresh > lastRefreshRef.current) { forceReconnect(); }
 
   return (
     <WebSocketContext.Provider value={value}>

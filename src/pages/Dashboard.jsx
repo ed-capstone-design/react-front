@@ -1,11 +1,12 @@
 import React from "react";
 import { IoCarSportOutline, IoPeopleOutline, IoStatsChartOutline, IoNotificationsOutline } from "react-icons/io5";
-import { useDashboardData } from "../hooks/useDashboardData";
+import { useDashboardData7d } from "../hooks/useDashboardData7d";
 import WeeklyDispatchBar from "../components/Dashboard/charts/WeeklyDispatchBar";
 import HourlyDepartureColumn from "../components/Dashboard/charts/HourlyDepartureColumn";
 
 const DashboardContent = () => {
-  const { loading, kpiCounts, weeklyCounts, hourlyDistribution, todayDispatches, refresh } = useDashboardData();
+  const { loading, kpiCounts, todayDispatches, refresh, dispatches7d } = useDashboardData7d();
+  // 기존 weeklyCounts, hourlyDistribution 사용 제거 (필요 시 별도 계산 재도입)
 
   const stats = [
     { icon: <IoCarSportOutline className="text-blue-500 text-3xl" />, label: "오늘 스케줄", value: loading ? "—" : `${kpiCounts.todayTotal}건` },
@@ -32,28 +33,16 @@ const DashboardContent = () => {
       </div>
 
       {/* 중단: 좌-최근 7일 Bar / 우-최근 7일 시간대별 Column */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
-        <section className="bg-white rounded-xl shadow p-6 ring-1 ring-gray-100">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-bold text-gray-900">최근 7일 일별 배차 수</h3>
-            <button
-              className="inline-flex items-center justify-center w-9 h-9 rounded-lg bg-gray-50 hover:bg-gray-100 text-gray-600 hover:text-blue-600 transition"
-              onClick={refresh}
-              disabled={loading}
-              title="리프레시"
-              aria-label="리프레시"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-                <path d="M12 6v3l4-4-4-4v3C7.58 4 4 7.58 4 12c0 1.85.63 3.55 1.69 4.9l1.46-1.46A6.01 6.01 0 0 1 6 12c0-3.31 2.69-6 6-6zm6.31 1.1-1.46 1.46A6.01 6.01 0 0 1 18 12c0 3.31-2.69 6-6 6v-3l-4 4 4 4v-3c4.42 0 8-3.58 8-8 0-1.85-.63-3.55-1.69-4.9z"/>
-              </svg>
-            </button>
+      {/* 차트 섹션 (임시 비활성화: 새 훅 전환 후 weekly/hourly 재계산 미구현) */}
+      <div className="mb-12">
+        <div className="bg-white rounded-xl shadow p-6 ring-1 ring-gray-100 text-sm text-gray-500">
+          차트(주간/시간대)는 훅 분리 후 아직 재계산 로직을 붙이지 않은 상태입니다.
+          필요하면 후속 단계에서 weekly/hourly 계산을 useDashboardData7d 내부로 재도입하세요.
+          (총 배차: {dispatches7d.length}건)
+          <div className="mt-3">
+            <button onClick={refresh} disabled={loading} className="px-3 py-1 text-xs rounded bg-gray-100 hover:bg-gray-200 disabled:opacity-50">리프레시</button>
           </div>
-          <WeeklyDispatchBar data={weeklyCounts} />
-        </section>
-        <section className="bg-white rounded-xl shadow p-6 ring-1 ring-gray-100">
-          <h3 className="text-lg font-bold mb-4 text-gray-900">시간대별 출발 분포 (최근 7일)</h3>
-          <HourlyDepartureColumn data={hourlyDistribution} />
-        </section>
+        </div>
       </div>
 
       {/* 하단: 금일 배차 간략 리스트 (운행중 하이라이트) */}

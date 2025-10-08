@@ -1,8 +1,8 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { getMyNotifications, markAsRead as markAsReadApi } from '../../api/notifications';
-import { useToken } from '../Token/TokenProvider';
-import { useWebSocket } from '../WebSocket/WebSocketProvider';
-import { useToast } from '../Toast/ToastProvider';
+import { getMyNotifications, markAsRead as markAsReadApi } from '../../../api/notifications';
+import { useToken } from '../../Token/TokenProvider';
+import { useWebSocket } from '../../WebSocket/WebSocketProvider';
+import { useToast } from '../../Toast/ToastProvider';
 
 const NotificationContext = createContext(null);
 
@@ -19,8 +19,7 @@ export const NotificationProvider = ({ children }) => {
   const [error, setError] = useState(null);
   // token 값 자체를 구독해야 로그인 직후(effect 재실행) 초기 전체 fetch 가 동작함
   const { getToken, token } = useToken();
-  const { subscribePersistent, isConnected, subscribedDestinations, testSubscribe } = useWebSocket();
-  const didSubscribeRef = React.useRef(false);
+  const { subscribePersistent, isConnected, subscribedDestinations } = useWebSocket();
   const toast = useToast();
   const didLogSubscribedRef = useRef(false);
 
@@ -159,41 +158,16 @@ export const NotificationProvider = ({ children }) => {
     }
   }, [token, refresh]);
 
-  // 자동 구독 제거: 버튼을 통한 수동 구독만 허용
-
-  // 공통 destination 상수
+  // 공통 destination 상수 (완전 자동 구독)
   const NOTIFICATION_DEST = '/user/queue/notifications';
-
-  const isNotificationSubscribed = useMemo(() => {
-    return Array.isArray(subscribedDestinations) && subscribedDestinations.includes(NOTIFICATION_DEST);
-  }, [subscribedDestinations]);
-
-  const subscribeNotifications = useCallback(() => {
-    if (didSubscribeRef.current) {
-      return true;
-    }
-    if (!isConnected) {
-      toast.warning('WebSocket 연결 후 구독하세요.');
-      return false;
-    }
+  // 연결 또는 Provider 마운트 후: 조건 만족 시 항상 구독 보장
+  useEffect(() => {
+    if (!isConnected) return; // 연결 전엔 대기
+    const already = Array.isArray(subscribedDestinations) && subscribedDestinations.includes(NOTIFICATION_DEST);
+    if (already) return;
     const ok = subscribePersistent(NOTIFICATION_DEST, handleRealtime);
     if (ok) {
-      didSubscribeRef.current = true;
-    }
-    return ok;
-  }, [isConnected, subscribePersistent, handleRealtime, toast]);
-
-  // 연결이 된 뒤 아직 수동 구독을 안 했다면 자동으로 한 번 시도 (사용자 실수 방지)
-  useEffect(() => {
-    if (isConnected && !didSubscribeRef.current) {
-      const already = Array.isArray(subscribedDestinations) && subscribedDestinations.includes(NOTIFICATION_DEST);
-      if (!already) {
-        const ok = subscribePersistent(NOTIFICATION_DEST, handleRealtime);
-        if (ok) {
-          didSubscribeRef.current = true;
-          console.log('[Notification] 연결 후 자동 보조 구독 완료');
-        }
-      }
+      console.log('[Notification] 자동 구독 활성화:', NOTIFICATION_DEST);
     }
   }, [isConnected, subscribedDestinations, subscribePersistent, handleRealtime]);
 
@@ -209,8 +183,6 @@ export const NotificationProvider = ({ children }) => {
     error, 
     refresh, 
     markAsRead,
-    subscribeNotifications,
-    isNotificationSubscribed,
     version,
   };
   return (

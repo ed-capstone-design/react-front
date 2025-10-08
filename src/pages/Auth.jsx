@@ -62,6 +62,36 @@ const Auth = () => {
     setSuccess("");
   };
 
+  // JWT 파싱 (Auth 전용 경량 버전)
+  const safeParseJwt = (token) => {
+    if (!token) return null;
+    try {
+      const base64Url = token.split('.')[1];
+      if (!base64Url) return null;
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const jsonPayload = decodeURIComponent(
+        atob(base64)
+          .split('')
+          .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+          .join('')
+      );
+      return JSON.parse(jsonPayload);
+    } catch { return null; }
+  };
+
+  // 응답 데이터에서 사용자 필드 추출 (여러 형태 호환)
+  const extractUserFields = (raw, accessToken) => {
+    const payload = safeParseJwt(accessToken);
+    const rolesFromPayload = payload?.roles || payload?.authorities || (payload?.scope ? payload.scope.split(' ') : undefined);
+    return {
+      userId: raw.userId || raw.id || raw.userID || payload?.userId || payload?.sub || null,
+      email: raw.email || payload?.email || '',
+      username: raw.username || raw.name || payload?.username || payload?.preferred_username || payload?.sub || 'USER',
+      roles: raw.roles || rolesFromPayload || [],
+      refreshToken: raw.refreshToken || null,
+    };
+  };
+
   // 로그인 핸들러
   const handleSignIn = async (e) => {
     e.preventDefault();
@@ -77,21 +107,32 @@ const Auth = () => {
       
       console.log("🔐 백엔드 응답:", response.data);
       
-      let responseData;
-      if (response.data.success && response.data.data) {
-        responseData = response.data.data;
-      } else if (response.data.token) {
-        responseData = response.data;
-      } else {
-        throw new Error("예상하지 못한 응답 형태입니다.");
+      // 통합 응답 정규화
+      const body = response.data || {};
+      const envelope = body && typeof body === 'object' && body.success && body.data ? body.data : body; // success wrapper 해제
+      const accessToken = envelope.accessToken || envelope.token || envelope.access_token;
+      const refreshToken = envelope.refreshToken || envelope.refresh_token;
+
+      if (!accessToken) {
+        console.error('❌ accessToken/token 필드 없음', envelope);
+        throw new Error('토큰 필드를 찾을 수 없습니다.');
       }
-      
-      if (!responseData.token || !responseData.userId || !responseData.email || !responseData.username) {
-        console.error("❌ 필수 필드 누락:", responseData);
-        throw new Error("로그인 응답에 필수 정보가 누락되었습니다.");
+
+      const extracted = extractUserFields(envelope, accessToken);
+      const missingAfterExtract = [];
+      if (!extracted.userId) missingAfterExtract.push('userId');
+      if (!extracted.username) missingAfterExtract.push('username');
+      // email은 일부 환경에서 누락 허용 → 경고만
+      if (missingAfterExtract.length) {
+        console.warn('⚠️ 로그인 필드 일부 누락(허용):', missingAfterExtract, extracted);
       }
-      
-      const userInfo = login(responseData);
+
+      const userInfo = login({
+        ...envelope,
+        ...extracted,
+        accessToken,
+        refreshToken,
+      });
       toast.success(`${userInfo.username}님, 로그인되었습니다!`);
       navigate("/dashboard");
     } catch (error) {

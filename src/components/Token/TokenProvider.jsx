@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 
 // 앱 시작 시점에 공용 baseURL을 즉시 설정 (초기 렌더 타이밍 경쟁 방지)
@@ -6,11 +6,21 @@ if (!axios.defaults.baseURL) {
   axios.defaults.baseURL = 'http://localhost:8080';
 }
 
-// 저장된 토큰이 있으면 즉시 Authorization 기본 헤더 세팅
+// 초기 마이그레이션: 기존 단일 authToken → access/refresh 분리
 try {
-  const bootToken = localStorage.getItem('authToken');
-  if (bootToken) {
-    axios.defaults.headers.common['Authorization'] = `Bearer ${bootToken}`;
+  const legacy = localStorage.getItem('authToken');
+  const existingAccess = localStorage.getItem('accessToken');
+  if (legacy && !existingAccess) {
+    localStorage.setItem('accessToken', legacy);
+    // refreshToken 은 없으므로 로그인 재시도 시 발급받도록.
+  }
+} catch {}
+
+// 저장된 accessToken이 있으면 기본 Authorization 세팅
+try {
+  const bootAccess = localStorage.getItem('accessToken');
+  if (bootAccess) {
+    axios.defaults.headers.common['Authorization'] = `Bearer ${bootAccess}`;
   }
 } catch {}
 
@@ -91,18 +101,27 @@ if (!axios.__legacyRewriteInstalled) {
 }
 
 const TokenContext = createContext({
-  // 토큰 관련
+  // Access/Refresh
+  accessToken: null,
+  refreshToken: null,
+  getAccessToken: () => null,
+  getRefreshToken: () => null,
+  setTokens: () => {},
+  clearTokens: () => {},
+  refreshAccessToken: () => Promise.resolve(null),
+  isAccessTokenValid: () => false,
+  getUserInfoFromToken: () => null,
+  // Backwards compatibility (legacy single token API)
   token: null,
   getToken: () => null,
   setToken: () => {},
   removeToken: () => {},
   isTokenValid: () => false,
-  getUserInfoFromToken: () => null,
-  // 사용자 정보 관리
+  // 사용자 정보
   getUserInfo: () => null,
   setUserInfo: () => {},
   clearUserInfo: () => {},
-  // 인증 관리
+  // 인증 제어
   login: () => {},
   logout: () => {},
 });
@@ -112,24 +131,32 @@ export const useToken = () => useContext(TokenContext);
 export const TokenProvider = ({ children }) => {
   // 사용자 정보 상태 관리
   const [userInfo, setUserInfoState] = useState(null);
-  // 토큰을 state로 보관하여 setToken/removeToken 시 하위 컴포넌트 재렌더 유도
-  const [tokenState, setTokenState] = useState(() => {
-    try { return localStorage.getItem('authToken'); } catch { return null; }
+  // Access / Refresh token state
+  const [accessTokenState, setAccessTokenState] = useState(() => {
+    try { return localStorage.getItem('accessToken') || localStorage.getItem('authToken'); } catch { return null; }
   });
+  const [refreshTokenState, setRefreshTokenState] = useState(() => {
+    try { return localStorage.getItem('refreshToken'); } catch { return null; }
+  });
+  const refreshingRef = useRef(null); // Promise 중복 방지
 
 
 
   // 컴포넌트 레벨에서는 별도 인터셉터 설정 불필요 (전역으로 이미 설치됨)
 
   // 토큰 가져오기 (간단하게)
-  const getToken = () => {
-    const token = localStorage.getItem('authToken'); // 하나의 키만 사용
+  const getAccessToken = () => {
+    const token = localStorage.getItem('accessToken') || localStorage.getItem('authToken');
     try {
       if (localStorage.getItem('DEBUG_AXIOS')) {
         console.log("🔑 [TokenProvider] 토큰 조회:", token ? `${token.substring(0, 20)}...` : '토큰 없음');
       }
     } catch {}
     return token;
+  };
+
+  const getRefreshToken = () => {
+    try { return localStorage.getItem('refreshToken'); } catch { return null; }
   };
 
   // 사용자 정보 가져오기 (렌더링 중 상태 변경 방지)
@@ -163,65 +190,68 @@ export const TokenProvider = ({ children }) => {
   };
 
   // 토큰 저장 (간단하게)
-  const setToken = (token) => {
-    localStorage.setItem('authToken', token);
-    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-    setTokenState(token);
+  const setTokens = ({ accessToken, refreshToken }) => {
+    if (accessToken) {
+      localStorage.setItem('accessToken', accessToken);
+      axios.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
+      setAccessTokenState(accessToken);
+    }
+    if (refreshToken) {
+      localStorage.setItem('refreshToken', refreshToken);
+      setRefreshTokenState(refreshToken);
+    }
   };
+
+  // Legacy setter (maps to accessToken only)
+  const setToken = (token) => setTokens({ accessToken: token });
 
   // 토큰 삭제
-  const removeToken = () => {
-    localStorage.removeItem('authToken');
+  const clearTokens = () => {
+    localStorage.removeItem('authToken'); // legacy
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
     delete axios.defaults.headers.common['Authorization'];
-    setTokenState(null);
+    setAccessTokenState(null);
+    setRefreshTokenState(null);
   };
 
+  const removeToken = clearTokens; // backward compatibility
+
   // 로그인 (토큰과 사용자 정보 함께 저장)
-  const login = (loginResponse) => {
+  const login = (loginResponse = {}) => {
     console.log("🔐 로그인 응답 데이터:", loginResponse);
-    
-    // 백엔드 JwtResponseDto 구조에 맞춘 필드 추출
-    const { token, userId, email, username, roles } = loginResponse;
-    
-    console.log("🔐 추출된 데이터:");
-    console.log("- token:", token ? `${token.substring(0, 20)}...` : "없음");
-    console.log("- userId:", userId);
-    console.log("- email:", email);
-    console.log("- username:", username);
-    console.log("- roles:", roles);
-    
-    // 토큰 저장
-    setToken(token);
-    
-    // 사용자 정보 저장 (백엔드 응답 구조에 맞춤)
+    // 지원하는 필드: accessToken / refreshToken / token(legacy)
+    const accessToken = loginResponse.accessToken || loginResponse.token || null;
+    const refreshToken = loginResponse.refreshToken || null;
+    const { userId, email, username, roles } = loginResponse;
+    setTokens({ accessToken, refreshToken });
     const userInfo = {
       userId,
       email,
       username,
-      roles, // List<String> 형태로 받음
+      roles,
       loginTime: new Date().toISOString()
     };
     setUserInfo(userInfo);
-    
     console.log("✅ 로그인 완료 - 저장된 사용자 정보:", userInfo);
     return userInfo;
   };
 
   // 로그아웃 (토큰과 사용자 정보 모두 삭제)
   const logout = () => {
-    removeToken();
+    clearTokens();
     clearUserInfo();
   };
 
     // 초기화: 기존 토큰 복원 및 axios 헤더 설정
   useEffect(() => {
-    const existingToken = localStorage.getItem('authToken');
+  const existingToken = localStorage.getItem('accessToken') || localStorage.getItem('authToken');
     console.log("🚀 [TokenProvider] 초기화 시작");
     
     if (existingToken) {
       console.log("✅ 기존 토큰 발견 - axios 헤더 설정");
-      axios.defaults.headers.common['Authorization'] = `Bearer ${existingToken}`;
-      if (tokenState !== existingToken) setTokenState(existingToken);
+  axios.defaults.headers.common['Authorization'] = `Bearer ${existingToken}`;
+  if (accessTokenState !== existingToken) setAccessTokenState(existingToken);
       
       // 사용자 정보도 복원
       const storedUserInfo = localStorage.getItem('userInfo');
@@ -260,7 +290,7 @@ export const TokenProvider = ({ children }) => {
   }
 
   const getUserInfoFromToken = () => {
-    const token = getToken();
+    const token = getAccessToken();
     if (!token) return null;
     try {
       const payload = parseJwt(token);
@@ -302,72 +332,130 @@ export const TokenProvider = ({ children }) => {
     }
   };
 
-  // 토큰 유효성 검사 (간단한 만료 확인만)
-  const isTokenValid = () => {
-    const token = getToken();
+  // 토큰 유효성 검사 (base64url 디코딩 오류 방지 + 만료/기본 무결성만 확인)
+  const isAccessTokenValid = () => {
+    const token = getAccessToken();
     if (!token) {
-      console.log("🔍 토큰 유효성 검사: 토큰이 없음");
+      if (localStorage.getItem('DEBUG_AXIOS')) {
+        console.log('🔍 토큰 유효성 검사: 토큰 없음');
+      }
       return false;
     }
-    
+    const parts = token.split('.');
+    if (parts.length < 2) {
+      if (localStorage.getItem('DEBUG_AXIOS')) console.log('❌ 토큰 구조 비정상 (parts < 2)');
+      return false;
+    }
     try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      const currentTime = Math.floor(Date.now() / 1000);
-      
-      try {
-        if (localStorage.getItem('DEBUG_AXIOS')) {
-          console.log("🔍 토큰 유효성 검사:");
-          console.log("- 현재 시간:", currentTime);
-          console.log("- 토큰 만료 시간:", payload.exp);
-          console.log("- 토큰 발급 시간:", payload.iat);
-          console.log("- 토큰 대상자:", payload.aud);
-          console.log("- 토큰 발급자:", payload.iss);
-        }
-      } catch {}
-      
-      // 만료 시간 확인
-      if (payload.exp && payload.exp < currentTime) {
-        console.log("❌ 토큰 만료됨");
+      // base64url → base64 변환
+      const base64Url = parts[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(base64Url.length / 4) * 4, '=');
+      const json = atob(base64);
+      const payload = JSON.parse(json);
+      const now = Math.floor(Date.now() / 1000);
+
+      if (payload.exp && payload.exp < now) {
+        if (localStorage.getItem('DEBUG_AXIOS')) console.log('❌ 토큰 만료(exp < now)', payload.exp, now);
         return false;
       }
-      
-      // 대상자 확인 (백엔드에서 설정한 값에 따라 조정 필요)
-      // 임시로 주석 처리하여 백엔드 토큰 구조 확인
-      // if (payload.aud && payload.aud !== "driving-app") {
-      //   console.log("❌ 토큰 대상자 불일치");
-      //   return false;
-      // }
-      
-      // 발급 시간 확인 (미래 토큰 방지)
-      if (payload.iat && payload.iat > currentTime + 300) {
-        console.log("❌ 미래 토큰 감지");
+      if (payload.iat && payload.iat > now + 300) { // 미래 발급 방지 (허용 오차 5분)
+        if (localStorage.getItem('DEBUG_AXIOS')) console.log('❌ 미래 발급 토큰(iat > now+5m)', payload.iat, now);
         return false;
       }
-      
-      console.log("✅ 토큰 유효함");
+      if (localStorage.getItem('DEBUG_AXIOS')) {
+        console.log('✅ Access 토큰 유효', { exp: payload.exp, iat: payload.iat, aud: payload.aud, iss: payload.iss });
+      }
       return true;
-    } catch (error) {
-      console.error("❌ 토큰 유효성 검사 실패:", error);
+    } catch (e) {
+      if (localStorage.getItem('DEBUG_AXIOS')) console.log('❌ 토큰 디코딩 실패', e);
       return false;
     }
   };
 
+  // Legacy alias
+  const isTokenValid = isAccessTokenValid;
+
+  // Access Token Refresh 로직 (기본 구현: 서버 명세 확정 시 확장)
+  const refreshAccessToken = async () => {
+    if (refreshingRef.current) return refreshingRef.current; // 진행 중 Promise 재사용
+    const refreshToken = getRefreshToken();
+    if (!refreshToken) return null;
+    const task = (async () => {
+      try {
+        const resp = await axios.post('/api/auth/refresh', { refreshToken });
+        const newAccess = resp.data?.accessToken || resp.data?.token;
+        const newRefresh = resp.data?.refreshToken; // 회전 방식이면 갱신
+        if (newAccess || newRefresh) {
+          setTokens({ accessToken: newAccess, refreshToken: newRefresh || refreshToken });
+          return newAccess;
+        }
+        return null;
+      } catch (e) {
+        console.warn('[TokenProvider] refresh 실패, 로그아웃 필요 가능성', e);
+        return null;
+      } finally {
+        refreshingRef.current = null;
+      }
+    })();
+    refreshingRef.current = task;
+    return task;
+  };
+
+  // 401 처리용 보조 플래그
+  const isRefreshingError = (error) => {
+    // 서버 에러 구조 확정 시 code/message 기반 정밀 분기
+    const status = error?.response?.status;
+    if (status !== 401) return false;
+    const msg = (error?.response?.data?.error || error?.response?.data?.message || '').toLowerCase();
+    // 예: access token 만료 문구 탐지
+    return msg.includes('expired') || msg.includes('access');
+  };
+
+  // 응답 인터셉터에 refresh 로직 주입 (이미 전역 인터셉터 존재 → 추가 체인)
+  useEffect(() => {
+    const id = axios.interceptors.response.use(r => r, async (error) => {
+      try {
+        if (isRefreshingError(error)) {
+          const newToken = await refreshAccessToken();
+            if (newToken) {
+              // 원 요청 재시도
+              const cfg = { ...error.config };
+              cfg.headers = { ...(cfg.headers || {}), Authorization: `Bearer ${newToken}` };
+              return axios(cfg);
+            }
+        }
+      } catch (e) {
+        console.warn('[TokenProvider] refresh 처리 중 예외', e);
+      }
+      return Promise.reject(error);
+    });
+    return () => axios.interceptors.response.eject(id);
+  }, []);
+
   return (
-    <TokenContext.Provider value={{ 
-      // 토큰 값과 함수들
-      token: tokenState,
-      getToken, 
-      setToken, 
-      removeToken, 
-      isTokenValid, 
-      getUserInfoFromToken,
-      // 사용자 정보 관리
+    <TokenContext.Provider value={{
+      accessToken: accessTokenState,
+      refreshToken: refreshTokenState,
+      getAccessToken,
+      getRefreshToken,
+      setTokens,
+      clearTokens,
+      refreshAccessToken,
+      isAccessTokenValid,
+      // legacy aliases
+      token: accessTokenState,
+      getToken: getAccessToken,
+      setToken,
+      removeToken: clearTokens,
+      isTokenValid,
+      // user
       getUserInfo,
       setUserInfo,
       clearUserInfo,
-      // 인증 관리
+      // auth control
       login,
-      logout
+      logout,
+      getUserInfoFromToken,
     }}>
       {children}
     </TokenContext.Provider>
