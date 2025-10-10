@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
 import axios from 'axios';
 
 // 앱 시작 시점에 공용 baseURL을 즉시 설정 (초기 렌더 타이밍 경쟁 방지)
@@ -111,6 +111,9 @@ const TokenContext = createContext({
   refreshAccessToken: () => Promise.resolve(null),
   isAccessTokenValid: () => false,
   getUserInfoFromToken: () => null,
+  // 토큰 갱신 이벤트
+  onTokenRefresh: () => {},
+  offTokenRefresh: () => {},
   // Backwards compatibility (legacy single token API)
   token: null,
   getToken: () => null,
@@ -139,8 +142,8 @@ export const TokenProvider = ({ children }) => {
     try { return localStorage.getItem('refreshToken'); } catch { return null; }
   });
   const refreshingRef = useRef(null); // Promise 중복 방지
-
-
+  // 토큰 갱신 이벤트 리스너 관리
+  const tokenRefreshListenersRef = useRef(new Set());
 
   // 컴포넌트 레벨에서는 별도 인터셉터 설정 불필요 (전역으로 이미 설치됨)
 
@@ -188,6 +191,29 @@ export const TokenProvider = ({ children }) => {
     setUserInfoState(null);
     localStorage.removeItem('userInfo');
   };
+
+  // 토큰 갱신 이벤트 리스너 관리
+  const onTokenRefresh = useCallback((callback) => {
+    if (typeof callback === 'function') {
+      tokenRefreshListenersRef.current.add(callback);
+    }
+    return () => tokenRefreshListenersRef.current.delete(callback);
+  }, []);
+
+  const offTokenRefresh = useCallback((callback) => {
+    tokenRefreshListenersRef.current.delete(callback);
+  }, []);
+
+  // 토큰 갱신 이벤트 발생
+  const notifyTokenRefresh = useCallback((newAccessToken) => {
+    tokenRefreshListenersRef.current.forEach(callback => {
+      try {
+        callback(newAccessToken);
+      } catch (e) {
+        console.error('[TokenProvider] 토큰 갱신 이벤트 콜백 오류:', e);
+      }
+    });
+  }, []);
 
   // 토큰 저장 (간단하게)
   const setTokens = ({ accessToken, refreshToken }) => {
@@ -375,18 +401,38 @@ export const TokenProvider = ({ children }) => {
   // Legacy alias
   const isTokenValid = isAccessTokenValid;
 
-  // Access Token Refresh 로직 (기본 구현: 서버 명세 확정 시 확장)
+  // Access Token Refresh 로직 (백엔드 명세 적용: 웹=쿠키, 앱=body, Authorization 헤더)
   const refreshAccessToken = async () => {
     if (refreshingRef.current) return refreshingRef.current; // 진행 중 Promise 재사용
     const refreshToken = getRefreshToken();
+    const currentAccess = getAccessToken();
     if (!refreshToken) return null;
+    
     const task = (async () => {
       try {
-        const resp = await axios.post('/api/auth/refresh', { refreshToken });
-        const newAccess = resp.data?.accessToken || resp.data?.token;
-        const newRefresh = resp.data?.refreshToken; // 회전 방식이면 갱신
-        if (newAccess || newRefresh) {
-          setTokens({ accessToken: newAccess, refreshToken: newRefresh || refreshToken });
+        // 백엔드 명세: Authorization Bearer <Access_Token> + 쿠키/body 방식
+        const headers = {};
+        if (currentAccess) {
+          headers['Authorization'] = `Bearer ${currentAccess}`;
+        }
+        
+        // 웹: 쿠키 우선, 앱: body fallback (현재는 앱 방식만 구현)
+        // TODO: 웹 환경에서는 withCredentials: true + 쿠키 의존 방식으로 확장 가능
+        const resp = await axios.post('/api/auth/refresh', 
+          { refreshToken }, 
+          { headers }
+        );
+        
+        // AccessTokenResponse 구조: { accessToken }
+        const responseData = resp.data?.data || resp.data; // ApiResponse 언래핑
+        const newAccess = responseData?.accessToken;
+        
+        if (newAccess) {
+          // refresh token은 회전하지 않는다고 가정 (백엔드 명세 기준)
+          setTokens({ accessToken: newAccess, refreshToken });
+          console.log('🔄 Access Token 재발급 성공');
+          // 토큰 갱신 이벤트 발생
+          notifyTokenRefresh(newAccess);
           return newAccess;
         }
         return null;
@@ -442,6 +488,9 @@ export const TokenProvider = ({ children }) => {
       clearTokens,
       refreshAccessToken,
       isAccessTokenValid,
+      // 토큰 갱신 이벤트
+      onTokenRefresh,
+      offTokenRefresh,
       // legacy aliases
       token: accessTokenState,
       getToken: getAccessToken,

@@ -82,7 +82,7 @@ export const useScheduleAPI = () => {
     }
   };
 
-  // 특정 운전자의 배차 조회 (관리자용)
+  // 특정 운전자의 배차 조회 (관리자용) - DispatchDetailResponse 기반
   const fetchSchedulesByDriver = async (driverId, options = {}) => {
     try {
       setLoading(true);
@@ -95,16 +95,15 @@ export const useScheduleAPI = () => {
         throw new Error('인증 토큰이 없습니다. 다시 로그인해주세요.');
       }
 
-      // 관리자가 특정 운전자의 배차를 조회하는 엔드포인트
+      // 기간별 파라미터만 전송 (DispatchDetailResponse 구조에 맞춤)
+      const params = {};
+      if (options.startDate) params.startDate = options.startDate;
+      if (options.endDate) params.endDate = options.endDate;
+
       const response = await axios.get(`/api/admin/drivers/${driverId}/dispatches`, {
-        params: {
-          startDate: options.startDate,
-          endDate: options.endDate,
-          limit: options.limit
-        },
+        params,
         headers: { 
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          'Authorization': `Bearer ${token}`
         }
       });
       

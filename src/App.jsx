@@ -19,7 +19,6 @@ import { checkBackendConnection } from './utils/apiUtils';
 import { useEffect, useState } from 'react';
 import './App.css';
 import { WebSocketProvider } from './components/WebSocket/WebSocketProvider';
-import WebSocketComponent from './pages/WebSocketComponent';
 
 // 보호된 라우트 컴포넌트
 const ProtectedRoute = ({ children }) => {
@@ -103,7 +102,6 @@ function App() {
                 <Route path="/signup" element={<Auth />} />
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/ws-test" element={<WsTest />} />
-                <Route path="/ws-component-test" element={<WebSocketComponent />} />
               {/* 기타 모든 경로는 보호 쉘로 라우팅 */}
                 <Route path="/*" element={<PrivateShell />} />
               </Routes>

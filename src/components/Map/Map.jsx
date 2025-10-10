@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from "react";
 
-const KakaoMap = ({ markers = [], polyline = [], width = "100%", height = "400px", style = {} }) => {
+const KakaoMap = ({ markers = [], polyline = [], width = "100%", height = "400px", style = {}, center = null, level = null }) => {
   const mapRef = useRef(null);
   const mapObj = useRef(null);
 
@@ -29,26 +29,51 @@ const KakaoMap = ({ markers = [], polyline = [], width = "100%", height = "400px
     if (window.kakao && mapObj.current) {
       renderMarkers();
       renderPolyline();
+      
+      // center가 변경되면 지도 중심 이동
+      if (center && center.lat && center.lng) {
+        const { kakao } = window;
+        const newCenter = new kakao.maps.LatLng(center.lat, center.lng);
+        mapObj.current.setCenter(newCenter);
+        
+        // level이 지정되어 있으면 줌 레벨도 변경
+        if (level !== null && typeof level === 'number') {
+          mapObj.current.setLevel(level);
+        }
+      }
     }
     // eslint-disable-next-line
-  }, [markers, polyline]);
+  }, [markers, polyline, center, level]);
 
   const renderMap = () => {
     if (!window.kakao || !mapRef.current) return;
     const { kakao } = window;
-    // 마커가 없을 때 기본 좌표 사용
+    
+    // 중심 좌표 결정 (우선순위: props.center > 마커 중심 > 폴리라인 중심 > 기본값)
     let centerLat = 37.54699;
     let centerLng = 127.09598;
-    if (markers.length > 0) {
+    let mapLevel = 4;
+
+    if (center && center.lat && center.lng) {
+      // props로 전달된 중심 좌표 사용
+      centerLat = center.lat;
+      centerLng = center.lng;
+    } else if (markers.length > 0) {
       centerLat = markers.reduce((sum, m) => sum + m.lat, 0) / markers.length;
       centerLng = markers.reduce((sum, m) => sum + m.lng, 0) / markers.length;
     } else if (polyline.length > 0) {
       centerLat = polyline.reduce((sum, p) => sum + p.lat, 0) / polyline.length;
       centerLng = polyline.reduce((sum, p) => sum + p.lng, 0) / polyline.length;
     }
+
+    // 줌 레벨 설정 (props로 전달된 값이 있으면 사용)
+    if (level !== null && typeof level === 'number') {
+      mapLevel = level;
+    }
+
     const mapOption = {
       center: new kakao.maps.LatLng(centerLat, centerLng),
-      level: 4,
+      level: mapLevel,
     };
     mapObj.current = new kakao.maps.Map(mapRef.current, mapOption);
     renderMarkers();

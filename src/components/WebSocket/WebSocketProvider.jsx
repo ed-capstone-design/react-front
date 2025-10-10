@@ -30,7 +30,7 @@ export const WebSocketProvider = ({ children }) => {
   // 중복 구독 시도 방지: destination -> boolean (attempt in-flight)
   const subscribeAttemptingRef = useRef(new Set());
   const [subscribedDestinations, setSubscribedDestinations] = useState([]);
-  const { getToken, getUserInfo, getUserInfoFromToken, isTokenValid } = useToken();
+  const { getToken, getUserInfo, getUserInfoFromToken, isTokenValid, onTokenRefresh, offTokenRefresh } = useToken();
   // 권한 실패 캐시 (destination -> timestamp) 재시도 폭주 방지
   const permissionDeniedRef = useRef(new Map());
   // 최근 access token refresh 타임스탬프 (TokenProvider에서 추후 노출 시 연동 예정)
@@ -112,8 +112,25 @@ export const WebSocketProvider = ({ children }) => {
         setIsConnected(false);
         connectingRef.current = false;
         const message = frame?.headers?.message || '알 수 없는 오류';
+        
+        // 401/인증 오류 시 토큰 재검증 후 재연결 시도
         if (message.includes('401') || frame?.body?.includes('Unauthorized')) {
-          toast.error('실시간 연결 인증 실패 (401)');
+          console.warn('[WebSocket] 401 오류 - 토큰 재검증 중...');
+          const currentToken = getToken && getToken();
+          const isValid = isTokenValid && isTokenValid();
+          
+          if (!currentToken || !isValid) {
+            console.warn('[WebSocket] 토큰 없음/만료 - 재연결 중단');
+            toast.error('실시간 연결 인증 실패: 토큰이 만료되었습니다');
+          } else {
+            console.log('[WebSocket] 토큰 유효 - 3초 후 재연결 시도');
+            toast.warning('실시간 연결 인증 오류 - 재연결 시도 중...');
+            setTimeout(() => {
+              if (!isConnected && !connectingRef.current) {
+                connect();
+              }
+            }, 3000);
+          }
         } else if (frame?.body?.includes('AccessDenied')) {
           toast.error('실시간 연결 권한 거부');
         } else {
@@ -495,8 +512,37 @@ export const WebSocketProvider = ({ children }) => {
     }
   }, [connect, disconnect, getToken, isConnected]);
 
-  // (미래 확장) access token refresh 타임스탬프 기반 강제 재연결 훅 자리
-  // ex) if (externallyProvidedLastRefresh > lastRefreshRef.current) { forceReconnect(); }
+  // 토큰 갱신 이벤트 구독: refresh 즉시 재연결
+  useEffect(() => {
+    if (!onTokenRefresh) return;
+    
+    const handleTokenRefresh = (newAccessToken) => {
+      console.log('[WebSocket] 토큰 갱신 감지 - 자동 재연결 시작');
+      // 기존 연결이 있으면 해제 후 새 토큰으로 재연결
+      if (stompClient.current && isConnected) {
+        console.log('[WebSocket] 기존 연결 해제 중...');
+        disconnect();
+        // 잠시 후 새 토큰으로 재연결 (disconnect 완료 대기)
+        setTimeout(() => {
+          console.log('[WebSocket] 새 토큰으로 재연결:', newAccessToken ? '있음' : '없음');
+          connect();
+        }, 100);
+      } else if (!connectingRef.current) {
+        // 연결이 없었다면 즉시 연결 시도
+        console.log('[WebSocket] 새 토큰으로 즉시 연결');
+        connect();
+      }
+    };
+
+    // 토큰 갱신 이벤트 구독
+    const unsubscribe = onTokenRefresh(handleTokenRefresh);
+    
+    return () => {
+      if (typeof unsubscribe === 'function') {
+        unsubscribe();
+      }
+    };
+  }, [onTokenRefresh, connect, disconnect, isConnected]);
 
   return (
     <WebSocketContext.Provider value={value}>

@@ -1,181 +1,40 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { useNavigate } from "react-router-dom";
 import AddSchedule from "../components/Schedule/AddSchedule";
-import { useToast } from "../components/Toast/ToastProvider";
-import { useScheduleAPI } from "../hooks/useScheduleAPI";
-import dayjs from "dayjs";
+import { useOperatingSchedule } from "../hooks/useOperatingSchedule";
 
 const OperatingSchedule = () => {
   const navigate = useNavigate();
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editModalOpen, setEditModalOpen] = useState(false);
-  const [editingSchedule, setEditingSchedule] = useState(null);
-  const [period, setPeriod] = useState({
-    start: dayjs().subtract(1, 'day').format('YYYY-MM-DD'),
-    end: dayjs().add(1, 'day').format('YYYY-MM-DD')
-  });
-  const [periodSchedules, setPeriodSchedules] = useState([]);
-  const [periodLoading, setPeriodLoading] = useState(false);
-  const [statusFilter, setStatusFilter] = useState(["RUNNING", "SCHEDULED", "DELAYED"]);
-
-  const toast = useToast();
   
   const {
-    addSchedule,
-    updateSchedule,
-    deleteSchedule,
-    fetchSchedulesByPeriod
-  } = useScheduleAPI();
+    // 상태
+    modalOpen,
+    setModalOpen,
+    editModalOpen,
+    setEditModalOpen,
+    editingSchedule,
+    setEditingSchedule,
+    pendingPeriod,
+    setPendingPeriod,
+    pendingStatusFilter,
+    periodSchedules,
+    periodLoading,
+    loading,
+    fetchError,
+    statusOptions,
 
-  const [loading, setLoading] = useState(false);
-  const [fetchError, setFetchError] = useState(null);
+    // 함수
+    extractTime,
+    handleAddSchedule,
+    handleUpdateSchedule,
+    handleEditClick,
+    handleDeleteSchedule,
+    handlePendingStatusChange,
+    handleSearch
+  } = useOperatingSchedule();
 
-  // 시간 추출 함수 (2024-09-24T14:30:00 -> 14:30)
-  const extractTime = (dateTimeString) => {
-    if (!dateTimeString) return '-';
-    try {
-      // ISO 형식에서 시간 부분만 추출
-      const timePart = dateTimeString.split('T')[1];
-      if (timePart) {
-        return timePart.substring(0, 5); // HH:MM 형식
-      }
-      return '-';
-    } catch (error) {
-      return '-';
-    }
-  };
-
-  // 상태 체크박스 목록
-  const statusOptions = [
-    { value: "SCHEDULED", label: "예정" },
-    { value: "DELAYED", label: "지연" },
-    { value: "RUNNING", label: "운행중" },
-    { value: "COMPLETED", label: "완료" },
-    { value: "CANCELED", label: "취소" }, // CANCELLED → CANCELED로 변경
-  ];
-
-  // 기간 내 스케줄 불러오기
-  useEffect(() => {
-    const load = async () => {
-      try {
-        setPeriodLoading(true);
-        setFetchError(null);
-        
-        // statusFilter를 API 파라미터로 전달
-        const data = await fetchSchedulesByPeriod(period.start, period.end, statusFilter);
-        setPeriodSchedules(data);
-      } catch (error) {
-        console.error('스케줄 로드 실패:', error);
-        setFetchError(error.message || '스케줄을 불러올 수 없습니다.');
-        toast.error('스케줄을 불러올 수 없습니다.');
-      } finally {
-        setPeriodLoading(false);
-      }
-    };
-    load();
-  }, [period.start, period.end, statusFilter]); // statusFilter 의존성 추가
-
-  // 스케줄 추가 핸들러
-  const handleAddSchedule = async (newSchedule) => {
-    try {
-      setLoading(true);
-      await addSchedule(newSchedule);
-      toast.success("스케줄이 성공적으로 추가되었습니다.");
-      setModalOpen(false);
-      // 추가 후 해당 기간 스케줄 다시 로드
-      const data = await fetchSchedulesByPeriod(period.start, period.end, statusFilter);
-      setPeriodSchedules(data);
-    } catch (error) {
-      console.error('스케줄 추가 실패:', error);
-      toast.error(error.message || "스케줄 추가에 실패했습니다.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // 스케줄 수정 핸들러 (취소 후 재생성 방식)
-  const handleUpdateSchedule = async (dispatchId, scheduleData) => {
-    try {
-      setLoading(true);
-      console.log('📝 [OperatingSchedule] 스케줄 수정 시작 - 취소 후 재생성:', { dispatchId, scheduleData });
-      
-      // 1. 기존 배차 취소
-      await deleteSchedule(dispatchId);
-      console.log('✅ [OperatingSchedule] 기존 배차 취소 완료:', dispatchId);
-      
-      // 2. 새로운 배차 생성
-      await addSchedule(scheduleData);
-      console.log('✅ [OperatingSchedule] 새로운 배차 생성 완료:', scheduleData);
-      
-      toast.success("스케줄이 성공적으로 수정되었습니다.");
-      setEditModalOpen(false);
-      setEditingSchedule(null);
-      
-      // 수정 후 해당 기간 스케줄 다시 로드
-      const data = await fetchSchedulesByPeriod(period.start, period.end, statusFilter);
-      setPeriodSchedules(data);
-      return { success: true };
-    } catch (error) {
-      console.error('스케줄 수정 실패:', error);
-      toast.error(error.message || "스케줄 수정에 실패했습니다.");
-      return { success: false, error: error.message };
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // 수정 버튼 클릭 핸들러
-  const handleEditClick = (schedule) => {
-    setEditingSchedule(schedule);
-    setEditModalOpen(true);
-  };
-
-  // 스케줄 삭제 핸들러
-  const handleDeleteSchedule = async (dispatchId) => {
-    if (window.confirm("정말로 이 스케줄을 삭제하시겠습니까?")) {
-      try {
-        setLoading(true);
-        await deleteSchedule(dispatchId);
-        toast.success("스케줄이 성공적으로 삭제되었습니다.");
-        // 삭제 후 해당 기간 스케줄 다시 로드
-        const data = await fetchSchedulesByPeriod(period.start, period.end, statusFilter);
-        setPeriodSchedules(data);
-        return { success: true };
-      } catch (error) {
-        console.error('스케줄 삭제 실패:', error);
-        toast.error(error.message || "스케줄 삭제에 실패했습니다.");
-        return { success: false, error: error.message };
-      } finally {
-        setLoading(false);
-      }
-    }
-    return { success: false };
-  };
-
-  // 체크박스 핸들러
-  const handleStatusChange = (value) => {
-    setStatusFilter(prev =>
-      prev.includes(value)
-        ? prev.filter(v => v !== value)
-        : [...prev, value]
-    );
-  };
-
-  // 서버에서 필터링된 데이터를 바로 사용 (클라이언트 사이드 필터링 제거)
+  // 서버에서 필터링된 데이터를 바로 사용
   const filteredSchedules = periodSchedules;
-
-  // 조회 버튼을 눌러야만 리스트가 갱신되도록 변경
-  const [pendingPeriod, setPendingPeriod] = useState({
-    start: period.start,
-    end: period.end
-  });
-  const [pendingStatusFilter, setPendingStatusFilter] = useState([...statusFilter]);
-
-  // 조회 버튼 클릭 시 실제 필터 적용
-  const handleSearch = () => {
-    setPeriod({ ...pendingPeriod });
-    setStatusFilter([...pendingStatusFilter]);
-  };
 
   if (loading || periodLoading) {
     return (
@@ -221,7 +80,7 @@ const OperatingSchedule = () => {
             {statusOptions.map(opt => (
               <button
                 key={opt.value}
-                onClick={() => setPendingStatusFilter(prev => prev.includes(opt.value) ? prev.filter(v => v !== opt.value) : [...prev, opt.value])}
+                onClick={() => handlePendingStatusChange(opt.value)}
                 className={`px-2 py-1 text-xs rounded-full border transition-all duration-200 ${
                   pendingStatusFilter.includes(opt.value)
                     ? 'bg-blue-100 border-blue-300 text-blue-700 shadow-sm'

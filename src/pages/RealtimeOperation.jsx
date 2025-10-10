@@ -1,5 +1,6 @@
 import React from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
+import { IoArrowBack } from 'react-icons/io5';
 import useLiveDispatch from '../hooks/useLiveDispatch';
 import KakaoMap from '../components/Map/Map';
 import { useNotification } from '../components/Notification/contexts/NotificationProvider';
@@ -14,6 +15,7 @@ import { useNotification } from '../components/Notification/contexts/Notificatio
 
 const RealtimeOperation = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const dispatchId = id;
   const { loading, error, meta, latestLocation, kpis, stale } = useLiveDispatch(dispatchId);
   const { notifications } = useNotification();
@@ -34,6 +36,15 @@ const RealtimeOperation = () => {
     return [{ id: dispatchId, lat, lng, title: meta?.driverName || '현재 위치' }];
   }, [latestLocation, meta, dispatchId]);
 
+  // 지도 중심 좌표 (사용자 위치 기준)
+  const mapCenter = React.useMemo(() => {
+    if (!latestLocation) return null;
+    const lat = latestLocation.latitude || latestLocation.lat;
+    const lng = latestLocation.longitude || latestLocation.lng;
+    if (typeof lat !== 'number' || typeof lng !== 'number') return null;
+    return { lat, lng };
+  }, [latestLocation]);
+
   // OBD / KPI 데이터 구성
   const obdRows = React.useMemo(() => [
     { label: '속도', value: fmtNum(kpis.speed, 'km/h') },
@@ -43,16 +54,25 @@ const RealtimeOperation = () => {
     { label: '스로틀', value: fmtNum(kpis.throttle, '%') },
     { label: '브레이크', value: fmtNum(kpis.brake, '%') },
     { label: 'Stalled', value: kpis.stalled == null ? '—' : (kpis.stalled ? 'YES' : 'NO') },
-    { label: '위치 Age', value: kpis.lastLocationAgeSec == null ? '—' : `${kpis.lastLocationAgeSec}s` },
-    { label: 'OBD Age', value: kpis.lastObdAgeSec == null ? '—' : `${kpis.lastObdAgeSec}s` },
+    { label: '위치 갱신', value: kpis.lastLocationAgeSec == null ? '—' : `${kpis.lastLocationAgeSec}초 전`, isAge: true },
+    { label: 'OBD 갱신', value: kpis.lastObdAgeSec == null ? '—' : `${kpis.lastObdAgeSec}초 전`, isAge: true },
   ], [kpis]);
 
   return (
     <div className="max-w-7xl mx-auto p-4 space-y-5" role="main" aria-label="실시간 운행">
+      {/* 뒤로가기 버튼 */}
+      <button
+        onClick={() => navigate(-1)}
+        className="flex items-center gap-2 px-4 py-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors"
+      >
+        <IoArrowBack className="text-lg" />
+        <span className="font-medium">뒤로가기</span>
+      </button>
+
       {/* 헤더 */}
       <div className="space-y-3">
+        <h1 className="text-xl md:text-2xl font-bold tracking-tight text-gray-900 text-left">실시간 운행</h1>
         <div className="flex items-center flex-wrap gap-3">
-          <h1 className="text-xl md:text-2xl font-bold tracking-tight text-gray-900">실시간 운행</h1>
           <MetaPill color="indigo" label="운전자" value={meta?.driverName || '—'} />
           <MetaPill color="teal" label="차량" value={meta?.vehicleNumber || '—'} />
           <StatusPill status={meta?.status} />
@@ -72,7 +92,12 @@ const RealtimeOperation = () => {
             {markers.length === 0 && <span className="text-[11px] text-gray-400">데이터 대기중…</span>}
           </div>
           <div className="relative rounded-lg overflow-hidden ring-1 ring-gray-100">
-            <KakaoMap markers={markers} height="480px" />
+            <KakaoMap 
+              markers={markers} 
+              height="480px" 
+              center={mapCenter}
+              level={4} // 적당한 축척 (약 250m)
+            />
             {markers.length === 0 && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <div className="text-sm text-gray-500 bg-white/85 backdrop-blur rounded-full px-4 py-1 ring-1 ring-gray-200">위치 데이터 없음</div>
@@ -95,17 +120,20 @@ const RealtimeOperation = () => {
                   <div
                     key={r.label}
                     className="group relative rounded-lg border border-gray-200 bg-gray-50/60 hover:bg-white hover:shadow-sm hover:border-sky-200 transition-colors transition-shadow px-3 py-2 flex flex-col gap-1"
+                    title={r.isAge ? '마지막 데이터 업데이트 후 경과 시간' : undefined}
                   >
                     <span className="text-[10px] font-medium tracking-wide text-gray-500 group-hover:text-sky-600 transition-colors">
                       {r.label}
                     </span>
-                    <span className="text-[13px] font-semibold text-gray-900 tabular-nums tracking-tight">
+                    <span className={`text-[13px] font-semibold tabular-nums tracking-tight ${
+                      r.isAge ? 'text-orange-600' : 'text-gray-900'
+                    }`}>
                       {r.value}
                     </span>
-                    {/* 상태 강조 (Age 항목들) */}
-                    {/(Age)/.test(r.label) && (
-                      <span className="absolute top-1.5 right-1.5 inline-flex items-center rounded-full bg-white/80 backdrop-blur px-1.5 py-0.5 ring-1 ring-gray-200 text-[9px] font-semibold text-gray-500 group-hover:ring-sky-300 group-hover:text-sky-600">
-                        AGE
+                    {/* 데이터 갱신 시간 표시 */}
+                    {r.isAge && (
+                      <span className="absolute top-1.5 right-1.5 inline-flex items-center rounded-full bg-orange-100/80 backdrop-blur px-1.5 py-0.5 ring-1 ring-orange-200 text-[9px] font-semibold text-orange-600 group-hover:ring-orange-300">
+                        TIME
                       </span>
                     )}
                   </div>

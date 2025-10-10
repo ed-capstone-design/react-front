@@ -35,11 +35,17 @@ export const useDriveDetailAPI = () => {
 
   // 운행 경로(위치) 조회
   const fetchDriveLocations = async (dispatchId) => {
-    // 전용 locations API 없이 driving-record에서 경로를 추출
+    // 전용 locations API 사용
     const headers = authHeaders();
-    const res = await axios.get(`/api/admin/dispatches/${dispatchId}/driving-record`, { headers });
-    const data = res.data?.data ?? res.data ?? null;
-    return deriveLocationsFromRecord(data);
+    const res = await axios.get(`/api/admin/dispatches/${dispatchId}/locations`, { headers });
+    const locations = res.data?.data ?? [];
+    
+    // 백엔드 응답 형식에 맞춰 변환: { latitude, longitude, recordedAt } 배열
+    return Array.isArray(locations) ? locations.map(loc => ({
+      latitude: Number(loc.latitude),
+      longitude: Number(loc.longitude),
+      recordedAt: loc.recordedAt
+    })).filter(loc => Number.isFinite(loc.latitude) && Number.isFinite(loc.longitude)) : [];
   };
 
   // 운행 이벤트 조회
