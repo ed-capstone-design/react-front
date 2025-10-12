@@ -1,39 +1,44 @@
 
 import React from "react";
-import { IoPersonCircle, IoMail } from "react-icons/io5";
+import { IoPersonCircle, IoMail, IoCall } from "react-icons/io5";
 
 const BasicInfoForm = ({ userInfo }) => {
   return (
-    <div className="border-b border-gray-200 pb-6">
-      <h3 className="text-lg font-semibold text-gray-900 mb-4">기본 정보</h3>
+    <div className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label className="block mb-2 text-sm font-semibold text-gray-700">
-            <IoPersonCircle className="inline mr-2" />
-            이름
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            <IoPersonCircle className="inline mr-1.5 text-gray-400" />
+            사용자명
           </label>
-          <div className="mt-1 block w-full rounded-md bg-gray-100 px-3 py-2 text-gray-900 border border-gray-200">
+          <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-600">
             {userInfo.username || "사용자"}
           </div>
         </div>
-            <div>
-          <label className="block mb-2 text-sm font-semibold text-gray-700">
-            <IoPersonCircle className="inline mr-2" />
-            전화번호
-          </label>
-          <div className="mt-1 block w-full rounded-md bg-gray-100 px-3 py-2 text-gray-900 border border-gray-200">
-            {userInfo.phoneNumber || "010-1234-1234"}
-          </div>
-        </div>
+        
         <div>
-          <label className="block mb-2 text-sm font-semibold text-gray-700">
-            <IoMail className="inline mr-2" />
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            <IoMail className="inline mr-1.5 text-gray-400" />
             이메일
           </label>
-          <div className="mt-1 block w-full rounded-md bg-gray-100 px-3 py-2 text-gray-900 border border-gray-200">
-            {userInfo.email || "User@email.com"}
+          <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-600">
+            {userInfo.email || "user@email.com"}
           </div>
         </div>
+        
+        <div className="md:col-span-2">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            <IoCall className="inline mr-1.5 text-gray-400" />
+            전화번호
+          </label>
+          <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-600">
+            {userInfo.phoneNumber || "010-0000-0000"}
+          </div>
+        </div>
+      </div>
+      
+      <div className="text-xs text-gray-500 bg-blue-50 border border-blue-200 rounded-lg p-3">
+        <span className="font-medium">안내:</span> 기본 정보는 읽기 전용입니다. 변경이 필요한 경우 관리자에게 문의하세요.
       </div>
     </div>
   );

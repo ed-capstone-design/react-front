@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { IoArrowBack, IoMail, IoCall, IoPersonCircle } from "react-icons/io5";
 import { useToken } from "../components/Token/TokenProvider";
 import { useToast } from "../components/Toast/ToastProvider";
-import ProfileHeader from "../components/Profile/ProfileHeader";
-import BasicInfoForm from "../components/Profile/BasicInfoForm";
 import PasswordChangeForm from "../components/Profile/PasswordChangeForm";
-import ProfileActions from "../components/Profile/ProfileActions";
 import axios from "axios";
 
 const MyPage = () => {
@@ -172,7 +170,7 @@ const MyPage = () => {
       });
 
       alert("회원 탈퇴가 완료되었습니다.");
-      logout(); // 토큰과 사용자 정보 모두 제거
+      logout();
       navigate("/signin");
     } catch (error) {
       if (error.response) {
@@ -187,22 +185,117 @@ const MyPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-2xl mx-auto">
-        <ProfileHeader 
-          onBack={() => navigate(-1)} 
-          userInfo={userInfo}
-        />
+    <div className="min-h-screen bg-gray-50/30">
+      <div className="p-6 max-w-6xl mx-auto">
+        {/* 상단 헤더 - UserDetailPage와 통일 */}
+        <div className="flex items-center gap-3 mb-6">
+          <button
+            onClick={() => navigate(-1)}
+            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-white/60 rounded-lg transition-all duration-200"
+          >
+            <IoArrowBack className="text-lg" />
+            돌아가기
+          </button>
+          <div className="h-4 w-px bg-gray-300" />
+          <h1 className="text-xl font-semibold text-gray-900">마이페이지</h1>
+        </div>
 
-        <div className="bg-white rounded-2xl shadow-lg p-8 mb-6">
-          <form onSubmit={handleUpdateProfile} className="space-y-6">
-            <BasicInfoForm userInfo={userInfo} onChange={handleInputChange} />
-            <PasswordChangeForm userInfo={userInfo} onChange={handleInputChange} />
-            {error && (
-              <div className="text-red-500 text-sm p-4 bg-red-50 border border-red-200 rounded-lg">{error}</div>
-            )}
-            <ProfileActions loading={loading} onSave={handleUpdateProfile} onDelete={handleDeleteAccount} />
-          </form>
+        {/* 메인 컨텐츠 */}
+        <div className="grid lg:grid-cols-4 gap-6">
+          {/* 좌측: 프로필 정보 (기본 정보 통합) */}
+          <div className="lg:col-span-1">
+            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+              <div className="text-center mb-6">
+                <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <span className="text-2xl font-bold text-white">
+                    {userInfo.username ? userInfo.username.charAt(0).toUpperCase() : 'U'}
+                  </span>
+                </div>
+                <h2 className="text-lg font-semibold text-gray-900 mb-1">
+                  {userInfo.username || '사용자'}
+                </h2>
+                <p className="text-sm text-gray-500">관리자</p>
+              </div>
+
+              {/* 기본 정보를 프로필 카드에 통합 */}
+              <div className="space-y-3 pt-4 border-t border-gray-100">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
+                    <IoMail className="text-sm text-gray-500" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-gray-500">이메일</p>
+                    <p className="text-sm font-medium text-gray-900 truncate">
+                      {userInfo.email || 'user@email.com'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
+                    <IoCall className="text-sm text-gray-500" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-gray-500">전화번호</p>
+                    <p className="text-sm font-medium text-gray-900">
+                      {userInfo.phoneNumber || '010-0000-0000'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
+                    <IoPersonCircle className="text-sm text-gray-500" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-gray-500">사용자명</p>
+                    <p className="text-sm font-medium text-gray-900">
+                      {userInfo.username || '사용자'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 우측: 비밀번호 변경 */}
+          <div className="lg:col-span-3">
+            <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
+              <div className="px-6 py-4 border-b border-gray-100">
+                <h3 className="text-sm font-semibold text-gray-900">비밀번호 변경</h3>
+              </div>
+              <div className="p-6">
+                <form onSubmit={handleUpdateProfile} className="space-y-4">
+                  <PasswordChangeForm userInfo={userInfo} onChange={handleInputChange} />
+                  
+                  {error && (
+                    <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                      <p className="text-sm text-red-600">{error}</p>
+                    </div>
+                  )}
+
+                  <div className="flex justify-between items-center pt-4">
+                    <button
+                      type="button"
+                      onClick={handleDeleteAccount}
+                      disabled={loading}
+                      className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {loading ? '처리 중...' : '계정 탈퇴'}
+                    </button>
+                    
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="px-6 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {loading ? '저장 중...' : '비밀번호 변경'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
