@@ -1,11 +1,13 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useScheduleAPI } from './useScheduleAPI';
 import { useToast } from '../components/Toast/ToastProvider';
 import dayjs from 'dayjs';
 
 export const useOperatingSchedule = () => {
-  // Toast 알림
+  // Toast 알림 (ref로 안정화)
   const toast = useToast();
+  const toastRef = useRef(toast);
+  toastRef.current = toast;
   
   // API 훅
   const {
@@ -76,29 +78,45 @@ export const useOperatingSchedule = () => {
     } catch (error) {
       console.error('스케줄 로드 실패:', error);
       setFetchError(error.message || '스케줄을 불러올 수 없습니다.');
-      toast.error('스케줄을 불러올 수 없습니다.');
+      toastRef.current.error('스케줄을 불러올 수 없습니다.');
     } finally {
       setPeriodLoading(false);
     }
-  }, [period.start, period.end, statusFilter, fetchSchedulesByPeriod, toast]);
+  }, [period.start, period.end, statusFilter, fetchSchedulesByPeriod]);
 
-  // 기간/필터 변경 시 자동 로드
+  // 기간/필터 변경 시 자동 로드 (안정된 의존성만 사용)
   useEffect(() => {
-    loadSchedules();
-  }, [loadSchedules]);
+    const loadData = async () => {
+      try {
+        setPeriodLoading(true);
+        setFetchError(null);
+        
+        const data = await fetchSchedulesByPeriod(period.start, period.end, statusFilter);
+        setPeriodSchedules(data);
+      } catch (error) {
+        console.error('스케줄 로드 실패:', error);
+        setFetchError(error.message || '스케줄을 불러올 수 없습니다.');
+        toastRef.current.error('스케줄을 불러올 수 없습니다.');
+      } finally {
+        setPeriodLoading(false);
+      }
+    };
+    
+    loadData();
+  }, [period.start, period.end, statusFilter, fetchSchedulesByPeriod]);
 
   // 스케줄 추가 핸들러
   const handleAddSchedule = useCallback(async (newSchedule) => {
     try {
       setLoading(true);
       await addSchedule(newSchedule);
-      toast.success("스케줄이 성공적으로 추가되었습니다.");
+      toastRef.current.success("스케줄이 성공적으로 추가되었습니다.");
       setModalOpen(false);
       // 추가 후 해당 기간 스케줄 다시 로드
       await loadSchedules();
     } catch (error) {
       console.error('스케줄 추가 실패:', error);
-      toast.error(error.message || "스케줄 추가에 실패했습니다.");
+      toastRef.current.error(error.message || "스케줄 추가에 실패했습니다.");
     } finally {
       setLoading(false);
     }
@@ -118,7 +136,7 @@ export const useOperatingSchedule = () => {
       await addSchedule(scheduleData);
       console.log('✅ [useOperatingSchedule] 새로운 배차 생성 완료:', scheduleData);
       
-      toast.success("스케줄이 성공적으로 수정되었습니다.");
+      toastRef.current.success("스케줄이 성공적으로 수정되었습니다.");
       setEditModalOpen(false);
       setEditingSchedule(null);
       
@@ -127,7 +145,7 @@ export const useOperatingSchedule = () => {
       return { success: true };
     } catch (error) {
       console.error('스케줄 수정 실패:', error);
-      toast.error(error.message || "스케줄 수정에 실패했습니다.");
+      toastRef.current.error(error.message || "스케줄 수정에 실패했습니다.");
       return { success: false, error: error.message };
     } finally {
       setLoading(false);
@@ -146,13 +164,13 @@ export const useOperatingSchedule = () => {
       try {
         setLoading(true);
         await deleteSchedule(dispatchId);
-        toast.success("스케줄이 성공적으로 삭제되었습니다.");
+        toastRef.current.success("스케줄이 성공적으로 삭제되었습니다.");
         // 삭제 후 해당 기간 스케줄 다시 로드
         await loadSchedules();
         return { success: true };
       } catch (error) {
         console.error('스케줄 삭제 실패:', error);
-        toast.error(error.message || "스케줄 삭제에 실패했습니다.");
+        toastRef.current.error(error.message || "스케줄 삭제에 실패했습니다.");
         return { success: false, error: error.message };
       } finally {
         setLoading(false);

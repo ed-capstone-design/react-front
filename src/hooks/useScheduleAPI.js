@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import axios from "axios";
 import { useToken } from '../components/Token/TokenProvider';
 
@@ -30,7 +30,7 @@ export const useScheduleAPI = () => {
   };
 
     // 기간별 배차 조회 (관리자용) - Simple Request로 변경
-  const fetchSchedulesByPeriod = async (startDate, endDate, statuses = null) => {
+  const fetchSchedulesByPeriod = useCallback(async (startDate, endDate, statuses = null) => {
     try {
       setLoading(true);
       setError(null);
@@ -80,10 +80,10 @@ export const useScheduleAPI = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [getToken, setLoading, setError]);
 
   // 특정 운전자의 배차 조회 (관리자용) - DispatchDetailResponse 기반
-  const fetchSchedulesByDriver = async (driverId, options = {}) => {
+  const fetchSchedulesByDriver = useCallback(async (driverId, options = {}) => {
     try {
       setLoading(true);
       setError(null);
@@ -126,7 +126,7 @@ export const useScheduleAPI = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [getToken, setLoading, setError]);
 
   // 운전자 정보 조회
   const fetchDriverById = async (driverId) => {
@@ -189,7 +189,7 @@ export const useScheduleAPI = () => {
   };
 
   // 스케줄 추가 (관리자용)
-  const addSchedule = async (scheduleData) => {
+  const addSchedule = useCallback(async (scheduleData) => {
     try {
       setLoading(true);
       setError(null);
@@ -218,10 +218,10 @@ export const useScheduleAPI = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [getToken, setLoading, setError, handleApiError]);
 
   // 스케줄 수정 (관리자용) - 백엔드에 해당 엔드포인트가 없어 임시 구현
-  const updateSchedule = async (dispatchId, scheduleData) => {
+  const updateSchedule = useCallback(async (dispatchId, scheduleData) => {
     try {
       setLoading(true);
       setError(null);
@@ -250,10 +250,10 @@ export const useScheduleAPI = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [getToken, setLoading, setError, handleApiError]);
 
   // 스케줄 삭제 - cancel 기능으로 대체 (관리자용)
-  const deleteSchedule = async (dispatchId) => {
+  const deleteSchedule = useCallback(async (dispatchId) => {
     try {
       setLoading(true);
       setError(null);
@@ -282,7 +282,7 @@ export const useScheduleAPI = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [getToken, setLoading, setError, handleApiError]);
 
   // 이용 가능한 운전자 조회 (관리자용)
   const fetchAvailableDrivers = async (startTime, endTime) => {

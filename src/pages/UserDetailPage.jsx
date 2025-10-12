@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { IoPersonCircle, IoArrowBack } from "react-icons/io5";
+import { IoPersonCircle, IoArrowBack, IoBus, IoWarning, IoStatsChart } from "react-icons/io5";
 import axios from "axios";
 import { useToast } from "../components/Toast/ToastProvider";
 import { useScheduleAPI } from "../hooks/useScheduleAPI";
@@ -30,6 +30,13 @@ const UserDetailPage = () => {
   
   const [dispatchHistory, setDispatchHistory] = useState([]);
   const [warningHistory, setWarningHistory] = useState([]);
+  const [dispatchStats, setDispatchStats] = useState({
+    total: 0,
+    completed: 0,
+    scheduled: 0,
+    cancelled: 0,
+    delayed: 0
+  });
   const [warningStats, setWarningStats] = useState({
     total: 0,
     byType: {},
@@ -53,6 +60,23 @@ const UserDetailPage = () => {
     startDate: "",
     endDate: ""
   });
+
+  // 페이지네이션 상태
+  const [dispatchPage, setDispatchPage] = useState(1);
+  const [warningPage, setWarningPage] = useState(1);
+  const itemsPerPage = 5;
+
+  // 이번달 첫날과 마지막날 계산
+  const getThisMonthDateRange = () => {
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    
+    return {
+      startDate: firstDay.toISOString().split('T')[0],
+      endDate: lastDay.toISOString().split('T')[0]
+    };
+  };
 
   // 1. 운전자 정보 API - 운전자 기본 정보 조회
   const fetchUserData = async (userId) => {
@@ -111,12 +135,30 @@ const UserDetailPage = () => {
     try {
       console.log(`📅 [UserDetailPage] 운전자 ${userId} 배차 이력 조회 시작`);
       // 실제 API 호출 - 관리자가 특정 운전자의 배차 이력 조회
-  const options = {};
+      const options = {};
       if (dateRange.startDate) options.startDate = dateRange.startDate;
       if (dateRange.endDate) options.endDate = dateRange.endDate;
       
       const history = await fetchSchedulesByDriver(userId, options);
       setDispatchHistory(history || []);
+      
+      // 배차 통계 계산
+      const stats = {
+        total: history?.length || 0,
+        completed: 0,
+        scheduled: 0,
+        cancelled: 0,
+        delayed: 0
+      };
+      
+      history?.forEach(dispatch => {
+        if (dispatch.status === 'COMPLETED') stats.completed++;
+        else if (dispatch.status === 'SCHEDULED') stats.scheduled++;
+        else if (dispatch.status === 'CANCELLED') stats.cancelled++;
+        else if (dispatch.status === 'DELAYED') stats.delayed++;
+      });
+      
+      setDispatchStats(stats);
       console.log("✅ 배차 이력 로드 완료:", history?.length || 0, "건");
     } catch (error) {
       console.error("❌ 배차 이력 조회 실패:", error);
@@ -128,6 +170,7 @@ const UserDetailPage = () => {
         toast.error(error.response?.data?.message || "배차 이력을 불러올 수 없습니다.");
       }
       setDispatchHistory([]); // 실패 시 빈 배열로 초기화
+      setDispatchStats({ total: 0, completed: 0, scheduled: 0, cancelled: 0, delayed: 0 });
     }
   };
 
@@ -141,12 +184,12 @@ const UserDetailPage = () => {
         throw new Error('인증 토큰이 없습니다. 다시 로그인해주세요.');
       }
 
-      // 실제 API 호출
-  const params = {};
+      // 실제 API 호출 - 백엔드 API 엔드포인트를 `/api/admin/drivers/{driverId}/events`로 변경
+      const params = {};
       if (warningDateRange.startDate) params.startDate = warningDateRange.startDate;
       if (warningDateRange.endDate) params.endDate = warningDateRange.endDate;
       
-      const response = await axios.get(`/api/warnings/driver/${userId}`, { 
+      const response = await axios.get(`/api/admin/drivers/${userId}/events`, { 
         params,
         headers: { 
           'Authorization': `Bearer ${token}`,
@@ -169,11 +212,12 @@ const UserDetailPage = () => {
       const currentYear = new Date().getFullYear();
       
       warnings.forEach(warning => {
-        // 타입별 통계
-        stats.byType[warning.warningType] = (stats.byType[warning.warningType] || 0) + 1;
+        // 타입별 통계 (eventType 필드 사용)
+        const eventType = warning.eventType || warning.warningType;
+        stats.byType[eventType] = (stats.byType[eventType] || 0) + 1;
         
         // 이번 달 통계
-        const warningDate = new Date(warning.warningTime);
+        const warningDate = new Date(warning.eventTime || warning.warningTime);
         if (warningDate.getMonth() === currentMonth && warningDate.getFullYear() === currentYear) {
           stats.thisMonth++;
         }
@@ -185,6 +229,7 @@ const UserDetailPage = () => {
       console.error("❌ 경고 이력 조회 실패:", error);
       toast.error("경고 이력을 불러올 수 없습니다.");
       setWarningHistory([]); // 실패 시 빈 배열로 초기화
+      setWarningStats({ total: 0, byType: {}, thisMonth: 0 });
     }
   };
 
@@ -192,19 +237,18 @@ const UserDetailPage = () => {
     if (id) {
       setLoading(true);
       
-      // 1단계: 운전자 정보 먼저 호출
+      // 이번달 날짜 범위를 기본값으로 설정 (자동 조회하지 않음)
+      const thisMonthRange = getThisMonthDateRange();
+      setPendingDateRange(thisMonthRange);
+      setPendingWarningDateRange(thisMonthRange);
+      
+      // 운전자 정보만 먼저 호출
       fetchUserData(id)
         .then((driverData) => {
-          // 운전자 정보 성공 시 배차/경고 이력 병렬 호출
-          console.log("운전자 정보 성공, 배차/경고 이력 조회 시작");
-          return Promise.all([
-            loadDispatchHistory(id),     // 배차 이력
-            loadWarningHistory(id)       // 경고 이력
-          ]);
+          console.log("운전자 정보 로드 완료. 배차/경고 이력은 사용자가 조회 버튼을 눌러 조회하세요.");
         })
         .catch((error) => {
-          // 운전자 정보 실패시 여기서 끝 (토스트는 fetchUserData에서 이미 표시됨)
-          console.error("운전자 정보 로딩 실패로 인한 전체 로딩 중단:", error);
+          console.error("운전자 정보 로딩 실패:", error);
         })
         .finally(() => {
           setLoading(false);
@@ -216,33 +260,107 @@ const UserDetailPage = () => {
     }
   }, [id]);
 
-  // 배차 이력 날짜 범위 변경시만 배차 이력 다시 로드
-  useEffect(() => {
-    if (id && username) { // 운전자 정보가 로드된 후에만 실행
-      loadDispatchHistory(id);
-    }
-  }, [dateRange]);
-
-  // 경고 이력 날짜 범위 변경시만 경고 이력 다시 로드
-  useEffect(() => {
-    if (id && username) { // 운전자 정보가 로드된 후에만 실행
-      loadWarningHistory(id);
-    }
-  }, [warningDateRange]);
+  // 자동 로딩을 제거하고 사용자가 직접 조회하도록 변경
 
   // 배차 이력 날짜 범위 변경 핸들러
   const handleApplyDateRange = () => {
-    setDateRange({ ...pendingDateRange });
+    const newRange = { ...pendingDateRange };
+    setDateRange(newRange);
+    setDispatchPage(1); // 페이지를 1페이지로 리셋
+    
+    // 즉시 조회
+    if (id) {
+      const options = {};
+      if (newRange.startDate) options.startDate = newRange.startDate;
+      if (newRange.endDate) options.endDate = newRange.endDate;
+      
+      fetchSchedulesByDriver(id, options).then(history => {
+        setDispatchHistory(history || []);
+        
+        // 배차 통계 계산
+        const stats = {
+          total: history?.length || 0,
+          completed: 0,
+          scheduled: 0,
+          cancelled: 0,
+          delayed: 0
+        };
+        
+        history?.forEach(dispatch => {
+          if (dispatch.status === 'COMPLETED') stats.completed++;
+          else if (dispatch.status === 'SCHEDULED') stats.scheduled++;
+          else if (dispatch.status === 'CANCELLED') stats.cancelled++;
+          else if (dispatch.status === 'DELAYED') stats.delayed++;
+        });
+        
+        setDispatchStats(stats);
+      }).catch(error => {
+        console.error("배차 이력 조회 실패:", error);
+        setDispatchHistory([]);
+        setDispatchStats({ total: 0, completed: 0, scheduled: 0, cancelled: 0, delayed: 0 });
+      });
+    }
   };
 
   // 경고 이력 날짜 범위 변경 핸들러
   const handleApplyWarningDateRange = () => {
-    setWarningDateRange({ ...pendingWarningDateRange });
+    const newRange = { ...pendingWarningDateRange };
+    setWarningDateRange(newRange);
+    setWarningPage(1); // 페이지를 1페이지로 리셋
+    
+    // 즉시 조회
+    if (id) {
+      const token = getToken();
+      const params = {};
+      if (newRange.startDate) params.startDate = newRange.startDate;
+      if (newRange.endDate) params.endDate = newRange.endDate;
+      
+      axios.get(`/api/admin/drivers/${id}/events`, { 
+        params,
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      }).then(response => {
+        const warnings = response.data?.data || response.data || [];
+        setWarningHistory(warnings);
+        
+        // 경고 통계 계산
+        const stats = {
+          total: warnings.length,
+          byType: {},
+          thisMonth: 0
+        };
+        
+        const currentMonth = new Date().getMonth();
+        const currentYear = new Date().getFullYear();
+        
+        warnings.forEach(warning => {
+          const eventType = warning.eventType || warning.warningType;
+          stats.byType[eventType] = (stats.byType[eventType] || 0) + 1;
+          
+          const warningDate = new Date(warning.eventTime || warning.warningTime);
+          if (warningDate.getMonth() === currentMonth && warningDate.getFullYear() === currentYear) {
+            stats.thisMonth++;
+          }
+        });
+        
+        setWarningStats(stats);
+      }).catch(error => {
+        console.error("경고 이력 조회 실패:", error);
+        setWarningHistory([]);
+        setWarningStats({ total: 0, byType: {}, thisMonth: 0 });
+      });
+    }
   };
 
-  // 경고 타입 한글 변환-> 수정해야됨
+  // 경고 타입 한글 변환
   const getWarningTypeLabel = (type) => {
     const types = {
+      "DROWSINESS": "졸음운전",
+      "ACCELERATION": "급가속", 
+      "BRAKING": "급제동",
+      "SPEEDING": "과속",
       "Drowsiness": "졸음운전",
       "Acceleration": "급가속",
       "Braking": "급제동",
@@ -277,79 +395,100 @@ const UserDetailPage = () => {
 
   return (
     <div className="max-w-7xl mx-auto py-10 px-4">
-      {/* 돌아가기 버튼 */}
+      {/* 뒤로가기 버튼 */}
       <button
         onClick={() => navigate('/drivers')}
         className="mb-4 flex items-center gap-2 px-4 py-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors"
       >
         <IoArrowBack className="text-lg" />
-        <span className="font-medium">운전자 목록으로 돌아가기</span>
+        <span className="font-medium">뒤로가기</span>
       </button>
       
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* 좌측 프로필 패널 */}
         <div className="lg:col-span-1">
-          {/* 프로필 카드 */}
+          {/* 운전자 정보 카드 */}
           <div className="bg-white border border-gray-100 rounded-lg shadow-sm p-6 mb-6">
-            <div className="text-center">
-              <IoPersonCircle className="text-blue-500 text-8xl mx-auto mb-4 drop-shadow" />
-              <div className="text-xl font-bold text-gray-900 mb-2">{username || "이름 없음"}</div>
-              <div className="text-gray-500 text-sm mb-3">{phoneNumber || "전화번호 없음"}</div>
-              <div className="space-y-2 text-xs">
-                {licenseNumber && (
-                  <div className="bg-gray-50 text-gray-700 px-3 py-2 rounded">
-                    면허번호: {licenseNumber}
-                  </div>
-                )}
-                {careerYears && (
-                  <div className="bg-gray-50 text-gray-700 px-3 py-2 rounded">
-                    경력: {careerYears}년
-                  </div>
-                )}
-                {avgDrivingScore && (
-                  <div className="bg-gray-50 text-gray-700 px-3 py-2 rounded">
-                    평균점수: {avgDrivingScore}점
-                  </div>
-                )}
-                {grade && (
-                  <div className="bg-gray-50 text-gray-700 px-3 py-2 rounded">
-                    등급: {grade}
-                  </div>
-                )}
+            <div className="text-center mb-6">
+              <IoPersonCircle className="text-blue-500 text-7xl mx-auto mb-4 drop-shadow" />
+              <div className="text-xl font-bold text-gray-900 mb-1">운전자 정보</div>
+            </div>
+            
+            {/* 운전자 기본 정보 */}
+            <div className="border-b border-gray-100 pb-4 mb-4">
+              <div className="flex items-center gap-3 mb-3">
+                <IoPersonCircle className="text-blue-500 text-2xl" />
+                <div>
+                  <div className="font-bold text-gray-900">{username || "이름 없음"}</div>
+                </div>
+              </div>
+              <div className="text-sm text-gray-600 bg-gray-50 px-3 py-2 rounded">
+                {phoneNumber || "전화번호 없음"}
               </div>
             </div>
-          </div>
 
-          {/* 경고 통계 카드 */}
-          <div className="bg-white border border-gray-100 rounded-lg shadow-sm p-6">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">경고 통계</h3>
+            {/* 운전자 상세 정보 */}
             <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600">총 경고</span>
-                <span className="font-bold text-red-600">{warningStats.total}건</span>
+              <div className="flex justify-between items-center py-2">
+                <span className="text-gray-600 text-sm">면허번호</span>
+                <span className="font-semibold text-gray-900">
+                  {licenseNumber || "-"}
+                </span>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600">이번 달</span>
-                <span className="font-bold text-orange-600">{warningStats.thisMonth}건</span>
+              <div className="flex justify-between items-center py-2">
+                <span className="text-gray-600 text-sm">경력</span>
+                <span className="font-semibold text-gray-900">
+                  {careerYears ? `${careerYears}년` : "-"}
+                </span>
               </div>
-              <div className="border-t pt-3">
-                <div className="text-sm text-gray-600 mb-2">타입별 통계</div>
-                {Object.entries(warningStats.byType || {}).map(([type, count], index) => (
-                  <div key={`warning-type-${type}-${index}`} className="flex justify-between text-sm">
-                    <span className="text-gray-500">{getWarningTypeLabel(type)}</span>
-                    <span className="text-gray-700">{count}건</span>
-                  </div>
-                ))}
+              <div className="flex justify-between items-center py-2">
+                <span className="text-gray-600 text-sm">등급</span>
+                <span className="font-semibold text-gray-900">
+                  {grade || "-"}
+                </span>
               </div>
+              {avgDrivingScore && (
+                <div className="flex justify-between items-center py-2 mt-4 bg-green-50 px-3 rounded border-l-4 border-green-400">
+                  <span className="text-green-700 text-sm font-medium">평균 점수</span>
+                  <span className="font-bold text-green-800 text-lg">{avgDrivingScore}점</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
 
         {/* 우측 메인 패널 */}
-        <div className="lg:col-span-3">
+        <div className="lg:col-span-3 flex flex-col gap-6">
           {/* 배차 내역 */}
-          <div className="bg-white border border-gray-100 rounded-lg shadow-sm p-6 mb-6">
-            <h3 className="text-xl font-bold text-gray-900 mb-4">배차 내역</h3>
+          <div className="bg-white border border-gray-100 rounded-lg shadow-sm p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-4">
+                <h3 className="text-xl font-bold text-gray-900">배차 내역</h3>
+                {dispatchStats.total > 0 && (
+                  <div className="flex items-center gap-2">
+                    <div className="bg-blue-50 px-3 py-1 rounded-full">
+                      <span className="text-blue-800 font-bold">총 {dispatchStats.total}건</span>
+                    </div>
+                    <div className="bg-green-50 px-2 py-1 rounded-full">
+                      <span className="text-green-800 text-xs font-medium">완료 {dispatchStats.completed}건</span>
+                    </div>
+                    <div className="bg-blue-50 px-2 py-1 rounded-full">
+                      <span className="text-blue-800 text-xs font-medium">예정 {dispatchStats.scheduled}건</span>
+                    </div>
+                    {dispatchStats.cancelled > 0 && (
+                      <div className="bg-red-50 px-2 py-1 rounded-full">
+                        <span className="text-red-800 text-xs font-medium">취소 {dispatchStats.cancelled}건</span>
+                      </div>
+                    )}
+                    {dispatchStats.delayed > 0 && (
+                      <div className="bg-orange-50 px-2 py-1 rounded-full">
+                        <span className="text-orange-800 text-xs font-medium">지연 {dispatchStats.delayed}건</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
             
             {/* 날짜 필터 */}
             <div className="bg-gray-50 rounded-lg p-4 mb-6">
@@ -387,45 +526,120 @@ const UserDetailPage = () => {
             {dispatchHistory.length === 0 ? (
               <p className="text-gray-400 text-center py-8">배차 이력이 없습니다.</p>
             ) : (
-              <table className="w-full text-left border-separate border-spacing-y-2">
-                <thead>
-                  <tr>
-                    <th className="py-2 px-4 text-gray-600">배차ID</th>
-                    <th className="py-2 px-4 text-gray-600">날짜</th>
-                    <th className="py-2 px-4 text-gray-600">버스</th>
-                    <th className="py-2 px-4 text-gray-600">상태</th>
-                    <th className="py-2 px-4 text-gray-600">점수</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(dispatchHistory || []).map((dispatch, index) => (
-                    <tr key={`dispatch-${dispatch?.dispatchId || index}`} className="hover:bg-blue-50 transition rounded">
-                      <td className="py-2 px-4 rounded-l">{dispatch.dispatchId}</td>
-                      <td className="py-2 px-4">{dispatch.dispatchDate}</td>
-                      <td className="py-2 px-4">{dispatch.busId}번</td>
-                      <td className="py-2 px-4">
-                        <span className={`px-2 py-1 rounded text-xs font-bold ${
-                          dispatch.status === "COMPLETED" ? "bg-green-50 text-green-700" :
-                          dispatch.status === "SCHEDULED" ? "bg-blue-50 text-blue-700" :
-                          dispatch.status === "DELAYED" ? "bg-orange-50 text-orange-700" :
-                          "bg-gray-50 text-gray-500"
-                        }`}>
-                          {dispatch.status === "COMPLETED" ? "완료" :
-                           dispatch.status === "SCHEDULED" ? "예정" :
-                           dispatch.status === "DELAYED" ? "지연" : "대기"}
-                        </span>
-                      </td>
-                      <td className="py-2 px-4 rounded-r">{dispatch.drivingScore || "-"}점</td>
+              <>
+                <table className="w-full text-left border-separate border-spacing-y-2">
+                  <thead>
+                    <tr>
+                      <th className="py-2 px-4 text-gray-600">배차ID</th>
+                      <th className="py-2 px-4 text-gray-600">날짜</th>
+                      <th className="py-2 px-4 text-gray-600">버스</th>
+                      <th className="py-2 px-4 text-gray-600">상태</th>
+                      <th className="py-2 px-4 text-gray-600">점수</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {(dispatchHistory || [])
+                      .slice((dispatchPage - 1) * itemsPerPage, dispatchPage * itemsPerPage)
+                      .map((dispatch, index) => (
+                        <tr key={`dispatch-${dispatch?.dispatchId || index}`} className="hover:bg-blue-50 transition rounded">
+                          <td className="py-2 px-4 rounded-l">{dispatch.dispatchId}</td>
+                          <td className="py-2 px-4">{dispatch.dispatchDate}</td>
+                          <td className="py-2 px-4">{dispatch.busId}번</td>
+                          <td className="py-2 px-4">
+                            <span className={`px-2 py-1 rounded text-xs font-bold ${
+                              dispatch.status === "COMPLETED" ? "bg-green-50 text-green-700" :
+                              dispatch.status === "SCHEDULED" ? "bg-blue-50 text-blue-700" :
+                              dispatch.status === "DELAYED" ? "bg-orange-50 text-orange-700" :
+                              "bg-gray-50 text-gray-500"
+                            }`}>
+                              {dispatch.status === "COMPLETED" ? "완료" :
+                               dispatch.status === "SCHEDULED" ? "예정" :
+                               dispatch.status === "DELAYED" ? "지연" : "대기"}
+                            </span>
+                          </td>
+                          <td className="py-2 px-4 rounded-r">{dispatch.drivingScore || "-"}점</td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+
+                {/* 배차 페이지네이션 */}
+                {dispatchHistory.length > itemsPerPage && (
+                  <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200">
+                    <div className="text-sm text-gray-500">
+                      총 {dispatchHistory.length}개 중 {Math.min((dispatchPage - 1) * itemsPerPage + 1, dispatchHistory.length)}-{Math.min(dispatchPage * itemsPerPage, dispatchHistory.length)}개 표시
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setDispatchPage(prev => Math.max(prev - 1, 1))}
+                        disabled={dispatchPage === 1}
+                        className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        이전
+                      </button>
+                      {Array.from({ length: Math.ceil(dispatchHistory.length / itemsPerPage) }, (_, i) => i + 1).map(page => (
+                        <button
+                          key={page}
+                          onClick={() => setDispatchPage(page)}
+                          className={`px-3 py-1 text-sm border rounded ${
+                            page === dispatchPage
+                              ? 'bg-blue-600 text-white border-blue-600'
+                              : 'border-gray-300 hover:bg-gray-50'
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      ))}
+                      <button
+                        onClick={() => setDispatchPage(prev => Math.min(prev + 1, Math.ceil(dispatchHistory.length / itemsPerPage)))}
+                        disabled={dispatchPage === Math.ceil(dispatchHistory.length / itemsPerPage)}
+                        className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        다음
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
 
           {/* 경고 이력 */}
           <div className="bg-white border border-gray-100 rounded-lg shadow-sm p-6">
-            <h3 className="text-xl font-bold text-gray-900 mb-4">경고 이력</h3>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-4">
+                <h3 className="text-xl font-bold text-gray-900">경고 이력</h3>
+                {warningStats.total > 0 && (
+                  <div className="flex items-center gap-2">
+                    <div className="bg-red-50 px-3 py-1 rounded-full">
+                      <span className="text-red-800 font-bold">총 {warningStats.total}건</span>
+                    </div>
+                    {/* 타입별 통계 */}
+                    {Object.entries(warningStats.byType || {})
+                      .sort(([,a], [,b]) => b - a)
+                      .map(([type, count], index) => (
+                        <div key={`warning-stat-${type}-${index}`} className={`px-2 py-1 rounded-full ${
+                          type === 'DROWSINESS' ? 'bg-red-50' :
+                          type === 'ACCELERATION' ? 'bg-yellow-50' :
+                          type === 'BRAKING' ? 'bg-orange-50' :
+                          type === 'SPEEDING' ? 'bg-purple-50' :
+                          'bg-gray-50'
+                        }`}>
+                          <span className={`text-xs font-medium ${
+                            type === 'DROWSINESS' ? 'text-red-800' :
+                            type === 'ACCELERATION' ? 'text-yellow-800' :
+                            type === 'BRAKING' ? 'text-orange-800' :
+                            type === 'SPEEDING' ? 'text-purple-800' :
+                            'text-gray-800'
+                          }`}>
+                            {getWarningTypeLabel(type)} {count}건
+                          </span>
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </div>
+            </div>
             
             {/* 날짜 필터 */}
             <div className="bg-gray-50 rounded-lg p-4 mb-6">
@@ -463,33 +677,79 @@ const UserDetailPage = () => {
             {warningHistory.length === 0 ? (
               <p className="text-gray-400 text-center py-8">경고 이력이 없습니다.</p>
             ) : (
-              <div className="space-y-3">
-                {(warningHistory || []).map((warning, index) => (
-                  <div key={`warning-${warning?.warningId || index}`} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className={`px-2 py-1 rounded text-xs font-bold ${
-                            warning.warningType === 'SPEED_VIOLATION' ? 'bg-red-50 text-red-700' :
-                            warning.warningType === 'HARSH_BRAKING' ? 'bg-orange-50 text-orange-700' :
-                            warning.warningType === 'HARSH_ACCELERATION' ? 'bg-yellow-50 text-yellow-700' :
-                            'bg-gray-50 text-gray-700'
-                          }`}>
-                            {getWarningTypeLabel(warning.warningType)}
-                          </span>
-                          <span className="text-xs text-gray-500">
-                            경고 ID: {warning.warningId}
-                          </span>
+              <>
+                <div className="space-y-3">
+                  {(warningHistory || [])
+                    .slice((warningPage - 1) * itemsPerPage, warningPage * itemsPerPage)
+                    .map((warning, index) => {
+                      const eventType = warning.eventType || warning.warningType;
+                      return (
+                        <div key={`warning-${warning?.warningId || warning?.eventId || index}`} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <div className="flex items-center gap-2 mb-2">
+                                <span className={`px-2 py-1 rounded text-xs font-bold ${
+                                  eventType === 'DROWSINESS' ? 'bg-red-50 text-red-700' :
+                                  eventType === 'ACCELERATION' ? 'bg-yellow-50 text-yellow-700' :
+                                  eventType === 'BRAKING' ? 'bg-orange-50 text-orange-700' :
+                                  eventType === 'SPEEDING' ? 'bg-purple-50 text-purple-700' :
+                                  eventType === 'SPEED_VIOLATION' ? 'bg-red-50 text-red-700' :
+                                  eventType === 'HARSH_BRAKING' ? 'bg-orange-50 text-orange-700' :
+                                  eventType === 'HARSH_ACCELERATION' ? 'bg-yellow-50 text-yellow-700' :
+                                  'bg-gray-50 text-gray-700'
+                                }`}>
+                                  {getWarningTypeLabel(eventType)}
+                                </span>
+                              </div>
+                              <p className="text-gray-700 text-sm">{warning.description}</p>
+                            </div>
+                            <div className="text-right text-xs text-gray-500">
+                              {new Date(warning.eventTime || warning.warningTime).toLocaleString('ko-KR')}
+                            </div>
+                          </div>
                         </div>
-                        <p className="text-gray-700 text-sm">{warning.description}</p>
-                      </div>
-                      <div className="text-right text-xs text-gray-500">
-                        {new Date(warning.warningTime).toLocaleString('ko-KR')}
-                      </div>
+                      );
+                    })}
+                </div>
+
+                {/* 경고 페이지네이션 */}
+                {warningHistory.length > itemsPerPage && (
+                  <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200">
+                    <div className="text-sm text-gray-500">
+                      총 {warningHistory.length}개 중 {Math.min((warningPage - 1) * itemsPerPage + 1, warningHistory.length)}-{Math.min(warningPage * itemsPerPage, warningHistory.length)}개 표시
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setWarningPage(prev => Math.max(prev - 1, 1))}
+                        disabled={warningPage === 1}
+                        className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        이전
+                      </button>
+                      {Array.from({ length: Math.ceil(warningHistory.length / itemsPerPage) }, (_, i) => i + 1).map(page => (
+                        <button
+                          key={page}
+                          onClick={() => setWarningPage(page)}
+                          className={`px-3 py-1 text-sm border rounded ${
+                            page === warningPage
+                              ? 'bg-blue-600 text-white border-blue-600'
+                              : 'border-gray-300 hover:bg-gray-50'
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      ))}
+                      <button
+                        onClick={() => setWarningPage(prev => Math.min(prev + 1, Math.ceil(warningHistory.length / itemsPerPage)))}
+                        disabled={warningPage === Math.ceil(warningHistory.length / itemsPerPage)}
+                        className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        다음
+                      </button>
                     </div>
                   </div>
-                ))}
-              </div>
+                )}
+              </>
             )}
           </div>
         </div>
