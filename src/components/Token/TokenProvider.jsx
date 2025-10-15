@@ -77,6 +77,29 @@ if (!axios.__legacyRewriteInstalled) {
         // console.debug('📡 Axios 요청 취소:', error.config?.url);
         return Promise.reject(error);
       }
+      
+      // 401 Unauthorized 에러 처리 - 토큰 만료 시 자동 로그아웃
+      if (error.response?.status === 401) {
+        console.warn('🚫 401 Unauthorized 감지 - 자동 로그아웃 처리');
+        try {
+          // 토큰 및 사용자 정보 삭제
+          localStorage.removeItem('accessToken');
+          localStorage.removeItem('refreshToken');
+          localStorage.removeItem('authToken'); // legacy
+          localStorage.removeItem('userInfo');
+          
+          // axios 기본 헤더에서 Authorization 제거
+          delete axios.defaults.headers.common['Authorization'];
+          
+          // 로그인 페이지로 리다이렉트 (현재 페이지가 아닌 경우에만)
+          if (window.location.pathname !== '/signin' && window.location.pathname !== '/auth') {
+            window.location.href = '/signin';
+          }
+        } catch (e) {
+          console.error('자동 로그아웃 처리 중 오류:', e);
+        }
+      }
+      
       const finalUrl = (() => {
         try {
           return new URL(

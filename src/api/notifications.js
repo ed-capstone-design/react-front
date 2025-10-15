@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { extractResponseData, extractErrorMessage } from '../utils/responseUtils';
 
 // createdAt 문자열이 마이크로초(6자리) 포함될 수 있으므로 3자리로 잘라 Date 파싱
 function safeDate(v) {
@@ -31,15 +32,28 @@ const mapToNotification = (n) => {
 };
 
 export async function getMyNotifications(token) {
-  const res = await axios.get('/api/notifications/me', {
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-  });
-  const list = Array.isArray(res.data?.data) ? res.data.data : [];
-  return list.map(mapToNotification).filter(Boolean).sort((a, b) => b.createdAt - a.createdAt);
+  try {
+    const res = await axios.get('/api/notifications/me', {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    });
+    const list = extractResponseData(res, []);
+    return Array.isArray(list) ? list.map(mapToNotification).filter(Boolean).sort((a, b) => b.createdAt - a.createdAt) : [];
+  } catch (error) {
+    console.error('알림 목록 조회 실패:', error);
+    const errorMessage = extractErrorMessage(error, '알림 목록을 불러올 수 없습니다.');
+    throw new Error(errorMessage);
+  }
 }
 
 export async function markAsRead(notificationId, token) {
-  await axios.patch(`/api/notifications/${notificationId}/read`, null, {
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-  });
+  try {
+    const res = await axios.patch(`/api/notifications/${notificationId}/read`, null, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    });
+    return extractResponseData(res, { success: true });
+  } catch (error) {
+    console.error('알림 읽음 처리 실패:', error);
+    const errorMessage = extractErrorMessage(error, '알림 읽음 처리에 실패했습니다.');
+    throw new Error(errorMessage);
+  }
 }

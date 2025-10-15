@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import axios from "axios";
 import { useToken } from '../components/Token/TokenProvider';
+import { extractResponseData, extractErrorMessage } from '../utils/responseUtils';
 
 // axios 기본 URL 설정
 axios.defaults.baseURL = "http://localhost:8080";
@@ -55,26 +56,19 @@ export const useScheduleAPI = () => {
       });
       
       console.log(`📅 [useScheduleAPI] 기간별 배차 응답:`, response.data);
-      let data = response.data?.data || response.data;
+      let data = extractResponseData(response, []);
       
-      // 클라이언트에서 상태 필터링 적용
-      if (statuses && statuses.length > 0) {
-        console.log(`🔍 [useScheduleAPI] 클라이언트 필터링 적용:`, statuses);
-        data = data.filter(dispatch => statuses.includes(dispatch.status));
-        console.log(`✅ [useScheduleAPI] 필터링 후 배차 수:`, data.length);
+      // 백엔드에서 상태 필터링이 지원되지 않으므로 프론트엔드에서 필터링
+      if (Array.isArray(statuses) && statuses.length > 0) {
+        data = data.filter(schedule => statuses.includes(schedule.status));
       }
       
       return data;
     } catch (error) {
       console.error('❌ [useScheduleAPI] 기간별 배차 조회 실패:', error);
       
-      if (error.response?.status === 401) {
-        setError('인증이 필요합니다. 다시 로그인해주세요.');
-      } else if (error.response?.status === 403) {
-        setError('관리자 권한이 필요합니다.');
-      } else {
-        setError(error.response?.data?.message || '기간별 배차 조회 실패');
-      }
+      const errorMessage = extractErrorMessage(error, '기간별 배차 조회에 실패했습니다.');
+      setError(errorMessage);
       
       return [];
     } finally {
@@ -108,19 +102,12 @@ export const useScheduleAPI = () => {
       });
       
       console.log(`✅ [useScheduleAPI] 운전자 ${driverId} 배차 응답:`, response.data);
-      return response.data?.data || response.data;
+      return extractResponseData(response, []);
     } catch (error) {
       console.error(`❌ [useScheduleAPI] 운전자 ${driverId} 배차 조회 실패:`, error);
       
-      if (error.response?.status === 401) {
-        setError('인증이 필요합니다. 다시 로그인해주세요.');
-      } else if (error.response?.status === 403) {
-        setError('관리자 권한이 필요합니다.');
-      } else if (error.response?.status === 404) {
-        setError('해당 운전자의 배차 정보를 찾을 수 없습니다.');
-      } else {
-        setError(error.response?.data?.message || '운전자 배차 조회 실패');
-      }
+      const errorMessage = extractErrorMessage(error, '운전자 배차 조회에 실패했습니다.');
+      setError(errorMessage);
       
       return [];
     } finally {
@@ -210,11 +197,12 @@ export const useScheduleAPI = () => {
       });
       
       console.log(`✅ [useScheduleAPI] 배차 생성 성공:`, response.data);
-      return response.data?.data || response.data;
+      return extractResponseData(response, null);
     } catch (error) {
-      console.error('❌ [useScheduleAPI] 배차 생성 실패:', error);
-      handleApiError(error, '스케줄 추가 실패');
-      throw error;
+      console.error('❌ [useScheduleAPI] 스케줄 추가 실패:', error);
+      const errorMessage = extractErrorMessage(error, '스케줄 추가에 실패했습니다.');
+      setError(errorMessage);
+      throw new Error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -242,11 +230,12 @@ export const useScheduleAPI = () => {
       });
       
       console.log(`✅ [useScheduleAPI] 배차 수정 성공:`, response.data);
-      return response.data?.data || response.data;
+      return extractResponseData(response, null);
     } catch (error) {
       console.error('❌ [useScheduleAPI] 배차 수정 실패:', error);
-      handleApiError(error, '스케줄 수정 실패');
-      throw error;
+      const errorMessage = extractErrorMessage(error, '배차 수정에 실패했습니다.');
+      setError(errorMessage);
+      throw new Error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -277,8 +266,9 @@ export const useScheduleAPI = () => {
       return { success: true };
     } catch (error) {
       console.error('❌ [useScheduleAPI] 배차 취소 실패:', error);
-      handleApiError(error, '스케줄 삭제 실패');
-      throw error;
+      const errorMessage = extractErrorMessage(error, '배차 취소에 실패했습니다.');
+      setError(errorMessage);
+      throw new Error(errorMessage);
     } finally {
       setLoading(false);
     }

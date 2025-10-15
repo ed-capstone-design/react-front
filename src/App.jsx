@@ -22,18 +22,44 @@ import { WebSocketProvider } from './components/WebSocket/WebSocketProvider';
 
 // 보호된 라우트 컴포넌트
 const ProtectedRoute = ({ children }) => {
-  const { getToken } = useToken();
+  const { getToken, isAccessTokenValid, clearTokens } = useToken();
   const token = getToken();
-  // return children;
-  return token ? children : <Navigate to="/signin" replace />;
+  
+  // 토큰이 없으면 로그인 페이지로 리다이렉트
+  if (!token) {
+    return <Navigate to="/signin" replace />;
+  }
+  
+  // 토큰이 있지만 만료되었으면 토큰 삭제 후 로그인 페이지로 리다이렉트
+  if (!isAccessTokenValid()) {
+    console.log('⚠️ 만료된 토큰 감지 - 로그아웃 처리');
+    clearTokens();
+    return <Navigate to="/signin" replace />;
+  }
+  
+  // 유효한 토큰이 있으면 페이지 접근 허용
+  return children;
 };
 
 // 루트 경로 리다이렉트 컴포넌트
 const RootRedirect = () => {
-  const { getToken } = useToken();
+  const { getToken, isAccessTokenValid, clearTokens } = useToken();
   const token = getToken();
-  return <Navigate to={token ? "/dashboard" : "/signin"} replace />;
-    // return <Navigate to={token ? "signin" : "/dashboard"} replace />;
+  
+  // 토큰이 없으면 로그인 페이지로
+  if (!token) {
+    return <Navigate to="/signin" replace />;
+  }
+  
+  // 토큰이 있지만 만료되었으면 토큰 삭제 후 로그인 페이지로
+  if (!isAccessTokenValid()) {
+    console.log('⚠️ 루트 접근 시 만료된 토큰 감지 - 로그아웃 처리');
+    clearTokens();
+    return <Navigate to="/signin" replace />;
+  }
+  
+  // 유효한 토큰이 있으면 대시보드로
+  return <Navigate to="/dashboard" replace />;
 };
 
 // 보안(보호) 구역: 전역 Provider 하에서 보호 라우트만 렌더링

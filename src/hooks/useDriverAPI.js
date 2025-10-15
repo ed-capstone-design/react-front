@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { useToken } from '../components/Token/TokenProvider';
+import { extractResponseData, extractErrorMessage } from '../utils/responseUtils';
 
 // baseURL은 TokenProvider에서 중앙 설정합니다.
 
@@ -38,12 +39,13 @@ export const useDriverAPI = () => {
       });
 
       const response = await Promise.race([apiPromise, timeoutPromise]);
-      const driversData = response.data?.data || response.data;
+      const driversData = extractResponseData(response, fallbackDrivers);
       setDrivers(driversData);
       return driversData;
     } catch (err) {
       console.log("운전자 목록 조회 실패, 예시 데이터 사용");
-      setError(err.message);
+      const errorMessage = extractErrorMessage(err, '운전자 목록 조회에 실패했습니다.');
+      setError(errorMessage);
       setDrivers(fallbackDrivers);
       return fallbackDrivers;
     } finally {
