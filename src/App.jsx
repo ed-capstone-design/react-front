@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { TokenProvider, useToken } from './components/Token/TokenProvider';
 import Auth from './pages/Auth';
+import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
 import Drivers from './pages/Drivers';
 import Buses from './pages/Buses';
@@ -58,13 +59,18 @@ const RootRedirect = () => {
     return <Navigate to="/signin" replace />;
   }
   
-  // 유효한 토큰이 있으면 대시보드로
-  return <Navigate to="/dashboard" replace />;
+  // 유효한 토큰이 있으면 홈으로
+  return <Navigate to="/home" replace />;
 };
 
 // 보안(보호) 구역: 전역 Provider 하에서 보호 라우트만 렌더링
 const PrivateShell = () => (
   <Routes>
+    <Route path="/home" element={
+      <ProtectedRoute>
+        <Layout><Home /></Layout>
+      </ProtectedRoute>
+    } />
     <Route path="/dashboard" element={
       <ProtectedRoute>
         <Layout><Dashboard /></Layout>
@@ -107,7 +113,7 @@ const PrivateShell = () => (
     } />
     <Route path="/mypage" element={
       <ProtectedRoute>
-        <MyPage />
+        <Layout><MyPage /></Layout>
       </ProtectedRoute>
     } />
   </Routes>

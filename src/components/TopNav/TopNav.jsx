@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useToken } from '../Token/TokenProvider';
 import { useNotification } from '../Notification/contexts/NotificationProvider';
 
-const TopNav = ({ onSidebarOpen, onLogoClick, sidebarOpen }) => {
+const TopNav = ({ onLogoClick }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { logout, getUserInfo, getUserInfoFromToken } = useToken();
@@ -26,14 +26,10 @@ const TopNav = ({ onSidebarOpen, onLogoClick, sidebarOpen }) => {
   };
 
   return (
-    <nav className="w-full sticky top-0 z-30 backdrop-blur bg-white/70 border-b border-gray-200/70">
+    <nav className="w-full sticky top-0 z-30 backdrop-blur bg-sky-50/80 border-b border-sky-100/60">
       <div className="w-full px-4 sm:px-6 py-3 flex items-center">
-      {/* Left: Hamburger + Logo (hide when sidebar open) */}
-        {!sidebarOpen ? (
+        {/* Left: Logo */}
         <div className="flex items-center gap-3">
-          <button onClick={onSidebarOpen} aria-label="사이드바 열기" className="p-1 rounded hover:bg-blue-50 active:bg-blue-100 transition focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
-            <IoMenu className="text-blue-600 text-2xl cursor-pointer" />
-          </button>
           <button
             type="button"
             className="flex items-center gap-2 cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded"
@@ -58,9 +54,7 @@ const TopNav = ({ onSidebarOpen, onLogoClick, sidebarOpen }) => {
             </span>
           </button>
         </div>
-        ) : (
-          <div className="h-8" />
-        )}
+        
         <div className="space-x-6 flex items-center ml-auto">
         <button 
           className="flex items-center gap-2 text-gray-700 hover:text-blue-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded"

@@ -53,7 +53,7 @@ const OperatingSchedule = () => {
           {fetchError}
         </div>
       )}
-      <h2 className="text-2xl font-bold mb-8 text-gray-900 tracking-tight">운행 스케줄</h2>
+      <h2 className="text-2xl font-bold mb-8 text-gray-900 tracking-tight text-left">운행 스케줄</h2>
       <div className="bg-white border border-gray-100 rounded-lg shadow-sm p-6 mb-6">
         <div className="flex flex-col sm:flex-row sm:items-center gap-4">
           {/* 기간 선택 */}

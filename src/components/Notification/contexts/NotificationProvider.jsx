@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { getMyNotifications, markAsRead as markAsReadApi } from '../../../api/notifications';
+import { getMyNotifications, getMyUnreadNotifications, markAsRead as markAsReadApi } from '../../../api/notifications';
 import { useToken } from '../../Token/TokenProvider';
 import { useWebSocket } from '../../WebSocket/WebSocketProvider';
 import { useToast } from '../../Toast/ToastProvider';
@@ -35,7 +35,7 @@ export const NotificationProvider = ({ children }) => {
         setNotifications([]);
         return;
       }
-      const list = await getMyNotifications(token);
+      const list = await getMyUnreadNotifications(token);
       setNotifications(list);
     } catch (e) {
       console.error('[Notification] 목록 조회 실패', e);

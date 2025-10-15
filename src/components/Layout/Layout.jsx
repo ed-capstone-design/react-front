@@ -1,8 +1,8 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import TopNav from "../TopNav/TopNav";
-import Sidebar from "../SideBar/SideBar";
 import { 
+  IoHomeOutline,
   IoSpeedometerOutline,
   IoPeopleOutline,
   IoBusOutline,
@@ -11,6 +11,7 @@ import {
 } from "react-icons/io5";
 
 const menu = [
+  { name: "홈", key: "home", path: "/", icon: IoHomeOutline },
   { name: "대시보드", key: "dashboard", path: "/dashboard", icon: IoSpeedometerOutline },
   { name: "운전자 관리", key: "drivers", path: "/drivers", icon: IoPeopleOutline },
   { name: "버스 관리", key: "buses", path: "/buses", icon: IoBusOutline },
@@ -19,7 +20,6 @@ const menu = [
 ];
 
 const Layout = ({ children }) => {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const currentPath = location.pathname;
@@ -29,44 +29,17 @@ const Layout = ({ children }) => {
     return map.get(currentPath) || null;
   }, [currentPath]);
 
-  const moved = sidebarOpen;
-
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white flex flex-col overflow-x-hidden">
-      {/* Full sidebar (drawer) */}
-      <Sidebar
-        open={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-        menu={menu}
-        selected={routeToKey}
-        position="left"
-        onMenuClick={item => {
-          navigate(item.path);
-          setSidebarOpen(false);
-        }}
-      />
-      {/* Backdrop overlay */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/20 md:bg-transparent md:pointer-events-none z-40"
-          onClick={() => setSidebarOpen(false)}
-          aria-hidden="true"
-        />
-      )}
-
+    <div className="min-h-screen relative flex flex-col bg-white">
       {/* Top Navigation (full width) */}
-      <div className={`transform transition-transform duration-200 ease-out md:${sidebarOpen ? 'translate-x-64' : 'translate-x-0'}`}>
-        <TopNav
-          onSidebarOpen={() => setSidebarOpen(true)}
-          sidebarOpen={sidebarOpen}
-          onLogoClick={() => navigate("/dashboard")}
-        />
-      </div>
+      <TopNav
+        onLogoClick={() => navigate("/home")}
+      />
 
       {/* Below header: left rail + main content */}
       <div className="flex flex-1">
         {/* Left icon rail under the header */}
-        <div className={`${sidebarOpen ? 'md:hidden' : 'md:flex'} hidden flex-col items-center pt-20 w-14 border-r border-gray-200/70 bg-white/70 backdrop-blur sticky top-0 h-screen z-20`}>
+        <div className="flex flex-col items-center pt-20 w-14 border-r border-gray-200/70 bg-white/70 backdrop-blur sticky top-0 h-screen z-20 shadow-lg">
           <nav className="flex-1 flex flex-col items-center gap-3">
             {menu.map(m => {
               const active = routeToKey === m.key;
@@ -91,9 +64,9 @@ const Layout = ({ children }) => {
         </div>
 
         {/* Main column */}
-        <div className={`flex-1 flex flex-col min-h-screen transform transition-transform duration-200 ease-out md:${sidebarOpen ? 'translate-x-64' : 'translate-x-0'}`}>
+        <div className="flex-1 flex flex-col min-h-screen">
           <main className="flex-1 max-w-7xl mx-auto py-8 px-4 sm:px-6 w-full">
-            <div className="rounded-2xl border border-gray-200/70 bg-white/80 backdrop-blur-sm shadow-sm shadow-gray-200/40 p-6 sm:p-8 min-h-[60vh]">
+            <div className="rounded-2xl border border-gray-200/70 bg-white shadow-xl shadow-gray-300/50 p-6 sm:p-8 min-h-[60vh]">
               {children}
             </div>
           </main>

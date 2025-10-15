@@ -185,20 +185,19 @@ const MyPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50/30">
-      <div className="p-6 max-w-6xl mx-auto">
-        {/* 상단 헤더 - UserDetailPage와 통일 */}
-        <div className="flex items-center gap-3 mb-6">
-          <button
-            onClick={() => navigate(-1)}
-            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-white/60 rounded-lg transition-all duration-200"
-          >
-            <IoArrowBack className="text-lg" />
-            돌아가기
-          </button>
-          <div className="h-4 w-px bg-gray-300" />
-          <h1 className="text-xl font-semibold text-gray-900">마이페이지</h1>
-        </div>
+    <div>
+      {/* 상단 헤더 */}
+      <div className="flex items-center gap-3 mb-6">
+        <button
+          onClick={() => navigate(-1)}
+          className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-white/60 rounded-lg transition-all duration-200"
+        >
+          <IoArrowBack className="text-lg" />
+          돌아가기
+        </button>
+        <div className="h-4 w-px bg-gray-300" />
+        <h2 className="text-2xl font-bold text-gray-900 text-left">마이페이지</h2>
+      </div>
 
         {/* 메인 컨텐츠 */}
         <div className="grid lg:grid-cols-4 gap-6">
@@ -297,7 +296,6 @@ const MyPage = () => {
             </div>
           </div>
         </div>
-      </div>
     </div>
   );
 };

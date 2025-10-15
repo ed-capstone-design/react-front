@@ -144,9 +144,14 @@ const KakaoMap = ({ markers = [], polyline = [], width = "100%", height = "400px
   };
 
   return (
-    <div
-      ref={mapRef}
-      style={{ width, height, borderRadius: "16px", overflow: "hidden", ...style }}
+    <div 
+      ref={mapRef} 
+      style={{ 
+        width: width, 
+        height: height,
+        minHeight: '300px',
+        ...style
+      }} 
     />
   );
 };

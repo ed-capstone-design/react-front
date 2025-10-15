@@ -84,7 +84,15 @@ const BusDetailModal = ({ isOpen, onClose, bus, mode = 'view', onSuccess }) => {
     } catch (error) {
       console.error('버스 저장 실패:', error);
       const action = mode === 'create' ? '추가' : '수정';
-      toast.error(`버스 ${action} 중 오류가 발생했습니다.`);
+      
+      // 상세한 에러 메시지 제공
+      if (error.response?.status === 500) {
+        toast.error(`서버에서 오류가 발생했습니다. 관리자에게 문의하세요. (${action} 실패)`);
+      } else if (error.response?.status === 409) {
+        toast.error(error.response?.data?.message || `버스 ${action}에 실패했습니다. 데이터 충돌이 발생했습니다.`);
+      } else {
+        toast.error(`버스 ${action} 중 오류가 발생했습니다.`);
+      }
     } finally {
       setLoading(false);
     }

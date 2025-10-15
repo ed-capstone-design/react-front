@@ -140,7 +140,7 @@ const Insight = () => {
       {/* TOP: 동적 지표 (운행 탭: 배차 KPI, 알림 탭: 경고 통계) */}
       <section aria-label="상단 지표" className="space-y-2">
         <header className="flex items-center gap-2 flex-wrap">
-          <h2 className="text-lg font-bold text-gray-900 tracking-tight">인사이트</h2>
+          <h2 className="text-2xl font-bold text-gray-900 tracking-tight text-left">인사이트</h2>
         </header>
         {activeTab === 'running' ? (
           <div className="flex flex-wrap items-center gap-1.5" aria-label="배차 KPI">

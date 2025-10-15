@@ -71,7 +71,7 @@ const RealtimeOperation = () => {
 
       {/* 헤더 */}
       <div className="space-y-3">
-        <h1 className="text-xl md:text-2xl font-bold tracking-tight text-gray-900 text-left">실시간 운행</h1>
+        <h1 className="text-2xl font-bold text-gray-900 text-left">실시간 운행</h1>
         <div className="flex items-center flex-wrap gap-3">
           <MetaPill color="indigo" label="운전자" value={meta?.driverName || '—'} />
           <MetaPill color="teal" label="차량" value={meta?.vehicleNumber || '—'} />
@@ -235,7 +235,7 @@ const Skeleton = ({ lines = 3 }) => (
 const MetaPill = ({ label, value, color = 'gray' }) => {
   const tone = metaTone(color);
   return (
-    <span className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-[12px] font-medium ${tone.bg} ${tone.border} ${tone.text}`}>
+    <span className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-[12px] font-medium ${tone.Abg} ${tone.border} ${tone.text}`}>
       <span className={`w-1.5 h-1.5 rounded-full ${tone.dot}`} aria-hidden />
       <span className="opacity-70">{label}</span>
       <strong className="font-semibold tracking-tight">{value}</strong>

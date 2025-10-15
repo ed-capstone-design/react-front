@@ -246,7 +246,15 @@ export const useBusAPI = () => {
       return { success: true, data: updatedBusData };
     } catch (err) {
       console.error(`❌ [useBusAPI] 버스 ${busId} 수정 실패:`, err);
-      const errorMessage = extractErrorMessage(err, '버스 수정에 실패했습니다.');
+      
+      // 상세한 에러 처리
+      let errorMessage;
+      if (err.response?.status === 500) {
+        errorMessage = '서버에서 내부 오류가 발생했습니다. 관리자에게 문의하세요.';
+      } else {
+        errorMessage = extractErrorMessage(err, '버스 수정에 실패했습니다.');
+      }
+      
       setError(errorMessage);
       return { success: false, error: errorMessage };
     } finally {

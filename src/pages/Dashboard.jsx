@@ -23,20 +23,12 @@ const DashboardContent = () => {
   const scheduledDispatches = todayDispatches.filter(d => d.status === 'SCHEDULED');
 
   return (
-    <div className="min-h-screen bg-gray-50/30">
-      <div className="max-w-7xl mx-auto p-6">
-        {/* 헤더 섹션 */}
-        <div className="mb-8">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">운전의 진수</h1>
-            <p className="text-lg text-gray-600">스마트 버스 운행 관리 시스템</p>
-            <p className="text-sm text-gray-500 mt-2">실시간 운행 모니터링 · 배차 관리 · 운전자 관리를 한 곳에서</p>
-          </div>
-        </div>
+    <div>
+      <h2 className="text-2xl font-bold text-gray-900 mb-8 text-left">대시보드</h2>
 
         {/* 핵심 통계 */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+          <div className="bg-white rounded-xl border border-gray-200/80 shadow-lg shadow-gray-300/40 p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">오늘 총 배차</p>
@@ -46,7 +38,7 @@ const DashboardContent = () => {
             </div>
           </div>
 
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+          <div className="bg-white rounded-xl border border-gray-200/80 shadow-lg shadow-gray-300/40 p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">운행 중</p>
@@ -56,7 +48,7 @@ const DashboardContent = () => {
             </div>
           </div>
 
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+          <div className="bg-white rounded-xl border border-gray-200/80 shadow-lg shadow-gray-300/40 p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">등록 운전자</p>
@@ -66,7 +58,7 @@ const DashboardContent = () => {
             </div>
           </div>
 
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+          <div className="bg-white rounded-xl border border-gray-200/80 shadow-lg shadow-gray-300/40 p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">미읽은 알림</p>
@@ -80,8 +72,8 @@ const DashboardContent = () => {
         {/* 메인 컨텐츠 영역 */}
         <div className="grid lg:grid-cols-3 gap-6 mb-8">
           {/* 오늘의 운행 현황 */}
-          <div className="lg:col-span-2 bg-white rounded-xl border border-gray-100 shadow-sm">
-            <div className="px-6 py-4 border-b border-gray-100">
+          <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200/80 shadow-lg shadow-gray-300/40">
+            <div className="px-6 py-4 border-b border-gray-200/60">
               <h3 className="text-lg font-semibold text-gray-900">오늘의 운행 현황</h3>
             </div>
             <div className="p-6">
@@ -99,7 +91,7 @@ const DashboardContent = () => {
                       </h4>
                       <div className="space-y-2">
                         {runningDispatches.slice(0, 3).map((dispatch) => (
-                          <div key={dispatch.dispatchId} className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
+                          <div key={dispatch.dispatchId} className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200 shadow-md shadow-green-200/50">
                             <div className="flex items-center gap-3">
                               <IoBusOutline className="text-green-600" />
                               <div>
@@ -108,7 +100,7 @@ const DashboardContent = () => {
                               </div>
                             </div>
                             <div className="text-sm text-green-600">
-                              버스 {dispatch.busId}
+                              차량번호:{dispatch.vehicleNumber || dispatch.busId || 'N/A'}
                             </div>
                           </div>
                         ))}
@@ -127,7 +119,7 @@ const DashboardContent = () => {
                       </h4>
                       <div className="space-y-2">
                         {scheduledDispatches.slice(0, 2).map((dispatch) => (
-                          <div key={dispatch.dispatchId} className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200">
+                          <div key={dispatch.dispatchId} className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200 shadow-md shadow-blue-200/50">
                             <div className="flex items-center gap-3">
                               <IoTimerOutline className="text-blue-600" />
                               <div>
@@ -136,7 +128,7 @@ const DashboardContent = () => {
                               </div>
                             </div>
                             <div className="text-sm text-blue-600">
-                              버스 {dispatch.busId}
+                             차량번호: {dispatch.vehicleNumber || dispatch.busId || 'N/A'}
                             </div>
                           </div>
                         ))}
@@ -150,61 +142,9 @@ const DashboardContent = () => {
 
           {/* 빠른 액션 */}
           <div className="space-y-6">
-            {/* 주요 기능 바로가기 */}
-            <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
-              <div className="px-6 py-4 border-b border-gray-100">
-                <h3 className="text-lg font-semibold text-gray-900">주요 기능</h3>
-              </div>
-              <div className="p-4 space-y-3">
-                <button 
-                  onClick={() => navigate('/operating-schedule')}
-                  className="w-full flex items-center justify-between p-3 text-left bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <IoCarSportOutline className="text-blue-600" />
-                    <span className="font-medium text-blue-900">배차 관리</span>
-                  </div>
-                  <IoArrowForwardOutline className="text-blue-600" />
-                </button>
-
-                <button 
-                  onClick={() => navigate('/drivers')}
-                  className="w-full flex items-center justify-between p-3 text-left bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <IoPeopleOutline className="text-purple-600" />
-                    <span className="font-medium text-purple-900">운전자 관리</span>
-                  </div>
-                  <IoArrowForwardOutline className="text-purple-600" />
-                </button>
-
-                <button 
-                  onClick={() => navigate('/buses')}
-                  className="w-full flex items-center justify-between p-3 text-left bg-green-50 hover:bg-green-100 rounded-lg transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <IoBusOutline className="text-green-600" />
-                    <span className="font-medium text-green-900">버스 관리</span>
-                  </div>
-                  <IoArrowForwardOutline className="text-green-600" />
-                </button>
-
-                <button 
-                  onClick={() => navigate('/insight')}
-                  className="w-full flex items-center justify-between p-3 text-left bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <IoNotificationsOutline className="text-orange-600" />
-                    <span className="font-medium text-orange-900">알림 확인</span>
-                  </div>
-                  <IoArrowForwardOutline className="text-orange-600" />
-                </button>
-              </div>
-            </div>
-
             {/* 주간 요약 */}
-            <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
-              <div className="px-6 py-4 border-b border-gray-100">
+            <div className="bg-white rounded-xl border border-gray-200/80 shadow-lg shadow-gray-300/40">
+              <div className="px-6 py-4 border-b border-gray-200/60">
                 <h3 className="text-lg font-semibold text-gray-900">이번 주 요약</h3>
               </div>
               <div className="p-4 space-y-4">
@@ -249,20 +189,20 @@ const DashboardContent = () => {
 
         {/* 최근 활동 */}
         {completedDispatches.length > 0 && (
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
-            <div className="px-6 py-4 border-b border-gray-100">
+          <div className="bg-white rounded-xl border border-gray-200/80 shadow-lg shadow-gray-300/40">
+            <div className="px-6 py-4 border-b border-gray-200/60">
               <h3 className="text-lg font-semibold text-gray-900">오늘 완료된 운행 ({completedDispatches.length}건)</h3>
             </div>
             <div className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {completedDispatches.slice(0, 6).map((dispatch) => (
-                  <div key={dispatch.dispatchId} className="p-4 bg-gray-50 rounded-lg">
+                  <div key={dispatch.dispatchId} className="p-4 bg-gray-50 rounded-lg shadow-md shadow-gray-200/50">
                     <div className="flex items-center gap-2 mb-2">
                       <IoCheckmarkCircleOutline className="text-green-500" />
                       <span className="font-medium text-gray-900">{dispatch.driverName || `운전자 ${dispatch.driverId}`}</span>
                     </div>
                     <p className="text-sm text-gray-600">{dispatch.departureTime} - {dispatch.arrivalTime}</p>
-                    <p className="text-sm text-gray-500">버스 {dispatch.busId}</p>
+                    <p className="text-sm text-gray-500">버스 {dispatch.vehicleNumber || dispatch.busId || 'N/A'}</p>
                   </div>
                 ))}
               </div>
@@ -279,7 +219,6 @@ const DashboardContent = () => {
             </div>
           </div>
         )}
-      </div>
     </div>
   );
 };

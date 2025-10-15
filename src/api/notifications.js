@@ -45,6 +45,20 @@ export async function getMyNotifications(token) {
   }
 }
 
+export async function getMyUnreadNotifications(token) {
+  try {
+    const res = await axios.get('/api/notifications/me/unread', {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    });
+    const list = extractResponseData(res, []);
+    return Array.isArray(list) ? list.map(mapToNotification).filter(Boolean).sort((a, b) => b.createdAt - a.createdAt) : [];
+  } catch (error) {
+    console.error('안읽은 알림 목록 조회 실패:', error);
+    const errorMessage = extractErrorMessage(error, '안읽은 알림 목록을 불러올 수 없습니다.');
+    throw new Error(errorMessage);
+  }
+}
+
 export async function markAsRead(notificationId, token) {
   try {
     const res = await axios.patch(`/api/notifications/${notificationId}/read`, null, {

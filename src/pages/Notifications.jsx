@@ -21,7 +21,7 @@ const Notifications = () => {
   return (
     <div className="max-w-5xl mx-auto p-6">
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-bold">알림 ({unreadCount}개 미읽음)</h1>
+        <h1 className="text-2xl font-bold text-gray-900 text-left">알림 ({unreadCount}개 미읽음)</h1>
         <button onClick={refresh} className="px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 rounded">새로고침</button>
       </div>
       <div className="bg-white border border-gray-100 rounded-lg shadow-sm divide-y">
