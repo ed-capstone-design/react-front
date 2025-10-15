@@ -158,15 +158,16 @@ export const useDriverAPI = () => {
         headers: { Authorization: `Bearer ${getToken()}` }
       });
 
-      await Promise.race([apiPromise, timeoutPromise]);
+      const response = await Promise.race([apiPromise, timeoutPromise]);
       
       // 로컬 상태 업데이트
       setDrivers(prev => prev.filter(d => d.userId !== userId));
       return { success: true };
     } catch (err) {
       console.error("운전자 삭제 실패:", err);
-      setError(err.message);
-      return { success: false, error: err.message };
+      const errorMessage = extractErrorMessage(err, '운전자 삭제에 실패했습니다.');
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
     } finally {
       setLoading(false);
     }
@@ -190,14 +191,15 @@ export const useDriverAPI = () => {
 
       const response = await Promise.race([apiPromise, timeoutPromise]);
       
-      const newDriverData = response.data?.data || response.data;
+      const newDriverData = extractResponseData(response, null);
       // 로컬 상태 업데이트
       setDrivers(prev => [...prev, newDriverData]);
       return { success: true, data: newDriverData };
     } catch (err) {
       console.error("운전자 추가 실패:", err);
-      setError(err.message);
-      return { success: false, error: err.message };
+      const errorMessage = extractErrorMessage(err, '운전자 추가에 실패했습니다.');
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
     } finally {
       setLoading(false);
     }
