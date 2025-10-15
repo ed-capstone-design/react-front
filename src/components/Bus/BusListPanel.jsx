@@ -2,9 +2,11 @@ import React, { useState, useEffect } from "react";
 import { useBusAPI } from "../../hooks/useBusAPI";
 import BusCard from "./BusCard";
 import BusDetailModal from "./BusDetailModal";
+import { useToast } from "../Toast/ToastProvider";
 
 const BusListPanel = () => {
   const { buses, loading, error, deleteBus, getBusStats, fetchBuses } = useBusAPI();
+  const toast = useToast();
   const [selectedBus, setSelectedBus] = useState(null);
   const [modalMode, setModalMode] = useState('view'); // 'view', 'edit', 'create'
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -49,8 +51,11 @@ const BusListPanel = () => {
     if (window.confirm(`${bus.routeNumber}번 버스를 삭제하시겠습니까?`)) {
       const result = await deleteBus(bus.busId);
       if (result.success) {
+        toast.success(`${bus.routeNumber}번 버스가 성공적으로 삭제되었습니다.`);
         // 목록 새로고침
         fetchBuses();
+      } else {
+        toast.error(result.error || '버스 삭제에 실패했습니다.');
       }
     }
   };

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { useToken } from '../components/Token/TokenProvider';
+import { extractResponseData, extractErrorMessage } from '../utils/responseUtils';
 
 // axios 기본 URL 설정
 axios.defaults.baseURL = "http://localhost:8080";
@@ -190,7 +191,7 @@ export const useBusAPI = () => {
       console.log('🚌 [useBusAPI] 버스 추가 응답:', response.data);
       
       // 백엔드 ApiResponse 구조에 맞춰 데이터 추출
-      const newBusData = response.data?.data;
+      const newBusData = extractResponseData(response, null);
       if (newBusData) {
         // 로컬 상태 업데이트
         setBuses(prev => [...prev, newBusData]);
@@ -198,16 +199,7 @@ export const useBusAPI = () => {
       return { success: true, data: newBusData };
     } catch (err) {
       console.error("❌ [useBusAPI] 버스 추가 실패:", err);
-      let errorMessage = '버스 추가에 실패했습니다.';
-      
-      if (err.response?.status === 401) {
-        errorMessage = '인증이 필요합니다. 다시 로그인해주세요.';
-      } else if (err.response?.status === 403) {
-        errorMessage = '관리자 권한이 필요합니다.';
-      } else if (err.response?.data?.message) {
-        errorMessage = err.response.data.message;
-      }
-      
+      const errorMessage = extractErrorMessage(err, '버스 추가에 실패했습니다.');
       setError(errorMessage);
       return { success: false, error: errorMessage };
     } finally {
@@ -244,7 +236,7 @@ export const useBusAPI = () => {
       console.log(`🚌 [useBusAPI] 버스 ${busId} 수정 응답:`, response.data);
       
       // 백엔드 ApiResponse 구조에 맞춰 데이터 추출
-      const updatedBusData = response.data?.data;
+      const updatedBusData = extractResponseData(response, null);
       if (updatedBusData) {
         // 로컬 상태 업데이트
         setBuses(prev => prev.map(bus => 
@@ -254,18 +246,7 @@ export const useBusAPI = () => {
       return { success: true, data: updatedBusData };
     } catch (err) {
       console.error(`❌ [useBusAPI] 버스 ${busId} 수정 실패:`, err);
-      let errorMessage = '버스 수정에 실패했습니다.';
-      
-      if (err.response?.status === 401) {
-        errorMessage = '인증이 필요합니다. 다시 로그인해주세요.';
-      } else if (err.response?.status === 403) {
-        errorMessage = '관리자 권한이 필요합니다.';
-      } else if (err.response?.status === 404) {
-        errorMessage = '해당 버스를 찾을 수 없습니다.';
-      } else if (err.response?.data?.message) {
-        errorMessage = err.response.data.message;
-      }
-      
+      const errorMessage = extractErrorMessage(err, '버스 수정에 실패했습니다.');
       setError(errorMessage);
       return { success: false, error: errorMessage };
     } finally {
@@ -306,18 +287,7 @@ export const useBusAPI = () => {
       return { success: true };
     } catch (err) {
       console.error(`❌ [useBusAPI] 버스 ${busId} 삭제 실패:`, err);
-      let errorMessage = '버스 삭제에 실패했습니다.';
-      
-      if (err.response?.status === 401) {
-        errorMessage = '인증이 필요합니다. 다시 로그인해주세요.';
-      } else if (err.response?.status === 403) {
-        errorMessage = '관리자 권한이 필요합니다.';
-      } else if (err.response?.status === 404) {
-        errorMessage = '해당 버스를 찾을 수 없습니다.';
-      } else if (err.response?.data?.message) {
-        errorMessage = err.response.data.message;
-      }
-      
+      const errorMessage = extractErrorMessage(err, '버스 삭제에 실패했습니다.');
       setError(errorMessage);
       return { success: false, error: errorMessage };
     } finally {

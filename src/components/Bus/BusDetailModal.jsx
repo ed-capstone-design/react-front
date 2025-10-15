@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { useBusAPI } from "../../hooks/useBusAPI";
+import { useToast } from "../Toast/ToastProvider";
 
 const BusDetailModal = ({ isOpen, onClose, bus, mode = 'view', onSuccess }) => {
   const { addBus, updateBus } = useBusAPI();
+  const toast = useToast();
   const [formData, setFormData] = useState({
     routeNumber: '',
     routeType: 'CITY',
@@ -68,14 +70,21 @@ const BusDetailModal = ({ isOpen, onClose, bus, mode = 'view', onSuccess }) => {
       }
 
       if (result.success) {
+        const action = mode === 'create' ? '추가' : '수정';
+        toast.success(`버스가 성공적으로 ${action}되었습니다.`);
         onClose();
         // 성공 콜백 호출
         if (onSuccess) {
           onSuccess();
         }
+      } else {
+        const action = mode === 'create' ? '추가' : '수정';
+        toast.error(result.error || `버스 ${action}에 실패했습니다.`);
       }
     } catch (error) {
       console.error('버스 저장 실패:', error);
+      const action = mode === 'create' ? '추가' : '수정';
+      toast.error(`버스 ${action} 중 오류가 발생했습니다.`);
     } finally {
       setLoading(false);
     }
