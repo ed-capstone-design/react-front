@@ -349,28 +349,34 @@ const DriveDetail = ({ onBackToInsight }) => {
 
         {/* 우측 메인 패널 */}
         <div className="lg:col-span-3 flex flex-col gap-6">
-          {/* 이상감지 통계 */}
+          {/* 이상감지 통계 - 표로 가로 배치 */}
           <div className="bg-white border border-gray-100 rounded-lg shadow-sm p-6">
             <h3 className="text-xl font-bold text-gray-900 mb-4">이상감지 통계</h3>
-            <div className="bg-gray-50 rounded-lg p-4">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="text-center p-6 bg-blue-50 rounded-lg h-24 flex flex-col justify-center">
-                  <div className="text-3xl font-bold text-blue-600">{eventStats.total || 0}</div>
-                  <div className="text-gray-600 text-sm">총 이벤트 건수</div>
-                </div>
-                <div className="text-center p-6 bg-red-50 rounded-lg h-24 flex flex-col justify-center">
-                  <div className="text-3xl font-bold text-red-600">{eventStats.byType.DROWSINESS || 0}</div>
-                  <div className="text-gray-600 text-sm">졸음운전</div>
-                </div>
-                <div className="text-center p-6 bg-yellow-50 rounded-lg h-24 flex flex-col justify-center">
-                  <div className="text-3xl font-bold text-yellow-600">{eventStats.byType.ACCELERATION || 0}</div>
-                  <div className="text-gray-600 text-sm">급가속</div>
-                </div>
-                <div className="text-center p-6 bg-orange-50 rounded-lg h-24 flex flex-col justify-center">
-                  <div className="text-3xl font-bold text-orange-600">{eventStats.byType.BRAKING || 0}</div>
-                  <div className="text-gray-600 text-sm">급제동</div>
-                </div>
-              </div>
+            <div className="bg-gray-50 rounded-lg p-4 overflow-x-auto">
+              <table className="min-w-full text-center">
+                <thead>
+                  <tr>
+                    <th className="px-4 py-2 text-xs font-bold text-gray-600">총 이벤트</th>
+                    <th className="px-4 py-2 text-xs font-bold text-red-600">졸음운전</th>
+                    <th className="px-4 py-2 text-xs font-bold text-yellow-600">급가속</th>
+                    <th className="px-4 py-2 text-xs font-bold text-orange-600">급제동</th>
+                    <th className="px-4 py-2 text-xs font-bold text-purple-600">흡연</th>
+                    <th className="px-4 py-2 text-xs font-bold text-blue-600">안전벨트</th>
+                    <th className="px-4 py-2 text-xs font-bold text-pink-600">휴대폰사용</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td className="px-4 py-3 text-lg font-bold text-blue-600 bg-blue-50 rounded">{eventStats.total || 0}</td>
+                    <td className="px-4 py-3 text-lg font-bold text-red-600 bg-red-50 rounded">{eventStats.byType.DROWSINESS || 0}</td>
+                    <td className="px-4 py-3 text-lg font-bold text-yellow-600 bg-yellow-50 rounded">{eventStats.byType.ACCELERATION || 0}</td>
+                    <td className="px-4 py-3 text-lg font-bold text-orange-600 bg-orange-50 rounded">{eventStats.byType.BRAKING || 0}</td>
+                    <td className="px-4 py-3 text-lg font-bold text-purple-600 bg-purple-50 rounded">{eventStats.byType.SMOKING || 0}</td>
+                    <td className="px-4 py-3 text-lg font-bold text-blue-600 bg-blue-50 rounded">{eventStats.byType.SEATBELT_UNFASTENED || 0}</td>
+                    <td className="px-4 py-3 text-lg font-bold text-pink-600 bg-pink-50 rounded">{eventStats.byType.PHONE_USAGE || 0}</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
           {/* 지도 */}
@@ -398,6 +404,9 @@ const DriveDetail = ({ onBackToInsight }) => {
                     ev.eventType === 'DROWSINESS' ? 'https://cdn-icons-png.flaticon.com/512/565/565547.png' :
                     ev.eventType === 'ACCELERATION' ? 'https://cdn-icons-png.flaticon.com/512/565/565604.png' :
                     ev.eventType === 'BRAKING' ? 'https://cdn-icons-png.flaticon.com/512/565/565606.png' :
+                    ev.eventType === 'SMOKING' ? 'https://cdn-icons-png.flaticon.com/512/2917/2917995.png' :
+                    ev.eventType === 'SEATBELT_UNFASTENED' ? 'https://cdn-icons-png.flaticon.com/512/2919/2919906.png' :
+                    ev.eventType === 'PHONE_USAGE' ? 'https://cdn-icons-png.flaticon.com/512/15047/15047587.png' :
                     undefined,
                 })),
               ]}
@@ -423,11 +432,17 @@ const DriveDetail = ({ onBackToInsight }) => {
                                 ev.eventType === 'DROWSINESS' ? 'bg-red-50 text-red-700' :
                                 ev.eventType === 'ACCELERATION' ? 'bg-yellow-50 text-yellow-700' :
                                 ev.eventType === 'BRAKING' ? 'bg-orange-50 text-orange-700' :
+                                ev.eventType === 'SMOKING' ? 'bg-purple-50 text-purple-700' :
+                                ev.eventType === 'SEATBELT_UNFASTENED' ? 'bg-blue-50 text-blue-700' :
+                                ev.eventType === 'PHONE_USAGE' ? 'bg-pink-50 text-pink-700' :
                                 'bg-gray-50 text-gray-700'
                               }`}>
                                 {ev.eventType === "DROWSINESS" ? "졸음운전" :
                                  ev.eventType === "ACCELERATION" ? "급가속" :
                                  ev.eventType === "BRAKING" ? "급제동" :
+                                 ev.eventType === "SMOKING" ? "흡연" :
+                                 ev.eventType === "SEATBELT_UNFASTENED" ? "안전벨트 미착용" :
+                                 ev.eventType === "PHONE_USAGE" ? "휴대폰 사용" :
                                  ev.eventType}
                               </span>
                             </div>

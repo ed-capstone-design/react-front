@@ -336,7 +336,7 @@ export const TokenProvider = ({ children }) => {
           axios.defaults.headers.common['Authorization'] = `Bearer ${existingToken}`;
           
           // 1차: 기본 토큰 유효성 확인 (사용자 정보 조회)
-          const response = await axios.get('/api/auth/me', {
+          const response = await axios.get('/api/users/me', {
             timeout: 5000,
             withCredentials: true // 쿠키와 함께 전송
           });
@@ -349,23 +349,6 @@ export const TokenProvider = ({ children }) => {
             let currentServerId = null;
             
             try {
-              // 서버의 현재 세션 ID를 가져와서 재시작 여부 확인
-              const serverInfoResponse = await axios.get('/api/health', {
-                timeout: 3000
-              });
-              currentServerId = serverInfoResponse.data?.sessionId || serverInfoResponse.headers['x-session-id'];
-              
-              if (storedServerId && currentServerId && storedServerId !== currentServerId) {
-                console.log("🚨 서버 재시작 감지 (세션 ID 변경) - 강제 로그아웃");
-                console.log(`- 기존 세션: ${storedServerId}`);
-                console.log(`- 현재 세션: ${currentServerId}`);
-                clearTokens();
-                clearUserInfo();
-                localStorage.removeItem('serverSessionId');
-                return;
-              } else if (currentServerId) {
-                localStorage.setItem('serverSessionId', currentServerId);
-              }
             } catch (healthError) {
               console.log("⚠️ 서버 상태 확인 실패 - refresh token 검증으로 진행");
             }

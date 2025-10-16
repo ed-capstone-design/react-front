@@ -354,12 +354,16 @@ const UserDetailPage = () => {
     }
   };
 
-  // 경고 타입 한글 변환
+  // 경고 타입 한글 변환 (새로운 DrivingEventType enum에 맞게 수정)
   const getWarningTypeLabel = (type) => {
     const types = {
       "DROWSINESS": "졸음운전",
       "ACCELERATION": "급가속", 
       "BRAKING": "급제동",
+      "SMOKING": "흡연",
+      "SEATBELT_UNFASTENED": "안전벨트 미착용",
+      "PHONE_USAGE": "휴대폰 사용",
+      // 하위 호환성을 위한 이전 타입들
       "SPEEDING": "과속",
       "Drowsiness": "졸음운전",
       "Acceleration": "급가속",
@@ -622,6 +626,9 @@ const UserDetailPage = () => {
                           type === 'DROWSINESS' ? 'bg-red-50' :
                           type === 'ACCELERATION' ? 'bg-yellow-50' :
                           type === 'BRAKING' ? 'bg-orange-50' :
+                          type === 'SMOKING' ? 'bg-purple-50' :
+                          type === 'SEATBELT_UNFASTENED' ? 'bg-blue-50' :
+                          type === 'PHONE_USAGE' ? 'bg-pink-50' :
                           type === 'SPEEDING' ? 'bg-purple-50' :
                           'bg-gray-50'
                         }`}>
@@ -629,6 +636,9 @@ const UserDetailPage = () => {
                             type === 'DROWSINESS' ? 'text-red-800' :
                             type === 'ACCELERATION' ? 'text-yellow-800' :
                             type === 'BRAKING' ? 'text-orange-800' :
+                            type === 'SMOKING' ? 'text-purple-800' :
+                            type === 'SEATBELT_UNFASTENED' ? 'text-blue-800' :
+                            type === 'PHONE_USAGE' ? 'text-pink-800' :
                             type === 'SPEEDING' ? 'text-purple-800' :
                             'text-gray-800'
                           }`}>
@@ -692,6 +702,10 @@ const UserDetailPage = () => {
                                   eventType === 'DROWSINESS' ? 'bg-red-50 text-red-700' :
                                   eventType === 'ACCELERATION' ? 'bg-yellow-50 text-yellow-700' :
                                   eventType === 'BRAKING' ? 'bg-orange-50 text-orange-700' :
+                                  eventType === 'SMOKING' ? 'bg-purple-50 text-purple-700' :
+                                  eventType === 'SEATBELT_UNFASTENED' ? 'bg-blue-50 text-blue-700' :
+                                  eventType === 'PHONE_USAGE' ? 'bg-pink-50 text-pink-700' :
+                                  // 하위 호환성을 위한 이전 타입들
                                   eventType === 'SPEEDING' ? 'bg-purple-50 text-purple-700' :
                                   eventType === 'SPEED_VIOLATION' ? 'bg-red-50 text-red-700' :
                                   eventType === 'HARSH_BRAKING' ? 'bg-orange-50 text-orange-700' :

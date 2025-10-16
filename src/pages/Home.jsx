@@ -65,9 +65,6 @@ const Home = () => {
       <div className="container mx-auto px-6 py-12">
         {/* 헤더 섹션 */}
         <div className="text-center mb-16">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-blue-600 rounded-2xl shadow-lg mb-6">
-            <span className="text-2xl font-bold text-white">운진</span>
-          </div>
           <h1 className="text-5xl font-black text-gray-900 mb-4 tracking-tight">
             운전의 진수
           </h1>
@@ -120,7 +117,7 @@ const Home = () => {
         <div className="mt-16 text-center">
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/70 backdrop-blur-sm rounded-full border border-white/50 shadow-lg">
             <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-            <span className="text-sm font-medium text-gray-700">시스템 연결상태 양호 </span>
+            <span className="text-sm font-medium text-gray-700">시스템 연결 중</span>
           </div>
         </div>
       </div>

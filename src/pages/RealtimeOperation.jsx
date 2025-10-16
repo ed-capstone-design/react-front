@@ -1,9 +1,11 @@
 import React from 'react';
+import axios from 'axios';
 import { useParams, useNavigate } from 'react-router-dom';
 import { IoArrowBack } from 'react-icons/io5';
 import useLiveDispatch from '../hooks/useLiveDispatch';
 import KakaoMap from '../components/Map/Map';
 import { useNotification } from '../components/Notification/contexts/NotificationProvider';
+import { useToken } from '../components/Token/TokenProvider';
 
 // RealtimeOperation - Phase 1.5 리디자인
 // 구조:
@@ -18,14 +20,31 @@ const RealtimeOperation = () => {
   const navigate = useNavigate();
   const dispatchId = id;
   const { loading, error, meta, latestLocation, kpis, stale } = useLiveDispatch(dispatchId);
-  const { notifications } = useNotification();
+  // 운행 이벤트 목록 상태
+  const [driveEvents, setDriveEvents] = React.useState([]);
+  const [eventLoading, setEventLoading] = React.useState(true);
+  const [eventError, setEventError] = React.useState(null);
+  const { getAccessToken } = useToken();
 
-  // 관련 알림 (dispatchId 기준 필터) - 최대 30개만
-  const relatedNotifications = React.useMemo(() => {
-    if (!notifications) return [];
-    const numId = Number(dispatchId);
-    return notifications.filter(n => n.dispatchId === numId).slice(0, 30);
-  }, [notifications, dispatchId]);
+  // 운행 이벤트 목록 불러오기
+  React.useEffect(() => {
+    if (!dispatchId) return;
+    setEventLoading(true);
+    setEventError(null);
+    const token = getAccessToken();
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    axios.get(`/api/admin/dispatches/${dispatchId}/events`, { headers })
+      .then(res => {
+        const data = res.data?.data ?? res.data ?? [];
+        setDriveEvents(Array.isArray(data) ? data : [data]);
+        setEventLoading(false);
+      })
+      .catch(err => {
+        setEventError(err.response?.data?.message || err.message || '운행 이벤트 조회 실패');
+        setDriveEvents([]);
+        setEventLoading(false);
+      });
+  }, [dispatchId, getAccessToken]);
 
   // 지도 마커 (단일)
   const markers = React.useMemo(() => {
@@ -142,32 +161,38 @@ const RealtimeOperation = () => {
             </div>
           </div>
 
-          {/* 알림 목록 */}
+          {/* 운행 이벤트 목록 */}
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm flex flex-col h-full max-h-[360px]">
             <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-              <h2 className="font-semibold text-sm text-gray-800">관련 알림 <span className="ml-1 text-[10px] font-normal text-gray-400">{relatedNotifications.length}</span></h2>
-              {relatedNotifications.length === 0 && <span className="text-[11px] text-gray-400">없음</span>}
+              <h2 className="font-semibold text-sm text-gray-800">운행 이벤트 <span className="ml-1 text-[10px] font-normal text-gray-400">{driveEvents.length}</span></h2>
+              {eventLoading && <span className="text-[11px] text-gray-400">로딩중…</span>}
+              {!eventLoading && driveEvents.length === 0 && <span className="text-[11px] text-gray-400">없음</span>}
             </div>
             <ul className="flex-1 overflow-auto divide-y divide-gray-100 text-xs">
-              {relatedNotifications.map(n => (
-                <li key={n.id} className="px-4 py-2 hover:bg-sky-50/60 transition-colors">
+              {eventError && (
+                <li className="px-4 py-10 flex items-center justify-center text-[11px] text-rose-500">{eventError}</li>
+              )}
+              {!eventLoading && driveEvents.length === 0 && !eventError && (
+                <li className="px-4 py-10 flex items-center justify-center text-[11px] text-gray-400">이 배차에 대한 운행 이벤트가 없습니다.</li>
+              )}
+              {driveEvents.map(ev => (
+                <li key={ev.drivingEventId} className="px-4 py-2 hover:bg-sky-50/60 transition-colors">
                   <div className="flex items-start justify-between gap-2">
                     <div className="space-y-0.5">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <TypeBadge type={n.type} />
-                        <span className={`font-medium ${!n.isRead ? 'text-gray-900' : 'text-gray-600'}`}>{n.message || '(메시지 없음)'}</span>
+                        <TypeBadge type={ev.eventType} />
+                        <span className="font-medium text-gray-900">{ev.eventType}</span>
                       </div>
                       <div className="text-[10px] text-gray-400 flex items-center gap-2">
-                        <time dateTime={n.createdAt?.toISOString?.()}>{formatTime(n.createdAt)}</time>
-                        {n.vehicleNumber && <span>· {n.vehicleNumber}</span>}
+                        <time dateTime={ev.eventTimestamp}>{formatTime(ev.eventTimestamp)}</time>
+                        {ev.latitude && ev.longitude && (
+                          <span>· {ev.latitude.toFixed(5)}, {ev.longitude.toFixed(5)}</span>
+                        )}
                       </div>
                     </div>
                   </div>
                 </li>
               ))}
-              {relatedNotifications.length === 0 && (
-                <li className="px-4 py-10 flex items-center justify-center text-[11px] text-gray-400">해당 배차와 관련된 알림이 없습니다.</li>
-              )}
             </ul>
           </div>
         </aside>
@@ -207,12 +232,35 @@ const Badge = ({ children, tone = 'gray' }) => {
 const TypeBadge = ({ type }) => {
   if (!type) return null;
   const map = {
+    // 기존 알림 타입들
     ALERT: 'bg-rose-100 text-rose-700 border-rose-200',
     WARNING: 'bg-amber-100 text-amber-700 border-amber-200',
     DRIVING_WARNING: 'bg-orange-100 text-orange-700 border-orange-200',
+    // 새로운 드라이빙 이벤트 타입들
+    DROWSINESS: 'bg-red-100 text-red-700 border-red-200',
+    ACCELERATION: 'bg-yellow-100 text-yellow-700 border-yellow-200',
+    BRAKING: 'bg-orange-100 text-orange-700 border-orange-200',
+    SMOKING: 'bg-purple-100 text-purple-700 border-purple-200',
+    SEATBELT_UNFASTENED: 'bg-blue-100 text-blue-700 border-blue-200',
+    PHONE_USAGE: 'bg-pink-100 text-pink-700 border-pink-200',
   };
   const cls = map[type] || 'bg-gray-100 text-gray-600 border-gray-200';
-  return <span className={`inline-flex items-center h-5 px-2 rounded-full text-[10px] font-semibold border ${cls}`}>{type}</span>;
+  
+  // 타입별 한글 라벨
+  const labels = {
+    ALERT: 'ALERT',
+    WARNING: 'WARNING', 
+    DRIVING_WARNING: 'DRIVING_WARNING',
+    DROWSINESS: '졸음운전',
+    ACCELERATION: '급가속',
+    BRAKING: '급제동',
+    SMOKING: '흡연',
+    SEATBELT_UNFASTENED: '안전벨트',
+    PHONE_USAGE: '휴대폰사용',
+  };
+  
+  const label = labels[type] || type;
+  return <span className={`inline-flex items-center h-5 px-2 rounded-full text-[10px] font-semibold border ${cls}`}>{label}</span>;
 };
 
 function formatTime(d) {
