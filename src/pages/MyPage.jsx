@@ -75,7 +75,7 @@ const MyPage = () => {
           
           if (err.response?.status === 401) {
             console.error("🚨 인증 실패 - 토큰이 유효하지 않습니다. 로그아웃 처리합니다.");
-            logout();
+            await logout();
             navigate("/signin");
             return;
           }
@@ -170,7 +170,7 @@ const MyPage = () => {
       });
 
       alert("회원 탈퇴가 완료되었습니다.");
-      logout();
+      await logout();
       navigate("/signin");
     } catch (error) {
       if (error.response) {

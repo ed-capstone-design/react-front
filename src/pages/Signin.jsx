@@ -16,12 +16,12 @@ const Signin = () => {
   const toast = useToast();
   const { getToken, login, getUserInfo } = useToken();
 
-  // 이미 로그인된 사용자라면 대시보드로 리다이렉트
+  // 이미 로그인된 사용자라면 홈으로 리다이렉트
   useEffect(() => {
     const token = getToken();
     const userInfo = getUserInfo();
     if (token && userInfo) {
-      navigate("/dashboard");
+      navigate("/home");
     }
   }, [navigate, getToken, getUserInfo]);
 
@@ -72,7 +72,7 @@ const Signin = () => {
       const userInfo = login(loginData);
       
       toast.success(`${userInfo.username}님, 로그인되었습니다!`);
-      navigate("/dashboard");
+      navigate("/home");
     } catch (error) {
       if (error.response) {
         setError(error.response.data.message || "로그인에 실패했습니다.");

@@ -16,9 +16,15 @@ const TopNav = ({ onLogoClick }) => {
   const displayUserInfo = userInfo || tokenUserInfo;
   const userName = displayUserInfo?.username || displayUserInfo?.name || "사용자";
 
-  const handleLogout = () => {
-    logout(); // 토큰과 사용자 정보 모두 제거
-    navigate('/signin');
+  const handleLogout = async () => {
+    try {
+      await logout(); // 서버에 로그아웃 요청 후 토큰과 사용자 정보 모두 제거
+      navigate('/signin');
+    } catch (error) {
+      console.error('로그아웃 중 오류 발생:', error);
+      // 오류가 발생해도 로그인 페이지로 이동 (로컬 토큰은 이미 삭제됨)
+      navigate('/signin');
+    }
   };
 
   const handleProfileClick = () => {

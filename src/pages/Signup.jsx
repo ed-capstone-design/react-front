@@ -25,11 +25,11 @@ const Signup = () => {
   const navigate = useNavigate();
   const { getToken } = useToken();
 
-  // 이미 로그인된 사용자라면 대시보드로 리다이렉트
+  // 이미 로그인된 사용자라면 홈으로 리다이렉트
   useEffect(() => {
     const token = getToken();
     if (token) {
-      navigate("/dashboard");
+      navigate("/home");
     }
   }, [navigate, getToken]);
 
