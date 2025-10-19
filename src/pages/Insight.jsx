@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useInsightData } from '../hooks/useInsightData';
 import { useWebSocket } from '../components/WebSocket/WebSocketProvider';
 import { useNotification } from '../components/Notification/contexts/NotificationProvider';
+import axios from 'axios';
+import { useToken } from '../components/Token/TokenProvider';
 import KakaoMap from '../components/Map/Map';
 
 // Insight 페이지: status 기반 KPI (금일 배차 / 완료 / 지연 / 남은) + RUNNING 리스트 + 알림 + 지도
@@ -18,6 +20,7 @@ const Insight = () => {
     runningList,
     refresh,
   } = useInsightData();
+  const { getToken } = useToken();
 
   // 알림 페이지네이션 (탭 내부에서 사용)
   const [page, setPage] = React.useState(1);
@@ -118,18 +121,53 @@ const Insight = () => {
   const { markAsRead } = useNotification();
 
   // 알림 항목 클릭: 읽음 처리 후 URL 이동(optional)
-  const handleNotificationClick = (n) => {
+  const [statsModalOpen, setStatsModalOpen] = React.useState(false);
+  const [statsLoading, setStatsLoading] = React.useState(false);
+  const [statsError, setStatsError] = React.useState(null);
+  const [statsData, setStatsData] = React.useState(null);
+
+  const fetchDispatchEventStats = async (dispatchId) => {
+    setStatsLoading(true);
+    setStatsError(null);
+    setStatsData(null);
+    try {
+      const token = getToken?.();
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const res = await axios.get(`/api/admin/dispatches/${dispatchId}/events`, { headers });
+      const raw = res.data?.data || res.data || [];
+      // aggregate counts by DrivingEventType
+      const types = {
+        DROWSINESS: 0,
+        ACCELERATION: 0,
+        BRAKING: 0,
+        SMOKING: 0,
+        SEATBELT_UNFASTENED: 0,
+        PHONE_USAGE: 0,
+      };
+      raw.forEach(ev => {
+        const t = (ev.eventType || ev.type || '').toString();
+        if (t && Object.prototype.hasOwnProperty.call(types, t)) types[t] += 1;
+      });
+      setStatsData(types);
+    } catch (e) {
+      console.error('[Insight] dispatch events fetch failed', e);
+      setStatsError(e.response?.data?.message || e.message || '이벤트 조회 실패');
+    } finally {
+      setStatsLoading(false);
+      setStatsModalOpen(true);
+    }
+  };
+
+  const handleNotificationClick = async (n) => {
     if (!n.isRead) {
       markAsRead(n.id);
     }
-    // dispatchId 또는 관련 필드 우선 탐색
     const dispatchId = n.dispatchId || n.dispatchID || n.dispatch_id || n.refId || n.referenceId;
     if (dispatchId) {
-      // TODO: dispatch 상태 조회 후 완료이면 /drivedetail, 진행중이면 /realtime-operation 라우팅
-      navigate(`/realtime-operation/${dispatchId}`);
+      // 서버에서 운행 이벤트를 조회해 통계 모달로 표시
+      await fetchDispatchEventStats(dispatchId);
       return;
     }
-    // fallback: 기존 url (있을 경우)
     if (n.url) {
       navigate(n.url);
     }
@@ -153,6 +191,44 @@ const Insight = () => {
           <TypeSummary notifications={notifications} compact />
         )}
       </section>
+
+      {/* 통계 모달 */}
+      {statsModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-md p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold">운행 이벤트 통계</h3>
+              <button onClick={() => setStatsModalOpen(false)} className="text-sm text-gray-500">닫기</button>
+            </div>
+            {statsLoading ? (
+              <div className="py-6 text-center">로딩중…</div>
+            ) : statsError ? (
+              <div className="py-6 text-center text-rose-600">{statsError}</div>
+            ) : statsData ? (
+              <div className="space-y-2">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-xs text-gray-500">
+                      <th>이벤트 타입</th>
+                      <th className="text-right">수량</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(statsData).map(([k, v]) => (
+                      <tr key={k} className="border-t">
+                        <td className="py-2">{k}</td>
+                        <td className="py-2 text-right font-semibold">{v}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="py-6 text-center text-gray-500">데이터 없음</div>
+            )}
+          </div>
+        </div>
+      )}
 
     {/* 지도 + 우측 패널(탭: 운행 / 알림)
       비율 다시 조정: 요청된 70:30 → 10컬럼 기반 (map 7, panel 3)
