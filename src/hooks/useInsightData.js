@@ -44,13 +44,21 @@ export const useInsightData = () => {
     const { signal } = abortRef.current;
     setLoading(true); setError(null);
     try {
+      // 요청 시 서버에 RUNNING 상태 필터를 직접 요청
       const res = await axios.get('/api/admin/dispatches', {
-        params: { startDate: range.start, endDate: range.end },
+        params: { startDate: range.start, endDate: range.end, statuses: 'RUNNING' },
         headers: { Authorization: `Bearer ${token}` },
         signal
       });
       const raw = res.data?.data || res.data || [];
-      const list = Array.isArray(raw) ? raw.map(r => ({ ...r, _normDate: normalizeDate(r), _normStatus: (r.status||'').toUpperCase() })) : [];
+      // Debug: 서버가 어떤 데이터를 반환하는지 확인
+      try {
+        console.log('[useInsightData] fetched /api/admin/dispatches count:', Array.isArray(raw) ? raw.length : '(non-array)', raw && Array.isArray(raw) ? raw.slice(0,3) : raw);
+      } catch (e) {}
+  const list = Array.isArray(raw) ? raw.map(r => ({ ...r, _normDate: normalizeDate(r), _normStatus: (r.status||'').toUpperCase() })) : [];
+      try {
+        console.log('[useInsightData] sample normalized:', list.slice(0,3).map(d => ({ id: d.dispatchId, status: d.status, _normStatus: d._normStatus, _normDate: d._normDate })));
+      } catch (e) {}
       setDispatches(list);
     } catch (e) {
       if (axios.isCancel(e)) return; setError(e); console.error('[useInsightData] fetch 실패', e);
@@ -76,7 +84,8 @@ export const useInsightData = () => {
   const todayCompleted = partition.COMPLETED.length;
   const todayDelayed = partition.DELAYED.length;
   const todayRemaining = useMemo(() => partition.SCHEDULED.length + partition.RUNNING.length + partition.DELAYED.length, [partition]);
-  const runningList = partition.RUNNING;
+  // 서버에서 RUNNING만 가져오므로 dispatches 자체를 runningList로 사용
+  const runningList = dispatches;
 
   // 지도 마커 RUNNING 기준
   const markers = useMemo(() => runningList.map(r => ({

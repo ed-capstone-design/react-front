@@ -334,66 +334,65 @@ export const TokenProvider = ({ children }) => {
         try {
           // 임시로 axios 헤더 설정
           axios.defaults.headers.common['Authorization'] = `Bearer ${existingToken}`;
-          
+
           // 1차: 기본 토큰 유효성 확인 (사용자 정보 조회)
           const response = await axios.get('/api/users/me', {
             timeout: 5000,
             withCredentials: true // 쿠키와 함께 전송
           });
-          
+
           if (response.status === 200) {
             console.log("✅ 1차 토큰 유효성 확인됨 - refresh token 상태 검증 시작");
-            
-            // 2차: 서버 세션 ID 확인으로 서버 재시작 감지
+
+            // 서버 세션 ID 확인(선택적) - 예전 로직 유지 자리에 자리만 남김
             const storedServerId = localStorage.getItem('serverSessionId');
             let currentServerId = null;
-            
             try {
+              // (추후 서버 상태 체크 로직 삽입 가능)
             } catch (healthError) {
               console.log("⚠️ 서버 상태 확인 실패 - refresh token 검증으로 진행");
             }
 
             // 3차: refresh token을 사용해서 새로운 access token 발급 시도
-            // 서버 재시작 시 refresh token이 무효화되었다면 이 과정에서 실패함
-            try {
-              const refreshResponse = await axios.post('/api/auth/refresh', {}, {
-                timeout: 5000,
-                withCredentials: true, // refresh_token 쿠키 함께 전송
-                headers: {
-                  'Content-Type': 'application/json'
+            const refreshToken = getRefreshToken();
+            if (refreshToken) {
+              try {
+                const refreshResponse = await axios.post('/api/auth/refresh', { refreshToken }, {
+                  timeout: 5000,
+                  withCredentials: true,
+                  headers: { 'Content-Type': 'application/json' }
+                });
+
+                if (refreshResponse.status === 200 && refreshResponse.data?.success) {
+                  const newAccessToken = refreshResponse.data.data?.accessToken;
+                  if (newAccessToken && newAccessToken !== existingToken) {
+                    console.log("🔄 새로운 access token 발급됨 - 업데이트");
+                    setAccessTokenState(newAccessToken);
+                    localStorage.setItem('accessToken', newAccessToken);
+                    axios.defaults.headers.common['Authorization'] = `Bearer ${newAccessToken}`;
+                  } else {
+                    // 기존 토큰이 여전히 유효함
+                    console.log("✅ 기존 access token 여전히 유효");
+                    if (accessTokenState !== existingToken) setAccessTokenState(existingToken);
+                  }
                 }
-              });
-              
-              if (refreshResponse.status === 200 && refreshResponse.data?.success) {
-                // refresh token이 유효함 - 새로운 access token으로 업데이트
-                const newAccessToken = refreshResponse.data.data?.accessToken;
-                if (newAccessToken && newAccessToken !== existingToken) {
-                  console.log("🔄 새로운 access token 발급됨 - 업데이트");
-                  setAccessTokenState(newAccessToken);
-                  localStorage.setItem('accessToken', newAccessToken);
-                  axios.defaults.headers.common['Authorization'] = `Bearer ${newAccessToken}`;
+              } catch (refreshError) {
+                if (refreshError.response?.status === 401 || refreshError.response?.status === 403) {
+                  console.log("🚨 Refresh Token 무효화 감지 - 서버 재시작으로 인한 자동 로그인 차단");
+                  console.log("❌ 재로그인 필요 - 모든 토큰 삭제");
+                  clearTokens();
+                  clearUserInfo();
+                  localStorage.removeItem('serverSessionId');
+                  return;
                 } else {
-                  // 기존 토큰이 여전히 유효함
-                  console.log("✅ 기존 access token 여전히 유효");
+                  console.log("⚠️ Refresh 요청 실패 (네트워크 문제) - 기존 토큰 유지:", refreshError.code);
                   if (accessTokenState !== existingToken) setAccessTokenState(existingToken);
                 }
               }
-            } catch (refreshError) {
-              // refresh token이 무효화됨 (서버 재시작 등)
-              if (refreshError.response?.status === 401 || refreshError.response?.status === 403) {
-                console.log("🚨 Refresh Token 무효화 감지 - 서버 재시작으로 인한 자동 로그인 차단");
-                console.log("❌ 재로그인 필요 - 모든 토큰 삭제");
-                clearTokens();
-                clearUserInfo();
-                localStorage.removeItem('serverSessionId');
-                return; // 더 이상 진행하지 않음
-              } else {
-                // refresh 요청 실패는 네트워크 문제일 수 있으므로 기존 토큰 유지
-                console.log("⚠️ Refresh 요청 실패 (네트워크 문제) - 기존 토큰 유지:", refreshError.code);
-                if (accessTokenState !== existingToken) setAccessTokenState(existingToken);
-              }
+            } else {
+              console.log('⚠️ refreshToken 없음 - refresh 요청을 생략합니다');
             }
-            
+
             // 사용자 정보 복원
             const storedUserInfo = localStorage.getItem('userInfo');
             if (storedUserInfo) {
@@ -417,7 +416,7 @@ export const TokenProvider = ({ children }) => {
             // 네트워크 에러나 서버 에러의 경우 토큰 유지하고 로컬에서만 복원
             console.log("⚠️ 서버 연결 실패 - 토큰 유지하고 로컬 복원:", error.code || error.message);
             if (accessTokenState !== existingToken) setAccessTokenState(existingToken);
-            
+
             // 사용자 정보 복원
             const storedUserInfo = localStorage.getItem('userInfo');
             if (storedUserInfo) {
@@ -556,8 +555,8 @@ export const TokenProvider = ({ children }) => {
       try {
         console.log("🔄 Access Token 갱신 시도 중...");
         
-        // 웹 환경에서는 쿠키 방식 우선 사용
-        const resp = await axios.post('/api/auth/refresh', {}, {
+        // 웹 환경에서는 쿠키 방식 우선 사용하되, 서버가 body의 refreshToken을 요구하면 함께 전송
+        const resp = await axios.post('/api/auth/refresh', { refreshToken }, {
           headers: currentAccess ? { 'Authorization': `Bearer ${currentAccess}` } : {},
           withCredentials: true, // refresh_token 쿠키 사용
           timeout: 5000
