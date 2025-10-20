@@ -20,11 +20,14 @@ const RealtimeOperation = () => {
   const navigate = useNavigate();
   const dispatchId = id;
   const { loading, error, meta, latestLocation, kpis, stale } = useLiveDispatch(dispatchId);
+  const [metaLocal, setMetaLocal] = React.useState(null);
   // 운행 이벤트 목록 상태
   const [driveEvents, setDriveEvents] = React.useState([]);
   const [eventLoading, setEventLoading] = React.useState(true);
   const [eventError, setEventError] = React.useState(null);
   const { getAccessToken } = useToken();
+  const [ending, setEnding] = React.useState(false);
+  const [endError, setEndError] = React.useState(null);
 
   // 운행 이벤트 목록 불러오기
   React.useEffect(() => {
@@ -92,10 +95,39 @@ const RealtimeOperation = () => {
       <div className="space-y-3">
         <h1 className="text-2xl font-bold text-gray-900 text-left">실시간 운행</h1>
         <div className="flex items-center flex-wrap gap-3">
-          <MetaPill color="indigo" label="운전자" value={meta?.driverName || '—'} />
-          <MetaPill color="teal" label="차량" value={meta?.vehicleNumber || '—'} />
-          <StatusPill status={meta?.status} />
-          <LiveStatePill stale={stale} />
+          <MetaPill color="indigo" label="운전자" value={(metaLocal || meta)?.driverName || '—'} />
+          <MetaPill color="teal" label="차량" value={(metaLocal || meta)?.vehicleNumber || '—'} />
+          <StatusPill status={(metaLocal || meta)?.status} />
+          {/* Live 버튼/표시는 제거됨 */}
+          {( (metaLocal || meta)?.status !== 'COMPLETED' ) && (
+            <button
+              onClick={async () => {
+                if (!dispatchId) return;
+                if (!window.confirm('정말로 이 배차를 종료하시겠습니까?')) return;
+                setEnding(true);
+                setEndError(null);
+                try {
+                  const token = getAccessToken();
+                  const headers = token ? { Authorization: `Bearer ${token}` } : {};
+                  const resp = await axios.patch(`/api/admin/dispatches/${dispatchId}/end`, {}, { headers, timeout: 5000 });
+                  const data = resp.data?.data || resp.data;
+                  // 반영
+                  setMetaLocal(data);
+                  console.log('배차 종료 성공', data);
+                } catch (e) {
+                  console.error('배차 종료 실패', e);
+                  setEndError(e.response?.data?.message || e.message || '배차 종료 실패');
+                } finally {
+                  setEnding(false);
+                }
+              }}
+              disabled={ending}
+              className="ml-2 inline-flex items-center gap-2 px-3 py-1 rounded-md bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60"
+            >
+              {ending ? '종료 중...' : '배차 종료'}
+            </button>
+          )}
+          {endError && <span className="text-sm text-rose-600 ml-2">{endError}</span>}
         </div>
       </div>
 

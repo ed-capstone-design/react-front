@@ -125,6 +125,9 @@ const Insight = () => {
   const [statsLoading, setStatsLoading] = React.useState(false);
   const [statsError, setStatsError] = React.useState(null);
   const [statsData, setStatsData] = React.useState(null);
+  const [runningEventsStats, setRunningEventsStats] = React.useState(null);
+  const [runningEventsLoading, setRunningEventsLoading] = React.useState(false);
+  const [runningEventsError, setRunningEventsError] = React.useState(null);
 
   const fetchDispatchEventStats = async (dispatchId) => {
     setStatsLoading(true);
@@ -135,18 +138,26 @@ const Insight = () => {
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
       const res = await axios.get(`/api/admin/dispatches/${dispatchId}/events`, { headers });
       const raw = res.data?.data || res.data || [];
-      // aggregate counts by DrivingEventType
-      const types = {
-        DROWSINESS: 0,
-        ACCELERATION: 0,
-        BRAKING: 0,
-        SMOKING: 0,
-        SEATBELT_UNFASTENED: 0,
-        PHONE_USAGE: 0,
-      };
+      // Backend DrivingEventType enum (ensure keys match exactly)
+      const EVENT_TYPES = [
+        'DROWSINESS',
+        'ACCELERATION',
+        'BRAKING',
+        'SMOKING',
+        'SEATBELT_UNFASTENED',
+        'PHONE_USAGE'
+      ];
+      const types = EVENT_TYPES.reduce((acc, k) => { acc[k] = 0; return acc; }, {});
+      // Count occurrences; ignore unknown types but keep them collectable under 'UNKNOWN' if desired
       raw.forEach(ev => {
         const t = (ev.eventType || ev.type || '').toString();
-        if (t && Object.prototype.hasOwnProperty.call(types, t)) types[t] += 1;
+        if (!t) return;
+        if (Object.prototype.hasOwnProperty.call(types, t)) {
+          types[t] += 1;
+        } else {
+          // optional: track unknown types under a special key
+          types.UNKNOWN = (types.UNKNOWN || 0) + 1;
+        }
       });
       setStatsData(types);
     } catch (e) {
@@ -164,14 +175,58 @@ const Insight = () => {
     }
     const dispatchId = n.dispatchId || n.dispatchID || n.dispatch_id || n.refId || n.referenceId;
     if (dispatchId) {
-      // 서버에서 운행 이벤트를 조회해 통계 모달로 표시
-      await fetchDispatchEventStats(dispatchId);
+      // 읽음 처리 후 리얼타임 페이지로 이동 (요청하신 플로우)
+      navigate(`/realtime-operation/${dispatchId}`);
       return;
     }
     if (n.url) {
       navigate(n.url);
+      return;
     }
+    // 기타 알림은 통계 모달로 열어주기
+    await fetchDispatchEventStats(n.relatedDispatchId || n.refId || n.referenceId);
   };
+
+  // runningList 기반으로 모든 운행중 배차들의 이벤트를 합산한 통계 조회
+  React.useEffect(() => {
+    const load = async () => {
+      if (activeTab !== 'notifications') return;
+      if (!running || running.length === 0) {
+        setRunningEventsStats({});
+        return;
+      }
+      setRunningEventsLoading(true);
+      setRunningEventsError(null);
+      try {
+        const token = getToken?.();
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+        const requests = running.map(r => axios.get(`/api/admin/dispatches/${r.dispatchId}/events`, { headers }).then(res => res.data?.data || res.data || []).catch(e => {
+          console.warn('[Insight] dispatch events load failed for', r.dispatchId, e?.message || e);
+          return [];
+        }));
+        const results = await Promise.all(requests);
+        const types = {
+          DROWSINESS: 0,
+          ACCELERATION: 0,
+          BRAKING: 0,
+          SMOKING: 0,
+          SEATBELT_UNFASTENED: 0,
+          PHONE_USAGE: 0,
+        };
+        results.flat().forEach(ev => {
+          const t = (ev.eventType || ev.type || '').toString();
+          if (t && Object.prototype.hasOwnProperty.call(types, t)) types[t] += 1;
+        });
+        setRunningEventsStats(types);
+      } catch (e) {
+        console.error('[Insight] running events aggregation failed', e);
+        setRunningEventsError(e.response?.data?.message || e.message || '통계 조회 실패');
+      } finally {
+        setRunningEventsLoading(false);
+      }
+    };
+    load();
+  }, [activeTab, running, getToken]);
 
   return (
   <div className="max-w-7xl mx-auto p-3 md:p-4 space-y-4" role="main" aria-label="인사이트 메인">
@@ -214,12 +269,25 @@ const Insight = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {Object.entries(statsData).map(([k, v]) => (
-                      <tr key={k} className="border-t">
-                        <td className="py-2">{k}</td>
-                        <td className="py-2 text-right font-semibold">{v}</td>
-                      </tr>
-                    ))}
+                    {Object.entries(statsData).map(([k, v]) => {
+                      // map backend enum keys to human-friendly labels
+                      const labelMap = {
+                        DROWSINESS: '졸음',
+                        ACCELERATION: '급가속',
+                        BRAKING: '급제동',
+                        SMOKING: '흡연',
+                        SEATBELT_UNFASTENED: '안전벨트 미착용',
+                        PHONE_USAGE: '휴대폰 사용',
+                        UNKNOWN: '알 수 없는 타입'
+                      };
+                      const label = labelMap[k] || k;
+                      return (
+                        <tr key={k} className="border-t">
+                          <td className="py-2">{label}</td>
+                          <td className="py-2 text-right font-semibold">{v}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

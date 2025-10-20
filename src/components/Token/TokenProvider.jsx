@@ -30,6 +30,12 @@ if (!axios.__legacyRewriteInstalled) {
   axios.interceptors.request.use(
     (config) => {
       try {
+        // 항상 최신 access token을 localStorage에서 읽어 Authorization 헤더로 설정
+        const token = localStorage.getItem('accessToken') || localStorage.getItem('authToken');
+        if (token) {
+          config.headers = { ...(config.headers || {}), Authorization: `Bearer ${token}` };
+        }
+
         const method = (config.method || 'get').toLowerCase();
         const rawUrl = config.url || '';
         let pathname = rawUrl;
@@ -69,37 +75,15 @@ if (!axios.__legacyRewriteInstalled) {
     (error) => Promise.reject(error)
   );
 
+  // 모듈 레벨 응답 인터셉터: 취소 에러는 통과, 401에 대해선 로그만 남기고
+  // 실제 토큰 갱신/재시도 로직은 TokenProvider 내부의 인터셉터(useEffect)에서 처리합니다.
   axios.interceptors.response.use(
     (response) => response,
     (error) => {
-      // React StrictMode의 이중 이펙트로 인해 첫 요청이 취소되며 발생하는 에러는 로그를 억제
       if (axios.isCancel?.(error) || error?.code === 'ERR_CANCELED' || error?.name === 'CanceledError') {
-        // console.debug('📡 Axios 요청 취소:', error.config?.url);
         return Promise.reject(error);
       }
-      
-      // 401 Unauthorized 에러 처리 - 토큰 만료 시 자동 로그아웃
-      if (error.response?.status === 401) {
-        console.warn('🚫 401 Unauthorized 감지 - 자동 로그아웃 처리');
-        try {
-          // 토큰 및 사용자 정보 삭제
-          localStorage.removeItem('accessToken');
-          localStorage.removeItem('refreshToken');
-          localStorage.removeItem('authToken'); // legacy
-          localStorage.removeItem('userInfo');
-          
-          // axios 기본 헤더에서 Authorization 제거
-          delete axios.defaults.headers.common['Authorization'];
-          
-          // 로그인 페이지로 리다이렉트 (현재 페이지가 아닌 경우에만)
-          if (window.location.pathname !== '/signin' && window.location.pathname !== '/auth') {
-            window.location.href = '/signin';
-          }
-        } catch (e) {
-          console.error('자동 로그아웃 처리 중 오류:', e);
-        }
-      }
-      
+
       const finalUrl = (() => {
         try {
           return new URL(
@@ -117,7 +101,12 @@ if (!axios.__legacyRewriteInstalled) {
         code: error.code,
         message: error.message,
       };
-      console.error('📡 Axios 응답 에러:', log);
+      // 401일 때 즉시 logout 하지 않음 — TokenProvider 내부에서 재시도 로직을 담당
+      if (error.response?.status === 401) {
+        console.warn('🚫 401 응답 수신(모듈 레벨) - TokenProvider에서 처리 예정', log.url);
+      } else {
+        console.error('📡 Axios 응답 에러:', log);
+      }
       return Promise.reject(error);
     }
   );
@@ -628,53 +617,87 @@ export const TokenProvider = ({ children }) => {
 
   // 응답 인터셉터에 refresh 로직 및 서버 재시작 감지 강화
   useEffect(() => {
-    const id = axios.interceptors.response.use(r => r, async (error) => {
-      try {
-        const status = error?.response?.status;
-        const url = error?.config?.url || '';
-        
-        // refresh API 자체의 401/403 에러는 서버 재시작 또는 refresh token 무효화
-        if ((status === 401 || status === 403) && url.includes('/api/auth/refresh')) {
-          console.log("🚨 Refresh API에서 401/403 - 서버 재시작 감지, 강제 로그아웃");
-          clearTokens();
-          clearUserInfo();
-          
-          // 로그인 페이지로 강제 이동
-          setTimeout(() => {
-            if (window.location.pathname !== '/signin' && window.location.pathname !== '/signup') {
-              window.location.href = '/signin';
-            }
-          }, 100);
-          
-          return Promise.reject(error);
-        }
-        
-        // 다른 API의 401 에러는 access token 갱신 시도
-        if (isRefreshingError(error) && !url.includes('/api/auth/refresh')) {
-          const newToken = await refreshAccessToken();
-          if (newToken) {
-            // 원 요청 재시도
-            const cfg = { ...error.config };
-            cfg.headers = { ...(cfg.headers || {}), Authorization: `Bearer ${newToken}` };
-            return axios(cfg);
-          } else {
-            // refresh 실패 시 강제 로그아웃
-            console.log("❌ Refresh 실패 - 강제 로그아웃");
+    // single-flight 및 pending queue
+    let isRefreshing = false;
+    let pendingQueue = [];
+
+    const processQueue = (error, token = null) => {
+      pendingQueue.forEach(prom => {
+        if (error) prom.reject(error);
+        else prom.resolve(token);
+      });
+      pendingQueue = [];
+    };
+
+    const id = axios.interceptors.response.use(
+      (res) => res,
+      async (error) => {
+        try {
+          const status = error?.response?.status;
+          const url = error?.config?.url || '';
+
+          // refresh API 자체의 401/403 에러는 서버 재시작 또는 refresh token 무효화
+          if ((status === 401 || status === 403) && url.includes('/api/auth/refresh')) {
+            console.log("🚨 Refresh API에서 401/403 - 서버 재시작 감지, 강제 로그아웃");
             clearTokens();
             clearUserInfo();
-            
             setTimeout(() => {
               if (window.location.pathname !== '/signin' && window.location.pathname !== '/signup') {
                 window.location.href = '/signin';
               }
             }, 100);
+            return Promise.reject(error);
           }
+
+          // 401이면 refresh 흐름 시도
+          if (status === 401 && !url.includes('/api/auth/refresh')) {
+            const originalRequest = error.config;
+
+            // 이미 재시도된 요청인지 확인
+            if (originalRequest._retry) {
+              return Promise.reject(error);
+            }
+            originalRequest._retry = true;
+
+            if (isRefreshing) {
+              // refresh가 진행 중이면 대기 큐에 넣고 토큰이 발급되면 재시도
+              return new Promise((resolve, reject) => {
+                pendingQueue.push({ resolve: (token) => {
+                  originalRequest.headers = { ...(originalRequest.headers || {}), Authorization: `Bearer ${token}` };
+                  resolve(axios(originalRequest));
+                }, reject });
+              });
+            }
+
+            isRefreshing = true;
+            try {
+              const newToken = await refreshAccessToken();
+              if (newToken) {
+                processQueue(null, newToken);
+                originalRequest.headers = { ...(originalRequest.headers || {}), Authorization: `Bearer ${newToken}` };
+                return axios(originalRequest);
+              } else {
+                const err = new Error('refresh_failed');
+                processQueue(err, null);
+                clearTokens();
+                clearUserInfo();
+                setTimeout(() => {
+                  if (window.location.pathname !== '/signin' && window.location.pathname !== '/signup') {
+                    window.location.href = '/signin';
+                  }
+                }, 100);
+                return Promise.reject(error);
+              }
+            } finally {
+              isRefreshing = false;
+            }
+          }
+        } catch (e) {
+          console.warn('[TokenProvider] refresh 처리 중 예외', e);
         }
-      } catch (e) {
-        console.warn('[TokenProvider] refresh 처리 중 예외', e);
+        return Promise.reject(error);
       }
-      return Promise.reject(error);
-    });
+    );
     return () => axios.interceptors.response.eject(id);
   }, []);
 

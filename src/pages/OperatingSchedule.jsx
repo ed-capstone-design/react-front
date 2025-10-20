@@ -2,6 +2,7 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import AddSchedule from "../components/Schedule/AddSchedule";
 import { useOperatingSchedule } from "../hooks/useOperatingSchedule";
+import { useToken } from '../components/Token/TokenProvider';
 
 const OperatingSchedule = () => {
   const navigate = useNavigate();
@@ -32,6 +33,10 @@ const OperatingSchedule = () => {
     handlePendingStatusChange,
     handleSearch
   } = useOperatingSchedule();
+
+  const { getAccessToken } = useToken();
+  const [startingId, setStartingId] = React.useState(null);
+  const [startError, setStartError] = React.useState(null);
 
   // 서버에서 필터링된 데이터를 바로 사용
   const filteredSchedules = periodSchedules;
@@ -204,6 +209,37 @@ const OperatingSchedule = () => {
                                   <span className="sm:hidden">✏️</span>
                                 </button>
                                 <button
+                                  onClick={async () => {
+                                    if (!window.confirm('이 배차를 운행 시작으로 변경하시겠습니까?')) return;
+                                    setStartError(null);
+                                    setStartingId(item.dispatchId);
+                                    try {
+                                      const token = getAccessToken();
+                                      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+                                      const resp = await fetch(`/api/driver/me/dispatches/${item.dispatchId}/start`, {
+                                        method: 'PATCH',
+                                        headers: { 'Content-Type': 'application/json', ...(headers || {}) },
+                                      });
+                                      if (!resp.ok) {
+                                        const errBody = await resp.json().catch(() => ({}));
+                                        throw new Error(errBody?.message || resp.statusText || '시작 요청 실패');
+                                      }
+                                      // 성공하면 목록 재조회
+                                      await handleSearch();
+                                    } catch (e) {
+                                      console.error('배차 시작 실패', e);
+                                      setStartError(e.message || '배차 시작 오류');
+                                    } finally {
+                                      setStartingId(null);
+                                    }
+                                  }}
+                                  disabled={startingId === item.dispatchId}
+                                  className="px-2 sm:px-3 py-1 text-xs bg-emerald-100 text-emerald-700 rounded hover:bg-emerald-200 transition-colors"
+                                >
+                                  <span className="hidden sm:inline">시작</span>
+                                  <span className="sm:hidden">▶️</span>
+                                </button>
+                                <button
                                   onClick={() => handleDeleteSchedule(item.dispatchId)}
                                   className="px-2 sm:px-3 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
                                 >
@@ -211,6 +247,9 @@ const OperatingSchedule = () => {
                                   <span className="sm:hidden">🗑️</span>
                                 </button>
                               </>
+                            )}
+                            {startError && startingId === null && (
+                              <div className="text-xs text-rose-600 mt-1">{startError}</div>
                             )}
                             {/* 상태가 완료(COMPLETED)일 때만 상세보기 */}
                             {item.status === "COMPLETED" && (
