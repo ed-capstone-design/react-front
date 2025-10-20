@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import AddSchedule from "../components/Schedule/AddSchedule";
 import { useOperatingSchedule } from "../hooks/useOperatingSchedule";
 import { useToken } from '../components/Token/TokenProvider';
+import axios from 'axios';
 
 const OperatingSchedule = () => {
   const navigate = useNavigate();
@@ -35,6 +36,7 @@ const OperatingSchedule = () => {
   } = useOperatingSchedule();
 
   const { getAccessToken } = useToken();
+  const { getUserInfoFromToken, getUserInfo } = useToken();
   const [startingId, setStartingId] = React.useState(null);
   const [startError, setStartError] = React.useState(null);
 
@@ -214,21 +216,23 @@ const OperatingSchedule = () => {
                                     setStartError(null);
                                     setStartingId(item.dispatchId);
                                     try {
-                                      const token = getAccessToken();
+                                      // decide endpoint based on user role: admin uses admin API
+                                      const token = getAccessToken?.();
                                       const headers = token ? { Authorization: `Bearer ${token}` } : {};
-                                      const resp = await fetch(`/api/driver/me/dispatches/${item.dispatchId}/start`, {
-                                        method: 'PATCH',
-                                        headers: { 'Content-Type': 'application/json', ...(headers || {}) },
-                                      });
-                                      if (!resp.ok) {
-                                        const errBody = await resp.json().catch(() => ({}));
-                                        throw new Error(errBody?.message || resp.statusText || '시작 요청 실패');
-                                      }
+                                      // try to extract roles from token or stored userinfo
+                                      const tokenInfo = (getUserInfoFromToken && getUserInfoFromToken()) || (getUserInfo && getUserInfo());
+                                      const roles = tokenInfo?.roles || [];
+                                      const isAdmin = Array.isArray(roles) && roles.some(r => String(r).toLowerCase().includes('admin'));
+                                      const endpoint = isAdmin ? `/api/admin/dispatches/${item.dispatchId}/start` : `/api/driver/me/dispatches/${item.dispatchId}/start`;
+                                      if (localStorage.getItem('DEBUG_AXIOS')) console.log('🔧 시작 엔드포인트 선택:', endpoint, 'roles:', roles);
+                                      const resp = await axios.patch(endpoint, {}, { headers });
                                       // 성공하면 목록 재조회
                                       await handleSearch();
                                     } catch (e) {
                                       console.error('배차 시작 실패', e);
-                                      setStartError(e.message || '배차 시작 오류');
+                                      // 서버가 4xx/5xx 응답을 준 경우 메시지 파싱
+                                      const msg = e.response?.data?.message || e.message || '배차 시작 오류';
+                                      setStartError(msg);
                                     } finally {
                                       setStartingId(null);
                                     }

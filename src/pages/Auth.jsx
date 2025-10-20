@@ -434,7 +434,7 @@ const Auth = () => {
             }`}>
               <h1 className="font-bold text-2xl mb-4">안녕하세요, 친구!</h1>
               <p className="text-sm leading-relaxed mb-6 opacity-90">
-                계정을 생성하고 우리와 함께 여행을 시작해보세요
+                계정을 생성하고 운전의 진수를 경험해보세요
               </p>
               <button 
                 className="bg-transparent border-2 border-blue-800 text-blue-800 font-semibold px-8 py-3 rounded-xl transition-all duration-200 hover:bg-blue-800 hover:text-white hover:-translate-y-0.5"
