@@ -33,10 +33,13 @@ export const NotificationProvider = ({ children }) => {
       // 토큰이 없으면 조회 시도하지 않음(로그인 페이지 등)
       if (!token) {
         setNotifications([]);
-        return;
+        return [];
       }
-      const list = await getMyUnreadNotifications(token);
-      setNotifications(list);
+  const list = await getMyUnreadNotifications(token);
+  const onlyUnread = Array.isArray(list) ? list.filter(n => !n.isRead) : [];
+  setNotifications(onlyUnread);
+  try { console.log('[Notification] refresh -> unread count', onlyUnread.length, onlyUnread.map(x=>x.id)); } catch {}
+  return onlyUnread;
     } catch (e) {
       console.error('[Notification] 목록 조회 실패', e);
       setError(e);
@@ -45,6 +48,7 @@ export const NotificationProvider = ({ children }) => {
       if (status !== 401) {
         toast.error('알림 목록을 불러오지 못했습니다.');
       }
+      return [];
     } finally {
       setLoading(false);
     }
@@ -56,10 +60,14 @@ export const NotificationProvider = ({ children }) => {
     try {
       const token = getToken?.();
       await markAsReadApi(id, token);
+      // 성공적으로 읽음 처리되면 전체 알림(미읽음) 목록을 다시 동기화
+      await refresh();
+      return true;
     } catch (e) {
       console.error('[Notification] 읽음 처리 실패', e);
       // 롤백 대신 전체 동기화
-      refresh();
+      await refresh();
+      return false;
     }
   }, [getToken, refresh]);
 
@@ -121,18 +129,25 @@ export const NotificationProvider = ({ children }) => {
         scheduledDepartureTime: raw.scheduledDepartureTime ? new Date(raw.scheduledDepartureTime) : null,
         isRead: !!raw.isRead,
       };
-
+      // Only keep unread notifications in the context. If incoming is already read, ignore it
+      if (incoming.isRead) {
+        try { console.log('[Notification] realtime incoming ignored (isRead=true):', incoming.id); } catch {}
+        return;
+      }
       setNotifications(prev => {
         const map = new Map(prev.map(n => [n.id, n]));
         const existed = map.get(incoming.id);
         const merged = existed ? {
           ...existed,
           ...incoming,
+          // preserve existing isRead OR incoming (incoming should be false here)
           isRead: existed.isRead || incoming.isRead,
           createdAt: new Date(Math.max(existed.createdAt, incoming.createdAt)),
         } : incoming;
-        map.set(merged.id, merged);
-        return Array.from(map.values()).sort((a, b) => b.createdAt - a.createdAt).slice(0, 1000);
+        if (!merged.isRead) map.set(merged.id, merged);
+        const arr = Array.from(map.values()).sort((a, b) => b.createdAt - a.createdAt).slice(0, 1000);
+        try { console.log('[Notification] realtime merged -> unread count', arr.length); } catch {}
+        return arr;
       });
       // 강제 재렌더 필요 시 버전 증가
       setVersion(v => v + 1);

@@ -1,5 +1,5 @@
 import React from 'react';
-import { useNotification } from './NotificationProvider';
+import { useNotification } from './contexts/NotificationProvider';
 
 /**
  * NotificationPanel
@@ -69,7 +69,7 @@ const NotificationPanel = ({ pageSize = 15, onNavigate }) => {
               {!n.isRead && (
                 <button
                   className="text-[11px] text-slate-600 hover:text-slate-800"
-                  onClick={() => markAsRead(n.id)}
+                  onClick={async () => { try { await markAsRead(n.id); } catch (e) { console.warn('markAsRead failed', e); } }}
                 >읽음</button>
               )}
             </div>

@@ -196,33 +196,35 @@ const UserDetailPage = () => {
           'Content-Type': 'application/json'
         }
       });
-      
+
       console.log(`⚠️ [UserDetailPage] 운전자 ${userId} 경고 이력 응답:`, response.data);
-      const warnings = response.data?.data || response.data || [];
+      const raw = response.data?.data || response.data || [];
+      // 정규화: 백엔드가 다양한 필드명(eventTimestamp/eventTime/warningTime 등)을 보낼 수 있으므로 일관된 필드로 매핑
+      const warnings = (Array.isArray(raw) ? raw : []).map(w => normalizeEvent(w));
       setWarningHistory(warnings);
-      
+
       // 경고 통계 계산
       const stats = {
         total: warnings.length,
         byType: {},
         thisMonth: 0
       };
-      
+
       const currentMonth = new Date().getMonth();
       const currentYear = new Date().getFullYear();
-      
+
       warnings.forEach(warning => {
-        // 타입별 통계 (eventType 필드 사용)
-        const eventType = warning.eventType || warning.warningType;
+        // 타입별 통계 (정규화된 eventType 사용)
+        const eventType = warning.eventType;
         stats.byType[eventType] = (stats.byType[eventType] || 0) + 1;
-        
+
         // 이번 달 통계
-        const warningDate = new Date(warning.eventTime || warning.warningTime);
-        if (warningDate.getMonth() === currentMonth && warningDate.getFullYear() === currentYear) {
+        const warningDate = new Date(warning.eventTimestamp || warning.eventTime || warning.warningTime || warning.timestamp);
+        if (!isNaN(warningDate) && warningDate.getMonth() === currentMonth && warningDate.getFullYear() === currentYear) {
           stats.thisMonth++;
         }
       });
-      
+
       setWarningStats(stats);
       console.log("✅ 경고 이력 로드 완료:", warnings.length, "건");
     } catch (error) {
@@ -322,29 +324,30 @@ const UserDetailPage = () => {
           'Content-Type': 'application/json'
         }
       }).then(response => {
-        const warnings = response.data?.data || response.data || [];
+        const raw = response.data?.data || response.data || [];
+        const warnings = (Array.isArray(raw) ? raw : []).map(w => normalizeEvent(w));
         setWarningHistory(warnings);
-        
+
         // 경고 통계 계산
         const stats = {
           total: warnings.length,
           byType: {},
           thisMonth: 0
         };
-        
+
         const currentMonth = new Date().getMonth();
         const currentYear = new Date().getFullYear();
-        
+
         warnings.forEach(warning => {
-          const eventType = warning.eventType || warning.warningType;
+          const eventType = warning.eventType;
           stats.byType[eventType] = (stats.byType[eventType] || 0) + 1;
-          
-          const warningDate = new Date(warning.eventTime || warning.warningTime);
-          if (warningDate.getMonth() === currentMonth && warningDate.getFullYear() === currentYear) {
+
+          const warningDate = new Date(warning.eventTimestamp || warning.eventTime || warning.warningTime);
+          if (!isNaN(warningDate) && warningDate.getMonth() === currentMonth && warningDate.getFullYear() === currentYear) {
             stats.thisMonth++;
           }
         });
-        
+
         setWarningStats(stats);
       }).catch(error => {
         console.error("경고 이력 조회 실패:", error);
@@ -353,6 +356,20 @@ const UserDetailPage = () => {
       });
     }
   };
+
+  // 이벤트 정규화 헬퍼
+  function normalizeEvent(raw) {
+    if (!raw) return {};
+    return {
+      drivingEventId: raw.drivingEventId ?? raw.eventId ?? raw.id ?? null,
+      dispatchId: raw.dispatchId ?? raw.refId ?? raw.relatedDispatchId ?? null,
+      eventType: raw.eventType ?? raw.type ?? raw.warningType ?? 'UNKNOWN',
+      eventTimestamp: raw.eventTimestamp ?? raw.eventTime ?? raw.warningTime ?? raw.timestamp ?? null,
+      latitude: raw.latitude ?? raw.lat ?? raw.location?.latitude ?? null,
+      longitude: raw.longitude ?? raw.lng ?? raw.location?.longitude ?? null,
+      description: raw.description ?? raw.message ?? raw.detail ?? ''
+    };
+  }
 
   // 경고 타입 한글 변환 (새로운 DrivingEventType enum에 맞게 수정)
   const getWarningTypeLabel = (type) => {
@@ -534,7 +551,7 @@ const UserDetailPage = () => {
                 <table className="w-full text-left border-separate border-spacing-y-2">
                   <thead>
                     <tr>
-                      <th className="py-2 px-4 text-gray-600">배차ID</th>
+                      <th className="py-2 px-4 text-gray-600">번호</th>
                       <th className="py-2 px-4 text-gray-600">날짜</th>
                       <th className="py-2 px-4 text-gray-600">버스</th>
                       <th className="py-2 px-4 text-gray-600">상태</th>
@@ -545,8 +562,8 @@ const UserDetailPage = () => {
                     {(dispatchHistory || [])
                       .slice((dispatchPage - 1) * itemsPerPage, dispatchPage * itemsPerPage)
                       .map((dispatch, index) => (
-                        <tr key={`dispatch-${dispatch?.dispatchId || index}`} className="hover:bg-blue-50 transition rounded">
-                          <td className="py-2 px-4 rounded-l">{dispatch.dispatchId}</td>
+                        <tr key={`dispatch-${dispatch?.dispatchId || index}`} onClick={() => navigate(`/drivedetail/${dispatch.dispatchId}`)} className="hover:bg-blue-50 transition rounded cursor-pointer">
+                          <td className="py-2 px-4 rounded-l">{(dispatchPage - 1) * itemsPerPage + index + 1}</td>
                           <td className="py-2 px-4">{dispatch.dispatchDate}</td>
                           <td className="py-2 px-4">{dispatch.busId}번</td>
                           <td className="py-2 px-4">
@@ -692,34 +709,38 @@ const UserDetailPage = () => {
                   {(warningHistory || [])
                     .slice((warningPage - 1) * itemsPerPage, warningPage * itemsPerPage)
                     .map((warning, index) => {
-                      const eventType = warning.eventType || warning.warningType;
+                      // warning은 normalizeEvent를 통해 일관된 필드를 가짐
+                      const eventType = warning.eventType || 'UNKNOWN';
+                      const ts = warning.eventTimestamp || warning.eventTime || warning.warningTime || warning.timestamp;
+                      const timeLabel = ts ? new Date(ts).toLocaleString('ko-KR') : '—';
                       return (
-                        <div key={`warning-${warning?.warningId || warning?.eventId || index}`} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition">
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <div className="flex items-center gap-2 mb-2">
-                                <span className={`px-2 py-1 rounded text-xs font-bold ${
-                                  eventType === 'DROWSINESS' ? 'bg-red-50 text-red-700' :
-                                  eventType === 'ACCELERATION' ? 'bg-yellow-50 text-yellow-700' :
-                                  eventType === 'BRAKING' ? 'bg-orange-50 text-orange-700' :
-                                  eventType === 'SMOKING' ? 'bg-purple-50 text-purple-700' :
-                                  eventType === 'SEATBELT_UNFASTENED' ? 'bg-blue-50 text-blue-700' :
-                                  eventType === 'PHONE_USAGE' ? 'bg-pink-50 text-pink-700' :
-                                  // 하위 호환성을 위한 이전 타입들
-                                  eventType === 'SPEEDING' ? 'bg-purple-50 text-purple-700' :
-                                  eventType === 'SPEED_VIOLATION' ? 'bg-red-50 text-red-700' :
-                                  eventType === 'HARSH_BRAKING' ? 'bg-orange-50 text-orange-700' :
-                                  eventType === 'HARSH_ACCELERATION' ? 'bg-yellow-50 text-yellow-700' :
-                                  'bg-gray-50 text-gray-700'
-                                }`}>
-                                  {getWarningTypeLabel(eventType)}
-                                </span>
-                              </div>
-                              <p className="text-gray-700 text-sm">{warning.description}</p>
+                        <div
+                          key={`warning-${warning?.drivingEventId || warning?.warningId || index}`}
+                          className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition cursor-pointer"
+                          onClick={() => {
+                            const did = warning.dispatchId || warning.dispatchId === 0 ? warning.dispatchId : null;
+                            if (did) {
+                              navigate(`/drivedetail/${did}`);
+                            } else {
+                              toast.info('이 경고에 연결된 배차 정보가 없습니다.');
+                            }
+                          }}
+                        >
+                          <div className="flex justify-between items-center">
+                            <div className="flex items-center gap-3">
+                              <span className={`px-2 py-1 rounded text-xs font-bold ${
+                                eventType === 'DROWSINESS' ? 'bg-red-50 text-red-700' :
+                                eventType === 'ACCELERATION' ? 'bg-yellow-50 text-yellow-700' :
+                                eventType === 'BRAKING' ? 'bg-orange-50 text-orange-700' :
+                                eventType === 'SMOKING' ? 'bg-purple-50 text-purple-700' :
+                                eventType === 'SEATBELT_UNFASTENED' ? 'bg-blue-50 text-blue-700' :
+                                eventType === 'PHONE_USAGE' ? 'bg-pink-50 text-pink-700' :
+                                eventType === 'SPEEDING' ? 'bg-purple-50 text-purple-700' :
+                                'bg-gray-50 text-gray-700'
+                              }`}>{getWarningTypeLabel(eventType)}</span>
+                              <div className="text-gray-700 text-sm">{warning.description}</div>
                             </div>
-                            <div className="text-right text-xs text-gray-500">
-                              {new Date(warning.eventTime || warning.warningTime).toLocaleString('ko-KR')}
-                            </div>
+                            <div className="text-right text-xs text-gray-500">{timeLabel}</div>
                           </div>
                         </div>
                       );

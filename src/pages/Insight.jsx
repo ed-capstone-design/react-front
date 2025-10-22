@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useInsightData } from '../hooks/useInsightData';
 import { useWebSocket } from '../components/WebSocket/WebSocketProvider';
 import { useNotification } from '../components/Notification/contexts/NotificationProvider';
-import axios from 'axios';
+import { useDriveDetailAPI } from '../hooks/useDriveDetailAPI';
 import { useToken } from '../components/Token/TokenProvider';
 import KakaoMap from '../components/Map/Map';
 
@@ -12,15 +12,21 @@ import KakaoMap from '../components/Map/Map';
 const Insight = () => {
   const navigate = useNavigate();
   const { notifications, unreadCount } = useNotification();
-  const { isConnected } = useWebSocket();
-  const { subscribeDispatchLocation } = useWebSocket();
+  const { isConnected, subscribeDispatchLocation, subscribedDestinations, testSubscribe } = useWebSocket();
   const {
     loading,
     kpis,
     runningList,
     refresh,
+    runningEventsStats,
+    runningEventsLoading,
+    runningEventsError,
+    loadRunningEventsStats,
+    markers,
+    liveLocations,
+    subscribedIds,
   } = useInsightData();
-  const { getToken } = useToken();
+  const { fetchDriveRecord } = useDriveDetailAPI();
 
   // 알림 페이지네이션 (탭 내부에서 사용)
   const [page, setPage] = React.useState(1);
@@ -40,74 +46,7 @@ const Insight = () => {
   // status 기반 RUNNING 목록
   const running = runningList;
 
-  // 다중 위치 구독 관리 (running 목록 변동 시 구독/해제)
-  // 서버 주기(현재 10초, 향후 1초)가 변해도 구조 유지. 최신 좌표만 마커용 state 로 보관.
-  const [liveLocations, setLiveLocations] = React.useState(() => new Map()); // dispatchId -> {lat,lng,ts}
-  const subscriptionsRef = React.useRef(new Map()); // dispatchId -> unsubscribe fn
-  const subscribedIdsRef = React.useRef(new Set());
-
-  React.useEffect(() => {
-    const nextIds = new Set(running.map(r => r.dispatchId).filter(Boolean));
-
-    // 구독 추가 (신규)
-    nextIds.forEach(id => {
-      if (!subscribedIdsRef.current.has(id)) {
-        const off = subscribeDispatchLocation(id, (loc) => {
-          setLiveLocations(prev => {
-            const next = new Map(prev);
-            const lat = loc.latitude ?? loc.lat;
-            const lng = loc.longitude ?? loc.lng;
-            if (typeof lat === 'number' && typeof lng === 'number') {
-              next.set(id, { lat, lng, ts: Date.now() });
-            }
-            return next;
-          });
-        });
-        if (off) {
-          subscriptionsRef.current.set(id, off);
-          subscribedIdsRef.current.add(id);
-        }
-      }
-    });
-
-    // 구독 제거 (더 이상 필요 없는 id)
-    Array.from(subscribedIdsRef.current).forEach(id => {
-      if (!nextIds.has(id)) {
-        const off = subscriptionsRef.current.get(id);
-        try { off && off(); } catch {}
-        subscriptionsRef.current.delete(id);
-        subscribedIdsRef.current.delete(id);
-        setLiveLocations(prev => {
-          const next = new Map(prev);
-          next.delete(id);
-            return next;
-        });
-      }
-    });
-
-    // 언마운트 시 전체 해제
-    return () => {
-      if (nextIds.size === 0) { // 컴포넌트 unmount 추정
-        subscriptionsRef.current.forEach(off => { try { off && off(); } catch {} });
-        subscriptionsRef.current.clear();
-        subscribedIdsRef.current.clear();
-        setLiveLocations(new Map());
-      }
-    };
-  }, [running, subscribeDispatchLocation]);
-
-  // 지도 마커 (레거시: 실시간 운행중 배차만 표시)
-  const markers = React.useMemo(() => {
-    return running.map(r => {
-      const live = liveLocations.get(r.dispatchId);
-      return {
-        id: r.dispatchId,
-        lat: live?.lat ?? r.latitude ?? r.lat ?? 37.5665,
-        lng: live?.lng ?? r.longitude ?? r.lng ?? 126.9780,
-        title: r.driverName || r.vehicleNumber || '운행중'
-      };
-    });
-  }, [running, liveLocations]);
+  // markers, liveLocations, subscribedIds provided from hook
 
   // 알림 helper
   const formatDateTime = (d) => {
@@ -125,40 +64,21 @@ const Insight = () => {
   const [statsLoading, setStatsLoading] = React.useState(false);
   const [statsError, setStatsError] = React.useState(null);
   const [statsData, setStatsData] = React.useState(null);
-  const [runningEventsStats, setRunningEventsStats] = React.useState(null);
-  const [runningEventsLoading, setRunningEventsLoading] = React.useState(false);
-  const [runningEventsError, setRunningEventsError] = React.useState(null);
+
+  // running events aggregation is handled by useInsightData (loadRunningEventsStats)
 
   const fetchDispatchEventStats = async (dispatchId) => {
     setStatsLoading(true);
     setStatsError(null);
     setStatsData(null);
     try {
-      const token = getToken?.();
-      const headers = token ? { Authorization: `Bearer ${token}` } : {};
-      const res = await axios.get(`/api/admin/dispatches/${dispatchId}/events`, { headers });
-      const raw = res.data?.data || res.data || [];
-      // Backend DrivingEventType enum (ensure keys match exactly)
-      const EVENT_TYPES = [
-        'DROWSINESS',
-        'ACCELERATION',
-        'BRAKING',
-        'SMOKING',
-        'SEATBELT_UNFASTENED',
-        'PHONE_USAGE'
-      ];
-      const types = EVENT_TYPES.reduce((acc, k) => { acc[k] = 0; return acc; }, {});
-      // Count occurrences; ignore unknown types but keep them collectable under 'UNKNOWN' if desired
-      raw.forEach(ev => {
-        const t = (ev.eventType || ev.type || '').toString();
-        if (!t) return;
-        if (Object.prototype.hasOwnProperty.call(types, t)) {
-          types[t] += 1;
-        } else {
-          // optional: track unknown types under a special key
-          types.UNKNOWN = (types.UNKNOWN || 0) + 1;
-        }
-      });
+      const rec = await fetchDriveRecord(dispatchId);
+      const types = {
+        DROWSINESS: Number(rec?.drowsinessCount ?? rec?.drowsiness_count ?? rec?.drowsiness ?? 0),
+        ACCELERATION: Number(rec?.accelerationCount ?? rec?.acceleration_count ?? rec?.acceleration ?? 0),
+        BRAKING: Number(rec?.brakingCount ?? rec?.braking_count ?? rec?.braking ?? 0),
+        ABNORMAL: Number(rec?.abnormalCount ?? rec?.abnormal_count ?? rec?.abnormal ?? 0),
+      };
       setStatsData(types);
     } catch (e) {
       console.error('[Insight] dispatch events fetch failed', e);
@@ -171,7 +91,9 @@ const Insight = () => {
 
   const handleNotificationClick = async (n) => {
     if (!n.isRead) {
-      markAsRead(n.id);
+      // ensure provider refreshes notifications after marking as read
+      try { await markAsRead(n.id); } catch (e) { console.warn('markAsRead failed', e); }
+      try { if (typeof loadRunningEventsStats === 'function') await loadRunningEventsStats(); } catch (e) { /* ignore */ }
     }
     const dispatchId = n.dispatchId || n.dispatchID || n.dispatch_id || n.refId || n.referenceId;
     if (dispatchId) {
@@ -187,46 +109,37 @@ const Insight = () => {
     await fetchDispatchEventStats(n.relatedDispatchId || n.refId || n.referenceId);
   };
 
+  // 개별 알림에 대한 '읽음' 처리 로딩 상태: 중복 클릭 방지
+  const [markingIds, setMarkingIds] = React.useState(() => new Set());
+
+  const handleMarkAsReadClick = async (e, n) => {
+    // 버튼 클릭이 리스트 아이템의 onClick을 트리거하지 않도록 전파 중단
+    e.stopPropagation();
+    e.preventDefault();
+    if (!n || !n.id) return;
+    if (markingIds.has(n.id)) return;
+    setMarkingIds(prev => new Set(prev).add(n.id));
+    try {
+      await markAsRead(n.id);
+      // After marking as read, refresh server-side aggregate so the stats panel stays consistent
+      try { if (typeof loadRunningEventsStats === 'function') await loadRunningEventsStats(); } catch (e) { /* ignore */ }
+    } catch (err) {
+      console.warn('markAsRead failed', err);
+    } finally {
+      setMarkingIds(prev => {
+        const next = new Set(prev);
+        next.delete(n.id);
+        return next;
+      });
+    }
+  };
+
   // runningList 기반으로 모든 운행중 배차들의 이벤트를 합산한 통계 조회
   React.useEffect(() => {
-    const load = async () => {
-      if (activeTab !== 'notifications') return;
-      if (!running || running.length === 0) {
-        setRunningEventsStats({});
-        return;
-      }
-      setRunningEventsLoading(true);
-      setRunningEventsError(null);
-      try {
-        const token = getToken?.();
-        const headers = token ? { Authorization: `Bearer ${token}` } : {};
-        const requests = running.map(r => axios.get(`/api/admin/dispatches/${r.dispatchId}/events`, { headers }).then(res => res.data?.data || res.data || []).catch(e => {
-          console.warn('[Insight] dispatch events load failed for', r.dispatchId, e?.message || e);
-          return [];
-        }));
-        const results = await Promise.all(requests);
-        const types = {
-          DROWSINESS: 0,
-          ACCELERATION: 0,
-          BRAKING: 0,
-          SMOKING: 0,
-          SEATBELT_UNFASTENED: 0,
-          PHONE_USAGE: 0,
-        };
-        results.flat().forEach(ev => {
-          const t = (ev.eventType || ev.type || '').toString();
-          if (t && Object.prototype.hasOwnProperty.call(types, t)) types[t] += 1;
-        });
-        setRunningEventsStats(types);
-      } catch (e) {
-        console.error('[Insight] running events aggregation failed', e);
-        setRunningEventsError(e.response?.data?.message || e.message || '통계 조회 실패');
-      } finally {
-        setRunningEventsLoading(false);
-      }
-    };
-    load();
-  }, [activeTab, running, getToken]);
+    if (activeTab === 'notifications') {
+      loadRunningEventsStats();
+    }
+  }, [activeTab, loadRunningEventsStats]);
 
   return (
   <div className="max-w-7xl mx-auto p-3 md:p-4 space-y-4" role="main" aria-label="인사이트 메인">
@@ -243,7 +156,7 @@ const Insight = () => {
             <InlineKpi loading={loading} label="남은 배차" value={kpis?.todayRemaining} tone="blue" />
           </div>
         ) : (
-          <TypeSummary notifications={notifications} compact />
+          <TypeSummary notifications={notifications} stats={runningEventsStats} compact />
         )}
       </section>
 
@@ -255,41 +168,56 @@ const Insight = () => {
               <h3 className="font-semibold">운행 이벤트 통계</h3>
               <button onClick={() => setStatsModalOpen(false)} className="text-sm text-gray-500">닫기</button>
             </div>
+
             {statsLoading ? (
               <div className="py-6 text-center">로딩중…</div>
             ) : statsError ? (
               <div className="py-6 text-center text-rose-600">{statsError}</div>
             ) : statsData ? (
-              <div className="space-y-2">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-left text-xs text-gray-500">
-                      <th>이벤트 타입</th>
-                      <th className="text-right">수량</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {Object.entries(statsData).map(([k, v]) => {
-                      // map backend enum keys to human-friendly labels
-                      const labelMap = {
-                        DROWSINESS: '졸음',
-                        ACCELERATION: '급가속',
-                        BRAKING: '급제동',
-                        SMOKING: '흡연',
-                        SEATBELT_UNFASTENED: '안전벨트 미착용',
-                        PHONE_USAGE: '휴대폰 사용',
-                        UNKNOWN: '알 수 없는 타입'
-                      };
-                      const label = labelMap[k] || k;
-                      return (
-                        <tr key={k} className="border-t">
-                          <td className="py-2">{label}</td>
-                          <td className="py-2 text-right font-semibold">{v}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+              <div className="p-4">
+                <h4 className="font-medium mb-2">선택 배차 통계</h4>
+                <div className="grid grid-cols-2 gap-2">
+                  {Object.entries(statsData).map(([k, v]) => (
+                    <div key={k} className="p-2 bg-white rounded shadow text-center">
+                      <div className="text-xs text-gray-500">{k}</div>
+                      <div className="text-xl font-semibold">{v}</div>
+                    </div>
+                  ))}
+                </div>
+
+                <hr className="my-3" />
+
+                <div>
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-medium">운행 중 배차 전체 합계</h4>
+                    <button
+                      className="px-3 py-1 border rounded text-sm bg-white"
+                      onClick={loadRunningEventsStats}
+                      disabled={runningEventsLoading}
+                    >
+                      {runningEventsLoading ? '새로고침...' : '새로고침'}
+                    </button>
+                  </div>
+
+                  <div className="mt-2">
+                    {runningEventsLoading ? (
+                      <div>집계 중...</div>
+                    ) : runningEventsError ? (
+                      <div className="text-red-500">{runningEventsError}</div>
+                    ) : runningEventsStats && Object.keys(runningEventsStats).length > 0 ? (
+                      <div className="grid grid-cols-2 gap-2 mt-2">
+                        {Object.entries(runningEventsStats).map(([k, v]) => (
+                          <div key={k} className="p-2 bg-white rounded shadow text-center">
+                            <div className="text-xs text-gray-500">{k}</div>
+                            <div className="text-xl font-semibold">{v}</div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="mt-2">집계할 배차가 없습니다.</div>
+                    )}
+                  </div>
+                </div>
               </div>
             ) : (
               <div className="py-6 text-center text-gray-500">데이터 없음</div>
@@ -307,13 +235,30 @@ const Insight = () => {
         {/* 지도 */}
   <div className="lg:col-span-7 bg-white rounded-xl shadow-sm border border-gray-100 p-3 md:p-4 transition-[width]">
 
-          <div className="relative rounded-xl overflow-hidden ring-1 ring-gray-100">
-            <KakaoMap markers={markers} height="420px" />
-            {markers.length === 0 && (
+            <div className="relative rounded-xl overflow-hidden ring-1 ring-gray-100">
+            <KakaoMap markers={markers.filter(Boolean)} height="420px" />
+            {markers.filter(Boolean).length === 0 && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <div className="text-sm text-gray-500 bg-white/80 backdrop-blur rounded-full px-4 py-1 ring-1 ring-gray-200">실시간 위치 없음</div>
               </div>
             )}
+
+            {/* Debug panel: show subscription & live location state */}
+            <div className="absolute top-3 right-3 bg-white/90 border border-gray-200 rounded-md p-2 text-xs text-gray-700 shadow-sm max-w-xs">
+              <details>
+                <summary className="cursor-pointer font-medium">WS 디버그</summary>
+                <div className="mt-2">
+                  <div><strong>연결:</strong> {isConnected ? '✅' : '❌'}</div>
+                  <div className="mt-1"><strong>구독 대상 수:</strong> {subscribedDestinations?.length ?? 0}</div>
+                  <div className="mt-1"><strong>구독 목록:</strong>
+                    <div className="break-words mt-1 text-[11px] text-gray-600">{JSON.stringify(subscribedDestinations || [], null, 2)}</div>
+                  </div>
+                  <div className="mt-1"><strong>실시간 위치(최근):</strong>
+                    <pre className="mt-1 max-h-32 overflow-auto text-[11px] text-gray-600">{JSON.stringify(Array.from(liveLocations.entries()), null, 2)}</pre>
+                  </div>
+                </div>
+              </details>
+            </div>
           </div>
         </div>
     {/* 우측 패널: 30% 영역 (col-span-3) */}
@@ -395,7 +340,18 @@ const Insight = () => {
                                   </div>
                                   <div className="text-[11px] text-gray-500 mt-1">{formatDateTime(n.createdAt)}</div>
                                 </div>
-                                {/* '이동' 라벨 제거 (요청사항) */}
+                                <div className="flex items-center gap-2">
+                                  {/* 개별 읽음 처리 버튼 */}
+                                  <button
+                                    onClick={(e) => handleMarkAsReadClick(e, n)}
+                                    className="px-2 py-0.5 text-xs rounded-md bg-white border hover:bg-gray-50 disabled:opacity-60"
+                                    disabled={markingIds.has(n.id) || !unread}
+                                    aria-label={markingIds.has(n.id) ? '읽는 중' : '읽음'}
+                                    title={unread ? '읽음 처리' : '이미 읽음'}
+                                  >
+                                    {markingIds.has(n.id) ? '처리 중…' : '읽음'}
+                                  </button>
+                                </div>
                               </li>
                             );
                           })}
@@ -432,25 +388,81 @@ const Insight = () => {
 export default Insight;
 
 // 경고 유형 통계 - KPI 칩 스타일로 재구성
-const TypeSummary = ({ notifications, compact = false }) => {
+const TypeSummary = ({ notifications, stats = {}, compact = false }) => {
   const data = React.useMemo(() => {
-    const c = { Acceleration: 0, Drowsiness: 0, Braking: 0, Abnormal: 0 };
+    // Canonical keys used in UI
+    const c = { Acceleration: 0, Drowsiness: 0, Braking: 0, Smoking: 0, Seatbelt: 0, Phone: 0, Abnormal: 0 };
+
+    const extractCandidates = (n) => {
+      const out = [];
+      const pushIf = (v) => { if (v !== undefined && v !== null) out.push(String(v)); };
+      pushIf(n.warningType);
+      pushIf(n.type);
+      pushIf(n.message);
+      // payload variants
+      pushIf(n.payload);
+      try {
+        // common nested shapes
+        pushIf(n.payload?.type);
+        pushIf(n.payload?.warningType);
+        pushIf(n.payload?.drivingEventType);
+        pushIf(n.payload?.eventType);
+        pushIf(n.payload?.payload?.type);
+      } catch (e) {}
+      return out.map(x => String(x).trim()).filter(Boolean);
+    };
+
+    const KNOWN = ['DROWSINESS','ACCELERATION','BRAKING','SMOKING','SEATBELT_UNFASTENED','PHONE_USAGE'];
+
     notifications.forEach(n => {
-      const t = n.warningType || n.type;
-      if (t && c.hasOwnProperty(t)) c[t] += 1;
+      const candidates = extractCandidates(n);
+      let matched = false;
+      for (const raw of candidates) {
+        const up = String(raw).toUpperCase();
+        // remove common prefixes like 'DRIVINGEVENTTYPE.' or JSON wrapper chars
+        const token = up.replace(/[^A-Z0-9_]/g, ' ').split(/\s+/).find(s => s.length > 0) || up;
+        // direct token match
+        if (token === 'DROWSINESS') { c.Drowsiness += 1; matched = true; break; }
+        if (token === 'ACCELERATION') { c.Acceleration += 1; matched = true; break; }
+        if (token === 'BRAKING' || token === 'SUDDEN_BRAKE') { c.Braking += 1; matched = true; break; }
+        if (token === 'SMOKING') { c.Smoking += 1; matched = true; break; }
+        if (token === 'SEATBELT_UNFASTENED' || token === 'SEATBELT') { c.Seatbelt += 1; matched = true; break; }
+        if (token === 'PHONE_USAGE' || token === 'PHONE') { c.Phone += 1; matched = true; break; }
+      }
+      if (matched) return;
+
+      // fallback keyword scan on whole notification string
+      const full = JSON.stringify(n).toLowerCase();
+      if (full.includes('drows') || full.includes('졸음')) { c.Drowsiness += 1; return; }
+      if (full.includes('accel') || full.includes('가속')) { c.Acceleration += 1; return; }
+      if (full.includes('brak') || full.includes('제동') || full.includes('급정거') || full.includes('급제동')) { c.Braking += 1; return; }
+      if (full.includes('smok') || full.includes('흡연')) { c.Smoking += 1; return; }
+      if (full.includes('seat') || full.includes('벨트') || full.includes('안전벨트')) { c.Seatbelt += 1; return; }
+      if (full.includes('phone') || full.includes('휴대') || full.includes('휴대폰')) { c.Phone += 1; return; }
+
+      // final fallback
+      c.Abnormal += 1;
     });
     const total = Object.values(c).reduce((a,b)=>a+b,0);
-    return { c, total };
+    // include server-side stats if present (override client-derived when available)
+    const server = stats || {};
+    return { c, total, server };
   }, [notifications]);
-  const { c, total } = data;
+  const { c, total, server } = data;
   const gapClass = compact ? 'gap-1.5' : 'gap-2';
   return (
     <div className={`flex flex-wrap items-center ${gapClass}`} aria-label="경고 유형 요약">
       <InlineKpi label="전체 경고" value={total} tone="indigo" small={compact} />
+      {/* show server-provided driving score average when available */}
+      {server && server.drivingScoreAverage != null && (
+        <InlineKpi label="평균 운행 점수" value={server.drivingScoreAverage} tone="emerald" small={compact} />
+      )}
       <InlineKpi label="급가속" value={c.Acceleration} tone="red" small={compact} />
       <InlineKpi label="졸음" value={c.Drowsiness} tone="orange" small={compact} />
-      <InlineKpi label="급제동" value={c.Braking} tone="rose" small={compact} />
-      <InlineKpi label="이상" value={c.Abnormal} tone="blue" small={compact} />
+      <InlineKpi label="급정거" value={c.Braking} tone="rose" small={compact} />
+      <InlineKpi label="흡연" value={c.Smoking} tone="purple" small={compact} />
+      <InlineKpi label="안전벨트 미착용" value={c.Seatbelt} tone="yellow" small={compact} />
+      <InlineKpi label="휴대폰사용" value={c.Phone} tone="blue" small={compact} />
     </div>
   );
 };

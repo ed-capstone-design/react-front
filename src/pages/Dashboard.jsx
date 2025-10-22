@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { 
   IoCarSportOutline, 
   IoPeopleOutline, 
@@ -11,16 +11,18 @@ import {
   IoArrowForwardOutline
 } from "react-icons/io5";
 import { useNavigate } from "react-router-dom";
-import { useDashboardData7d } from "../hooks/useDashboardData7d";
+import { useDashboardData } from "../hooks/useDashboardData";
 
 const DashboardContent = () => {
   const navigate = useNavigate();
-  const { loading, kpiCounts, todayDispatches, dispatches7d } = useDashboardData7d();
+  const { loading, kpiCounts, todayDispatches, dispatches7d, todayByStatus, todayScheduled, todayRunning, todayCompleted } = useDashboardData();
 
-  // 운행 상태별 분류
-  const runningDispatches = todayDispatches.filter(d => d.status === 'RUNNING');
-  const completedDispatches = todayDispatches.filter(d => d.status === 'COMPLETED');
-  const scheduledDispatches = todayDispatches.filter(d => d.status === 'SCHEDULED');
+  // 훅에서 제공하는 정규화된 상태별 목록 사용. 후방 호환으로 todayByStatus도 참조
+  const runningDispatches = todayRunning || todayByStatus?.RUNNING || [];
+  const completedDispatches = todayCompleted || todayByStatus?.COMPLETED || [];
+  const scheduledDispatches = todayScheduled || todayByStatus?.SCHEDULED || [];
+
+  const [activeTab, setActiveTab] = useState('scheduled');
 
   return (
     <div>
@@ -79,60 +81,64 @@ const DashboardContent = () => {
             <div className="p-6">
               {loading ? (
                 <div className="text-center py-8 text-gray-500">데이터 로딩 중...</div>
-              ) : todayDispatches.length === 0 ? (
+              ) : ((scheduledDispatches.length || runningDispatches.length || completedDispatches.length) === 0) ? (
                 <div className="text-center py-8 text-gray-500">오늘 예정된 배차가 없습니다.</div>
               ) : (
-                <div className="space-y-4">
-                  {runningDispatches.length > 0 && (
-                    <div>
-                      <h4 className="text-sm font-medium text-green-700 mb-3 flex items-center gap-2">
-                        <IoCheckmarkCircleOutline className="text-green-500" />
-                        운행 중 ({runningDispatches.length}건)
-                      </h4>
-                      <div className="space-y-2">
-                        {runningDispatches.slice(0, 3).map((dispatch) => (
-                          <div key={dispatch.dispatchId} className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200 shadow-md shadow-green-200/50">
-                            <div className="flex items-center gap-3">
-                              <IoBusOutline className="text-green-600" />
-                              <div>
-                                <p className="font-medium text-green-900">{dispatch.driverName || `운전자 ${dispatch.driverId}`}</p>
-                                <p className="text-sm text-green-700">{dispatch.departureTime} - {dispatch.arrivalTime}</p>
-                              </div>
-                            </div>
-                            <div className="text-sm text-green-600">
-                              차량번호:{dispatch.vehicleNumber || dispatch.busId || 'N/A'}
+                <div>
+                  <div className="flex space-x-2 mb-4">
+                    <button onClick={() => setActiveTab('scheduled')} className={`px-3 py-2 rounded ${activeTab==='scheduled' ? 'bg-blue-500 text-white' : 'bg-white'}`}>예정 ({scheduledDispatches.length})</button>
+                    <button onClick={() => setActiveTab('running')} className={`px-3 py-2 rounded ${activeTab==='running' ? 'bg-green-500 text-white' : 'bg-white'}`}>운행중 ({runningDispatches.length})</button>
+                    <button onClick={() => setActiveTab('completed')} className={`px-3 py-2 rounded ${activeTab==='completed' ? 'bg-gray-700 text-white' : 'bg-white'}`}>완료 ({completedDispatches.length})</button>
+                  </div>
+
+                  {activeTab === 'scheduled' && (
+                    <div className="space-y-2">
+                      {scheduledDispatches.slice(0, 6).map((dispatch) => (
+                        <div key={dispatch.dispatchId} className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200">
+                          <div className="flex items-center gap-3">
+                            <IoTimerOutline className="text-blue-600" />
+                            <div>
+                              <p className="font-medium text-blue-900">{dispatch.driverName || `운전자 ${dispatch.driverId}`}</p>
+                              <p className="text-sm text-blue-700">예정: {dispatch.scheduledDepartureTime ?? dispatch.scheduledDeparture ?? dispatch.departureTime}</p>
                             </div>
                           </div>
-                        ))}
-                        {runningDispatches.length > 3 && (
-                          <p className="text-xs text-green-600 text-center">외 {runningDispatches.length - 3}건 더</p>
-                        )}
-                      </div>
+                          <div className="text-sm text-blue-600">차량: {dispatch.vehicleNumber || dispatch.busId || 'N/A'}</div>
+                        </div>
+                      ))}
                     </div>
                   )}
 
-                  {scheduledDispatches.length > 0 && (
-                    <div>
-                      <h4 className="text-sm font-medium text-blue-700 mb-3 flex items-center gap-2">
-                        <IoTimerOutline className="text-blue-500" />
-                        대기 중 ({scheduledDispatches.length}건)
-                      </h4>
-                      <div className="space-y-2">
-                        {scheduledDispatches.slice(0, 2).map((dispatch) => (
-                          <div key={dispatch.dispatchId} className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200 shadow-md shadow-blue-200/50">
-                            <div className="flex items-center gap-3">
-                              <IoTimerOutline className="text-blue-600" />
-                              <div>
-                                <p className="font-medium text-blue-900">{dispatch.driverName || `운전자 ${dispatch.driverId}`}</p>
-                                <p className="text-sm text-blue-700">{dispatch.departureTime} 출발 예정</p>
-                              </div>
-                            </div>
-                            <div className="text-sm text-blue-600">
-                             차량번호: {dispatch.vehicleNumber || dispatch.busId || 'N/A'}
+                  {activeTab === 'running' && (
+                    <div className="space-y-2">
+                      {runningDispatches.slice(0, 6).map((dispatch) => (
+                        <div key={dispatch.dispatchId} className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
+                          <div className="flex items-center gap-3">
+                            <IoBusOutline className="text-green-600" />
+                            <div>
+                              <p className="font-medium text-green-900">{dispatch.driverName || `운전자 ${dispatch.driverId}`}</p>
+                              <p className="text-sm text-green-700">예정: {dispatch.scheduledDepartureTime ?? dispatch.scheduledDeparture ?? dispatch.departureTime} • 실제: {dispatch.actualDepartureTime ?? dispatch.actualDeparture ?? '-'}</p>
                             </div>
                           </div>
-                        ))}
-                      </div>
+                          <div className="text-sm text-green-600">차량: {dispatch.vehicleNumber || dispatch.busId || 'N/A'}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {activeTab === 'completed' && (
+                    <div className="space-y-2">
+                      {completedDispatches.slice(0, 6).map((dispatch) => (
+                        <div key={dispatch.dispatchId} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
+                          <div className="flex items-center gap-3">
+                            <IoCheckmarkCircleOutline className="text-gray-700" />
+                            <div>
+                              <p className="font-medium text-gray-900">{dispatch.driverName || `운전자 ${dispatch.driverId}`}</p>
+                              <p className="text-sm text-gray-600">예정: {dispatch.scheduledDepartureTime ?? dispatch.scheduledDeparture ?? '-'} • 도착: {dispatch.actualArrivalTime ?? dispatch.actualArrival ?? '-'}</p>
+                            </div>
+                          </div>
+                          <div className="text-sm text-gray-500">차량: {dispatch.vehicleNumber || dispatch.busId || 'N/A'}</div>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>

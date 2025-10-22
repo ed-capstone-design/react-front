@@ -25,29 +25,87 @@ const RealtimeOperation = () => {
   const [driveEvents, setDriveEvents] = React.useState([]);
   const [eventLoading, setEventLoading] = React.useState(true);
   const [eventError, setEventError] = React.useState(null);
+  const [driveRecord, setDriveRecord] = React.useState(null);
+  const [recordLoading, setRecordLoading] = React.useState(false);
+  const [recordError, setRecordError] = React.useState(null);
   const { getAccessToken } = useToken();
+  const { version: notificationVersion, notifications } = useNotification();
   const [ending, setEnding] = React.useState(false);
   const [endError, setEndError] = React.useState(null);
 
-  // 운행 이벤트 목록 불러오기
-  React.useEffect(() => {
+  // 이벤트 로드 함수(재사용)
+  const fetchEvents = React.useCallback(async () => {
     if (!dispatchId) return;
     setEventLoading(true);
     setEventError(null);
-    const token = getAccessToken();
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
-    axios.get(`/api/admin/dispatches/${dispatchId}/events`, { headers })
-      .then(res => {
-        const data = res.data?.data ?? res.data ?? [];
-        setDriveEvents(Array.isArray(data) ? data : [data]);
-        setEventLoading(false);
-      })
-      .catch(err => {
-        setEventError(err.response?.data?.message || err.message || '운행 이벤트 조회 실패');
-        setDriveEvents([]);
-        setEventLoading(false);
-      });
+    try {
+      const token = getAccessToken();
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      // fetch events and driving-record in parallel
+      setRecordLoading(true);
+      const [eventsRes, recordRes] = await Promise.all([
+        axios.get(`/api/admin/dispatches/${dispatchId}/events`, { headers }),
+        axios.get(`/api/admin/dispatches/${dispatchId}/driving-record`, { headers }).catch(e => ({ __err: e }))
+      ]);
+      const eventsData = eventsRes.data?.data ?? eventsRes.data ?? [];
+      setDriveEvents(Array.isArray(eventsData) ? eventsData : [eventsData]);
+      if (recordRes && recordRes.__err) {
+        setDriveRecord(null);
+        setRecordError(recordRes.__err.response?.data?.message || recordRes.__err.message || '운행기록 조회 실패');
+      } else {
+        const rec = recordRes.data?.data ?? recordRes.data ?? null;
+        setDriveRecord(rec);
+        setRecordError(null);
+      }
+    } catch (err) {
+      setEventError(err.response?.data?.message || err.message || '운행 이벤트 조회 실패');
+      setDriveEvents([]);
+      setDriveRecord(null);
+      setRecordError(null);
+    } finally {
+      setEventLoading(false);
+      setRecordLoading(false);
+    }
   }, [dispatchId, getAccessToken]);
+
+  // 초기 및 dispatchId 변경 시 최초 로드
+  React.useEffect(() => {
+    fetchEvents();
+  }, [fetchEvents]);
+
+  // 알림이 도착하면 관련 배차에 대한 이벤트를 재요청
+  React.useEffect(() => {
+    if (!dispatchId) return;
+    try {
+      // 이전에 본 알림 id 집합을 유지하여 새로 추가된 알림만 처리
+      if (!RealtimeOperation._prevNotifIds) RealtimeOperation._prevNotifIds = new Set();
+      const prevIds = RealtimeOperation._prevNotifIds;
+      const current = Array.isArray(notifications) ? notifications : [];
+      const currentIds = new Set(current.map(n => n?.id).filter(Boolean));
+
+      // 새로 추가된 id 목록 계산
+      const newIds = Array.from(currentIds).filter(id => !prevIds.has(id));
+
+      // prevIds 갱신
+      RealtimeOperation._prevNotifIds = currentIds;
+
+      if (newIds.length === 0) return;
+
+      // 새로 추가된 알림들 중 dispatchId가 현재 dispatchId와 일치하는 것이 있는지 확인
+      const related = newIds.some(id => {
+        const n = current.find(x => x?.id === id);
+        if (!n) return false;
+        const nid = n.dispatchId ?? n.dispatchID ?? n.refId ?? n.referenceId ?? n.data?.dispatchId ?? n.payload?.dispatchId ?? null;
+        return nid != null && String(nid) === String(dispatchId);
+      });
+
+      if (related) {
+        fetchEvents();
+      }
+    } catch (e) {
+      console.warn('[RealtimeOperation] 알림 수신 처리 중 오류', e);
+    }
+  }, [notificationVersion, notifications, dispatchId, fetchEvents]);
 
   // 지도 마커 (단일)
   const markers = React.useMemo(() => {
@@ -195,10 +253,26 @@ const RealtimeOperation = () => {
 
           {/* 운행 이벤트 목록 */}
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm flex flex-col h-full max-h-[360px]">
-            <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-              <h2 className="font-semibold text-sm text-gray-800">운행 이벤트 <span className="ml-1 text-[10px] font-normal text-gray-400">{driveEvents.length}</span></h2>
-              {eventLoading && <span className="text-[11px] text-gray-400">로딩중…</span>}
-              {!eventLoading && driveEvents.length === 0 && <span className="text-[11px] text-gray-400">없음</span>}
+            <div className="px-4 py-3 border-b border-gray-100">
+              <div className="flex items-center justify-between">
+                <h2 className="font-semibold text-sm text-gray-800">운행 이벤트 <span className="ml-1 text-[10px] font-normal text-gray-400">{driveEvents.length}</span></h2>
+                <div className="flex items-center gap-2">
+                  {eventLoading && <span className="text-[11px] text-gray-400">로딩중…</span>}
+                  {!eventLoading && driveEvents.length === 0 && <span className="text-[11px] text-gray-400">없음</span>}
+                </div>
+              </div>
+              {/* KPI 칩을 제목 아래에 배치 */}
+              {driveRecord && (
+                <div className="mt-2 flex items-center gap-2 flex-wrap">
+                  <KpiChip label="점수" value={`${driveRecord.drivingScore ?? 0}점`} />
+                  <KpiChip label="졸음" value={driveRecord.drowsinessCount ?? 0} />
+                  <KpiChip label="급가속" value={driveRecord.accelerationCount ?? 0} />
+                  <KpiChip label="급제동" value={driveRecord.brakingCount ?? 0} />
+                  <KpiChip label="흡연" value={driveRecord.smokingCount ?? 0} />
+                  <KpiChip label="안전벨트" value={driveRecord.seatbeltUnfastenedCount ?? 0} />
+                  <KpiChip label="휴대폰" value={driveRecord.phoneUsageCount ?? 0} />
+                </div>
+              )}
             </div>
             <ul className="flex-1 overflow-auto divide-y divide-gray-100 text-xs">
               {eventError && (
@@ -235,10 +309,10 @@ const RealtimeOperation = () => {
 
 export default RealtimeOperation;
 
-// 작은 KPI 칩 컴포넌트
+// 작은 KPI 칩 컴포넌트 (여유 있는 패딩 + 그림자)
 const KpiChip = ({ label, value }) => (
-  <div className="flex items-center gap-1 pl-2 pr-2.5 py-1 rounded-full border border-gray-200 bg-gray-50 text-[11px] font-medium text-gray-700">
-    <span className="opacity-70">{label}</span>
+  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-gray-200 bg-white text-[12px] font-medium text-gray-700 shadow-sm">
+    <span className="opacity-70 text-[11px]">{label}</span>
     <span className="font-semibold text-gray-900 tracking-tight">{value ?? '—'}</span>
   </div>
 );

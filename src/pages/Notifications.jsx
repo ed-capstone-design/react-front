@@ -1,13 +1,17 @@
 import React from 'react';
-import { useNotification } from '../components/Notification/NotificationProvider';
+import { useNotification } from '../components/Notification/contexts/NotificationProvider';
 import { useNavigate } from 'react-router-dom';
 
 const Notifications = () => {
   const { notifications, unreadCount, loading, error, refresh, markAsRead } = useNotification();
   const navigate = useNavigate();
 
-  const onClickItem = (n) => {
-    markAsRead(n.id);
+  const onClickItem = async (n) => {
+    try {
+      await markAsRead(n.id);
+    } catch (e) {
+      console.warn('markAsRead failed', e);
+    }
     if (n.url) navigate(n.url);
   };
 

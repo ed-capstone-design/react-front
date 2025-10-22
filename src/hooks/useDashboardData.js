@@ -32,6 +32,58 @@ export const useDashboardData = () => {
     } catch { return null; }
   };
 
+  // --- additional helpers for today parsing (prefer scheduledDepartureTime) ---
+  const formatLocalDate = (dt) => {
+    if (!dt) return null;
+    try {
+      const y = dt.getFullYear();
+      const m = String(dt.getMonth() + 1).padStart(2, '0');
+      const d = String(dt.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    } catch { return null; }
+  };
+
+  const parseToLocalDateStr = (val) => {
+    if (val == null) return null;
+    if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(val)) return val;
+    try {
+      let n = (typeof val === 'number' || String(Number(val)) === String(val)) ? Number(val) : val;
+      if (typeof n === 'number' && n > 0 && n < 1e12) {
+        if (n < 1e11) n = n * 1000;
+      }
+      const dt = new Date(n);
+      if (Number.isNaN(dt.getTime())) return null;
+      return formatLocalDate(dt);
+    } catch { return null; }
+  };
+
+  // parse any date-like value to Date object (handles numeric seconds/ms and ISO)
+  const toDateObj = (val) => {
+    if (val == null) return null;
+    try {
+      if (typeof val === 'number' || String(Number(val)) === String(val)) {
+        let n = Number(val);
+        if (n > 0 && n < 1e12) { if (n < 1e11) n = n * 1000; }
+        return new Date(n);
+      }
+      const dt = new Date(val);
+      if (Number.isNaN(dt.getTime())) return null;
+      return dt;
+    } catch { return null; }
+  };
+
+  const parseAnyDateStr = (obj, keys = []) => {
+    if (!obj) return null;
+    for (const k of keys) {
+      const v = obj[k];
+      if (v != null) {
+        const s = parseToLocalDateStr(v) || isoToLocalDateStr(v) || null;
+        if (s) return s;
+      }
+    }
+    return null;
+  };
+
   const isoToLocalDateStr = (isoLike) => {
     if (!isoLike) return null;
     try {
@@ -48,7 +100,10 @@ export const useDashboardData = () => {
     const list = [];
     if (looksLikeYMD(d.dispatchDate)) list.push(d.dispatchDate);
     if (looksLikeYMD(d.date)) list.push(d.date);
+    // include scheduledDepartureTime (may be time-only or full ISO) and scheduledDeparture
+    if (d.scheduledDepartureTime) list.push(parseToLocalDateStr(d.scheduledDepartureTime) || isoToLocalDateStr(d.scheduledDepartureTime));
     if (d.scheduledDeparture) list.push(isoToLocalDateStr(d.scheduledDeparture));
+    if (d.scheduledArrivalTime) list.push(parseToLocalDateStr(d.scheduledArrivalTime) || isoToLocalDateStr(d.scheduledArrivalTime));
     if (d.scheduledArrival) list.push(isoToLocalDateStr(d.scheduledArrival));
     // fallback: if departureTime only + date already handled above
     return list.filter(Boolean);
@@ -57,6 +112,64 @@ export const useDashboardData = () => {
   const deriveLocalDate = (dispatch) => {
     const cands = getCandidateDates(dispatch);
     return cands.length ? cands[0] : null; // 우선순위 첫 값
+  };
+
+  // Normalize schedule date/times similar to useOperatingSchedule
+  const normalizeScheduleDateTimes = (payload) => {
+    if (!payload) return payload;
+    const out = { ...payload };
+    // base date candidates
+    const baseDate = out.dispatchDate || out.date || out.scheduledDate || null;
+    const pad = (n) => String(n).padStart(2, '0');
+    const formatLocalIso = (d) => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+
+    const normalizeTimeOnly = (timeStr) => {
+      if (timeStr == null) return null;
+      if (typeof timeStr !== 'string') timeStr = String(timeStr);
+      if (timeStr.includes('T')) return timeStr.split('T')[1].substring(0,5);
+      const m = timeStr.match(/(\d{1,2}:\d{2})/);
+      return m ? m[1] : null;
+    };
+
+    const combineDateAndTime = (dateStr, timeStr) => {
+      const t = normalizeTimeOnly(timeStr) || '00:00';
+      return `${dateStr}T${t}:00`;
+    };
+
+    // scheduledDepartureTime
+    if (out.scheduledDepartureTime) {
+      // if time-only, combine with baseDate
+      if (baseDate && !out.scheduledDepartureTime.includes('T')) {
+        out.scheduledDepartureTime = combineDateAndTime(baseDate, out.scheduledDepartureTime);
+      }
+    } else if (out.scheduledDeparture) {
+      out.scheduledDepartureTime = out.scheduledDeparture;
+    }
+
+    // scheduledArrivalTime
+    if (out.scheduledArrivalTime) {
+      if (baseDate && !out.scheduledArrivalTime.includes('T')) {
+        out.scheduledArrivalTime = combineDateAndTime(baseDate, out.scheduledArrivalTime);
+      }
+    } else if (out.scheduledArrival) {
+      out.scheduledArrivalTime = out.scheduledArrival;
+    }
+
+    // If both exist and arrival <= departure, assume next-day arrival
+    try {
+      if (out.scheduledDepartureTime && out.scheduledArrivalTime) {
+        const dep = new Date(out.scheduledDepartureTime);
+        let arr = new Date(out.scheduledArrivalTime);
+        if (!Number.isNaN(dep.getTime()) && !Number.isNaN(arr.getTime()) && arr.getTime() <= dep.getTime()) {
+          arr = new Date(arr.getTime() + 24 * 3600 * 1000);
+          out.scheduledArrivalTime = formatLocalIso(arr);
+        }
+      }
+    } catch (e) {
+      // noop
+    }
+
+    return out;
   };
 
   const getDateStr = (d) => d?._localDate || deriveLocalDate(d);
@@ -115,10 +228,14 @@ export const useDashboardData = () => {
       ]);
       const rawDispatches = dispatchRes.data?.data || dispatchRes.data || [];
       const drivers = driversRes.data?.data || driversRes.data || [];
-      const enhanced = Array.isArray(rawDispatches) ? rawDispatches.map(ds => ({
-        ...ds,
-        _localDate: deriveLocalDate(ds),
-      })) : [];
+      const enhanced = Array.isArray(rawDispatches) ? rawDispatches.map(ds => {
+        const norm = normalizeScheduleDateTimes(ds);
+        return {
+          ...ds,
+          ...norm,
+          _localDate: deriveLocalDate(norm),
+        };
+      }) : [];
       setDispatches7d(enhanced);
       setDriversAll(Array.isArray(drivers) ? drivers : []);
     } catch (err) {
@@ -136,10 +253,69 @@ export const useDashboardData = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sevenDaysRange.startStr, sevenDaysRange.endStr, getToken]);
 
+  // fetch only today's dispatches via API (to mirror useOperatingSchedule approach)
+  const [todayDispatchesFromApi, setTodayDispatchesFromApi] = useState([]);
+  const fetchToday = async () => {
+    const token = getToken();
+    if (!token) return;
+    try {
+      const authHeader = { Authorization: `Bearer ${token}` };
+      const resp = await axios.get('/api/admin/dispatches', { params: { startDate: todayStr, endDate: todayStr }, headers: authHeader });
+      const raw = resp.data?.data || resp.data || [];
+      const enhancedToday = Array.isArray(raw) ? raw.map(ds => ({ ...ds, ...normalizeScheduleDateTimes(ds), _localDate: deriveLocalDate(ds) })) : [];
+      setTodayDispatchesFromApi(enhancedToday);
+    } catch (e) {
+      console.error('[useDashboardData] fetchToday 실패', e);
+    }
+  };
+
+  useEffect(() => { fetchToday(); }, [todayStr, getToken]);
+
+  // Prefer API-provided today's dispatches (mirrors useOperatingSchedule) but fall back to 7d-derived
   const todayDispatches = useMemo(() => {
+    if (todayDispatchesFromApi && todayDispatchesFromApi.length) return todayDispatchesFromApi;
     if (!dispatches7d.length) return [];
     return dispatches7d.filter(d => getDateStr(d) === todayStr);
-  }, [dispatches7d, todayStr]);
+  }, [dispatches7d, todayStr, todayDispatchesFromApi]);
+
+  // Helpers to extract scheduled/actual times (ISO or epoch) and return Date objects
+  const getScheduledDeparture = (d) => toDateObj(d.scheduledDepartureTime ?? d.scheduledDeparture ?? d.scheduledDepartureDate ?? null);
+  const getScheduledArrival = (d) => toDateObj(d.scheduledArrivalTime ?? d.scheduledArrival ?? d.scheduledArrivalDate ?? null);
+  const getActualDeparture = (d) => toDateObj(d.actualDepartureTime ?? d.actualDeparture ?? d.departureTime ?? null);
+  const getActualArrival = (d) => toDateObj(d.actualArrivalTime ?? d.actualArrival ?? d.arrivalTime ?? null);
+
+  // classify today's dispatches into panels
+  const todayScheduled = useMemo(() => (
+    todayDispatches.slice().sort((a,b) => {
+      const A = getScheduledDeparture(a) || getActualDeparture(a) || new Date(0);
+      const B = getScheduledDeparture(b) || getActualDeparture(b) || new Date(0);
+      return A - B;
+    })
+  ), [todayDispatches]);
+
+  const todayRunning = useMemo(() => (
+    todayDispatches.filter(d => {
+      // running if status normalized is RUNNING OR current between dep/arr (using actual if present)
+      const st = normalizeStatus(d.status ?? d.dispatchStatus ?? d.state ?? d.statusCode);
+      if (st === 'RUNNING') return true;
+      const dep = getActualDeparture(d) || getScheduledDeparture(d);
+      const arr = getActualArrival(d) || getScheduledArrival(d);
+      if (!dep || !arr) return false;
+      const now = new Date();
+      return now >= dep && now <= arr;
+    }).sort((a,b) => (getActualDeparture(a) || getScheduledDeparture(a) || new Date(0)) - (getActualDeparture(b) || getScheduledDeparture(b) || new Date(0)))
+  ), [todayDispatches]);
+
+  const todayCompleted = useMemo(() => (
+    todayDispatches.filter(d => {
+      const st = normalizeStatus(d.status ?? d.dispatchStatus ?? d.state ?? d.statusCode);
+      if (st === 'COMPLETED') return true;
+      // completed if actualArrival exists and is before now
+      const arrival = getActualArrival(d);
+      if (arrival) return arrival <= new Date();
+      return false;
+    }).sort((a,b) => (getActualArrival(a) || new Date(0)) - (getActualArrival(b) || new Date(0)))
+  ), [todayDispatches]);
 
   const ongoingCount = useMemo(() => {
     const now = new Date();
@@ -153,12 +329,40 @@ export const useDashboardData = () => {
   }, [todayDispatches]);
 
   const { unreadCount = 0 } = useNotification?.() || {};
+
+  // normalize status helper (선언을 사용부 이전에 둡니다)
+  function normalizeStatus(s) {
+    if (s == null) return 'SCHEDULED';
+    const raw = String(s).trim().toUpperCase();
+    const map = {
+      SCHEDULED: 'SCHEDULED', PLANNED: 'SCHEDULED',
+      RUNNING: 'RUNNING', IN_PROGRESS: 'RUNNING', INPROGRESS: 'RUNNING', ONGOING: 'RUNNING', STARTED: 'RUNNING',
+      COMPLETED: 'COMPLETED', FINISHED: 'COMPLETED', DONE: 'COMPLETED', ENDED: 'COMPLETED',
+      CANCELED: 'CANCELED', CANCELLED: 'CANCELED', VOID: 'CANCELED'
+    };
+    return map[raw] || 'SCHEDULED';
+  }
+
+  const todayByStatus = useMemo(() => {
+    const groups = { SCHEDULED: [], RUNNING: [], COMPLETED: [], CANCELED: [] };
+    todayDispatches.forEach(d => {
+      const statusCandidate = d.status ?? d.dispatchStatus ?? d.state ?? d.statusCode;
+      const st = normalizeStatus(statusCandidate);
+      groups[st].push(d);
+    });
+    return groups;
+  }, [todayDispatches]);
+
+  const todayTotalNonCanceled = useMemo(() => (
+    todayDispatches.filter(d => normalizeStatus(d.status ?? d.dispatchStatus ?? d.state ?? d.statusCode) !== 'CANCELED').length
+  ), [todayDispatches]);
+
   const kpiCounts = useMemo(() => ({
     totalDrivers: driversAll?.length || 0,
-    todayTotal: todayDispatches.length,
-    ongoing: ongoingCount,
+    todayTotal: todayTotalNonCanceled,
+    ongoing: todayByStatus.RUNNING.length,
     unreadNotifications: unreadCount
-  }), [driversAll, todayDispatches.length, ongoingCount, unreadCount]);
+  }), [driversAll, todayTotalNonCanceled, todayByStatus, unreadCount]);
 
   const weeklyCounts = useMemo(() => {
     const result = [];
@@ -190,6 +394,10 @@ export const useDashboardData = () => {
     driversAll,
     dispatches7d,
     todayDispatches,
+    todayScheduled,
+    todayRunning,
+    todayCompleted,
+    todayByStatus,
     kpiCounts,
     weeklyCounts,
     hourlyDistribution,

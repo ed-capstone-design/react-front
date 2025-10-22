@@ -98,6 +98,19 @@ const DriveDetail = ({ onBackToInsight }) => {
       setDriveLocations(locations || []);
       setDriveEvents(events || []);
       setDriveRecord(record || null);
+      // If server returned a drivingScore in the driving-record, merge it into dispatch data so UI displays it
+      if (record && record.drivingScore != null) {
+        setDriveData(prev => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            dispatch: {
+              ...prev.dispatch,
+              drivingScore: record.drivingScore
+            }
+          };
+        });
+      }
       setExtraError(null);
     } catch (e) {
       setDriveLocations([]);
@@ -150,11 +163,28 @@ const DriveDetail = ({ onBackToInsight }) => {
       byType: {},
     };
     events.forEach(ev => {
-      stats.byType[ev.eventType] = (stats.byType[ev.eventType] || 0) + 1;
+      const t = ev.eventType ?? ev.type ?? 'UNKNOWN';
+      stats.byType[t] = (stats.byType[t] || 0) + 1;
     });
     return stats;
   };
   const eventStats = calculateEventStats(driveEvents);
+
+  // display score used in multiple places
+  const displayScore = driveRecord?.drivingScore ?? driveData?.dispatch?.drivingScore ?? null;
+
+  // driveEvents 정규화: eventTimestamp / eventTime 등 다양한 필드명 대응
+  const normalizeDriveEvent = (raw) => {
+    if (!raw) return {};
+    return {
+      drivingEventId: raw.drivingEventId ?? raw.eventId ?? raw.id ?? null,
+      eventType: raw.eventType ?? raw.type ?? 'UNKNOWN',
+      eventTimestamp: raw.eventTimestamp ?? raw.eventTime ?? raw.time ?? raw.timestamp ?? null,
+      latitude: raw.latitude ?? raw.lat ?? raw.location?.latitude ?? null,
+      longitude: raw.longitude ?? raw.lng ?? raw.location?.longitude ?? null,
+      description: raw.description ?? raw.message ?? ''
+    };
+  };
 
   // 실시간 구독 제거: 이 페이지는 완료된 배차의 운행 경로를 REST로만 표시합니다.
 
@@ -308,12 +338,7 @@ const DriveDetail = ({ onBackToInsight }) => {
                    driveData.dispatch.status === "DELAYED" ? "지연" : "대기"}
                 </span>
               </div>
-              {driveData.dispatch.drivingScore && (
-                <div className="flex justify-between items-center py-2 mt-4 bg-green-50 px-3 rounded border-l-4 border-green-400">
-                  <span className="text-green-700 text-sm font-medium">운전 점수</span>
-                  <span className="font-bold text-green-800 text-lg">{driveData.dispatch.drivingScore}점</span>
-                </div>
-              )}
+              {/* 운전 점수는 이벤트 이력 영역으로 이동했습니다 (중복 제거) */}
             </div>
 
             {/* 운행 제어 버튼 */}
@@ -378,6 +403,10 @@ const DriveDetail = ({ onBackToInsight }) => {
                 </tbody>
               </table>
             </div>
+            {/* 간단한 점수 표시: 항상 보이도록 (값 없으면 0점) */}
+            <div className="mt-4 flex items-center justify-end text-sm text-gray-700">
+              <div className="font-medium">운행점수:<span className="ml-2 font-bold">{displayScore}점</span></div>
+            </div>
           </div>
           {/* 지도 */}
           <div className="bg-white border border-gray-100 rounded-lg shadow-sm p-6">
@@ -397,18 +426,21 @@ const DriveDetail = ({ onBackToInsight }) => {
               polyline={driveLocations.map(loc => ({ lat: loc.latitude, lng: loc.longitude }))}
               markers={[
                 // 이벤트 마커들
-                ...driveEvents.map(ev => ({
-                  lat: ev.latitude,
-                  lng: ev.longitude,
-                  imageSrc:
-                    ev.eventType === 'DROWSINESS' ? 'https://cdn-icons-png.flaticon.com/512/565/565547.png' :
-                    ev.eventType === 'ACCELERATION' ? 'https://cdn-icons-png.flaticon.com/512/565/565604.png' :
-                    ev.eventType === 'BRAKING' ? 'https://cdn-icons-png.flaticon.com/512/565/565606.png' :
-                    ev.eventType === 'SMOKING' ? 'https://cdn-icons-png.flaticon.com/512/2917/2917995.png' :
-                    ev.eventType === 'SEATBELT_UNFASTENED' ? 'https://cdn-icons-png.flaticon.com/512/2919/2919906.png' :
-                    ev.eventType === 'PHONE_USAGE' ? 'https://cdn-icons-png.flaticon.com/512/15047/15047587.png' :
-                    undefined,
-                })),
+                ...driveEvents.map(evRaw => {
+                  const ev = normalizeDriveEvent(evRaw);
+                  return ({
+                    lat: ev.latitude,
+                    lng: ev.longitude,
+                    imageSrc:
+                      ev.eventType === 'DROWSINESS' ? 'https://cdn-icons-png.flaticon.com/512/565/565547.png' :
+                      ev.eventType === 'ACCELERATION' ? 'https://cdn-icons-png.flaticon.com/512/565/565604.png' :
+                      ev.eventType === 'BRAKING' ? 'https://cdn-icons-png.flaticon.com/512/565/565606.png' :
+                      ev.eventType === 'SMOKING' ? 'https://cdn-icons-png.flaticon.com/512/2917/2917995.png' :
+                      ev.eventType === 'SEATBELT_UNFASTENED' ? 'https://cdn-icons-png.flaticon.com/512/2919/2919906.png' :
+                      ev.eventType === 'PHONE_USAGE' ? 'https://cdn-icons-png.flaticon.com/512/15047/15047587.png' :
+                      undefined,
+                  });
+                }),
               ]}
               height="340px"
             />
@@ -416,15 +448,41 @@ const DriveDetail = ({ onBackToInsight }) => {
           {/* 상세 이벤트 이력 */}
           <div className="bg-white border border-gray-100 rounded-lg shadow-sm p-6">
             <h3 className="text-xl font-bold text-gray-900 mb-4">상세 이벤트 이력</h3>
+            {/* 운전 점수: 이벤트 이력과 함께 표시 */}
+            {((driveRecord && (driveRecord.drivingScore != null || driveRecord.drowsinessCount != null)) || driveData.dispatch.drivingScore != null) && (
+              <div className="py-3 mb-4 bg-white/50 px-3 rounded border-l-4 border-green-400">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-green-700 text-sm font-medium">운전 점수</div>
+                  <div className="font-bold text-green-800 text-lg">{(driveRecord?.drivingScore ?? driveData.dispatch.drivingScore)}점</div>
+                </div>
+                <div className="w-full bg-gray-100 rounded-full h-2 mb-2 overflow-hidden">
+                  <div
+                    className={`h-2 rounded-full ${((driveRecord?.drivingScore ?? driveData.dispatch.drivingScore) >= 75) ? 'bg-green-500' : ((driveRecord?.drivingScore ?? driveData.dispatch.drivingScore) >= 50) ? 'bg-yellow-400' : 'bg-rose-400'}`}
+                    style={{ width: `${Math.max(0, Math.min(100, (driveRecord?.drivingScore ?? driveData.dispatch.drivingScore)))}%` }}
+                  />
+                </div>
+                {(driveRecord) && (
+                  <div className="grid grid-cols-2 gap-2 text-xs text-gray-700">
+                    <div className="p-2 bg-gray-50 rounded">졸음: <strong className="text-sm text-red-600">{driveRecord.drowsinessCount ?? 0}</strong></div>
+                    <div className="p-2 bg-gray-50 rounded">급가속: <strong className="text-sm text-yellow-600">{driveRecord.accelerationCount ?? 0}</strong></div>
+                    <div className="p-2 bg-gray-50 rounded">급제동: <strong className="text-sm text-orange-600">{driveRecord.brakingCount ?? 0}</strong></div>
+                    <div className="p-2 bg-gray-50 rounded">흡연: <strong className="text-sm text-purple-600">{driveRecord.smokingCount ?? 0}</strong></div>
+                    <div className="p-2 bg-gray-50 rounded">안전벨트: <strong className="text-sm text-blue-600">{driveRecord.seatbeltUnfastenedCount ?? 0}</strong></div>
+                    <div className="p-2 bg-gray-50 rounded">휴대폰: <strong className="text-sm text-pink-600">{driveRecord.phoneUsageCount ?? 0}</strong></div>
+                  </div>
+                )}
+              </div>
+            )}
             {driveEvents.length === 0 ? (
               <p className="text-gray-400 text-center py-8">이 배차에서 발생한 이벤트가 없습니다.</p>
             ) : (
               <div className="max-h-72 overflow-y-auto pr-2">
                 <div className="space-y-3">
                   {driveEvents
-                    .sort((a, b) => new Date(a.eventTime) - new Date(b.eventTime))
+                    .map(e => normalizeDriveEvent(e))
+                    .sort((a, b) => new Date(a.eventTimestamp || a.eventTime) - new Date(b.eventTimestamp || b.eventTime))
                     .map((ev, idx) => (
-                      <div key={idx} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition">
+                      <div key={ev.drivingEventId || idx} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition">
                         <div className="flex justify-between items-start">
                           <div>
                             <div className="flex items-center gap-2 mb-2">
@@ -449,7 +507,7 @@ const DriveDetail = ({ onBackToInsight }) => {
                             <p className="text-gray-700 text-sm">{ev.description}</p>
                           </div>
                           <div className="text-right text-xs text-gray-500">
-                            {new Date(ev.eventTime).toLocaleString('ko-KR')}
+                            {ev.eventTimestamp ? new Date(ev.eventTimestamp).toLocaleString('ko-KR') : '—'}
                           </div>
                         </div>
                       </div>
