@@ -66,6 +66,17 @@ const UserDetailPage = () => {
   const [warningPage, setWarningPage] = useState(1);
   const itemsPerPage = 5;
 
+  // 페이지네이션 표시용 헬퍼: 현재 페이지 기준으로 블록(예: 5개) 단위로 페이지 버튼을 보여줌
+  const getVisiblePages = (current, total, blockSize = 5) => {
+    const totalPages = Math.max(1, Math.ceil(total));
+    const blockIndex = Math.floor((current - 1) / blockSize);
+    const start = blockIndex * blockSize + 1;
+    const end = Math.min(start + blockSize - 1, totalPages);
+    const pages = [];
+    for (let p = start; p <= end; p++) pages.push(p);
+    return { pages, start, end, totalPages };
+  };
+
   // 이번달 첫날과 마지막날 계산
   const getThisMonthDateRange = () => {
     const now = new Date();
@@ -598,19 +609,23 @@ const UserDetailPage = () => {
                       >
                         이전
                       </button>
-                      {Array.from({ length: Math.ceil(dispatchHistory.length / itemsPerPage) }, (_, i) => i + 1).map(page => (
-                        <button
-                          key={page}
-                          onClick={() => setDispatchPage(page)}
-                          className={`px-3 py-1 text-sm border rounded ${
-                            page === dispatchPage
-                              ? 'bg-blue-600 text-white border-blue-600'
-                              : 'border-gray-300 hover:bg-gray-50'
-                          }`}
-                        >
-                          {page}
-                        </button>
-                      ))}
+                      {(() => {
+                        const totalPages = Math.ceil(dispatchHistory.length / itemsPerPage);
+                        const { pages } = getVisiblePages(dispatchPage, totalPages, 5);
+                        return pages.map(page => (
+                          <button
+                            key={page}
+                            onClick={() => setDispatchPage(page)}
+                            className={`px-3 py-1 text-sm border rounded ${
+                              page === dispatchPage
+                                ? 'bg-blue-600 text-white border-blue-600'
+                                : 'border-gray-300 hover:bg-gray-50'
+                            }`}
+                          >
+                            {page}
+                          </button>
+                        ));
+                      })()}
                       <button
                         onClick={() => setDispatchPage(prev => Math.min(prev + 1, Math.ceil(dispatchHistory.length / itemsPerPage)))}
                         disabled={dispatchPage === Math.ceil(dispatchHistory.length / itemsPerPage)}
@@ -718,8 +733,10 @@ const UserDetailPage = () => {
                           key={`warning-${warning?.drivingEventId || warning?.warningId || index}`}
                           className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition cursor-pointer"
                           onClick={() => {
-                            const did = warning.dispatchId || warning.dispatchId === 0 ? warning.dispatchId : null;
-                            if (did) {
+                            // dispatchId는 0일 수도 있고 빈 문자열이 아닐 수도 있으므로
+                            // 단순 truthy 검사로는 실패할 수 있습니다. 명시적으로 null/undefined 검사 후 이동합니다.
+                            const did = (warning && (warning.dispatchId !== undefined && warning.dispatchId !== null)) ? warning.dispatchId : null;
+                            if (did !== null) {
                               navigate(`/drivedetail/${did}`);
                             } else {
                               toast.info('이 경고에 연결된 배차 정보가 없습니다.');
@@ -761,19 +778,23 @@ const UserDetailPage = () => {
                       >
                         이전
                       </button>
-                      {Array.from({ length: Math.ceil(warningHistory.length / itemsPerPage) }, (_, i) => i + 1).map(page => (
-                        <button
-                          key={page}
-                          onClick={() => setWarningPage(page)}
-                          className={`px-3 py-1 text-sm border rounded ${
-                            page === warningPage
-                              ? 'bg-blue-600 text-white border-blue-600'
-                              : 'border-gray-300 hover:bg-gray-50'
-                          }`}
-                        >
-                          {page}
-                        </button>
-                      ))}
+                      {(() => {
+                        const totalPages = Math.ceil(warningHistory.length / itemsPerPage);
+                        const { pages } = getVisiblePages(warningPage, totalPages, 5);
+                        return pages.map(page => (
+                          <button
+                            key={page}
+                            onClick={() => setWarningPage(page)}
+                            className={`px-3 py-1 text-sm border rounded ${
+                              page === warningPage
+                                ? 'bg-blue-600 text-white border-blue-600'
+                                : 'border-gray-300 hover:bg-gray-50'
+                            }`}
+                          >
+                            {page}
+                          </button>
+                        ));
+                      })()}
                       <button
                         onClick={() => setWarningPage(prev => Math.min(prev + 1, Math.ceil(warningHistory.length / itemsPerPage)))}
                         disabled={warningPage === Math.ceil(warningHistory.length / itemsPerPage)}

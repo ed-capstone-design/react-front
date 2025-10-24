@@ -1,230 +1,228 @@
-import React, { useState } from "react";
-import { 
-  IoCarSportOutline, 
-  IoPeopleOutline, 
-  IoStatsChartOutline, 
-  IoNotificationsOutline, 
-  IoBusOutline,
-  IoTimerOutline,
-  IoCheckmarkCircleOutline,
-  IoAlertCircleOutline,
-  IoArrowForwardOutline
-} from "react-icons/io5";
-import { useNavigate } from "react-router-dom";
+import React, { useEffect, useMemo, useState } from "react";
+import { IoCarSportOutline, IoStatsChartOutline, IoCheckmarkDoneOutline, IoClose } from "react-icons/io5";
 import { useDashboardData } from "../hooks/useDashboardData";
+import WeeklyDispatchBar from "../components/Dashboard/charts/WeeklyDispatchBar";
+import HourlyDepartureColumn from "../components/Dashboard/charts/HourlyDepartureColumn";
+import { useNotification } from "../components/Notification/contexts/NotificationProvider";
+import { useNavigate } from "react-router-dom";
 
 const DashboardContent = () => {
+  const todayStr = useMemo(() => new Date().toISOString().slice(0, 10), []);
+
+  const { notifications = [], loading: notificationsLoading = false } = useNotification();
   const navigate = useNavigate();
-  const { loading, kpiCounts, todayDispatches, dispatches7d, todayByStatus, todayScheduled, todayRunning, todayCompleted } = useDashboardData();
 
-  // 훅에서 제공하는 정규화된 상태별 목록 사용. 후방 호환으로 todayByStatus도 참조
-  const runningDispatches = todayRunning || todayByStatus?.RUNNING || [];
-  const completedDispatches = todayCompleted || todayByStatus?.COMPLETED || [];
-  const scheduledDispatches = todayScheduled || todayByStatus?.SCHEDULED || [];
+  const { loading: dashLoading, weeklyCounts, dispatches7d, todayScheduled, todayRunning, todayCompleted } = useDashboardData();
 
-  const [activeTab, setActiveTab] = useState('scheduled');
+  const weekRange = useMemo(() => {
+    const now = new Date();
+    const sunday = new Date(now);
+    sunday.setDate(now.getDate() - now.getDay());
+    sunday.setHours(0, 0, 0, 0);
+    const saturday = new Date(sunday);
+    saturday.setDate(sunday.getDate() + 6);
+    saturday.setHours(23, 59, 59, 999);
+    const toYmd = (d) => d.toISOString().slice(0, 10);
+    return { startStr: toYmd(sunday), endStr: toYmd(saturday), sunday, saturday };
+  }, []);
+
+  const weekDispatches = useMemo(() => {
+    if (!Array.isArray(dispatches7d)) return [];
+    return dispatches7d.filter((d) => {
+      const dateKey = d._localDate || d.dispatchDate || d.date || null;
+      if (!dateKey) return false;
+      return dateKey >= weekRange.startStr && dateKey <= weekRange.endStr;
+    });
+  }, [dispatches7d, weekRange]);
+
+  const normalizeStatusLocal = (s) => {
+    if (s == null) return "SCHEDULED";
+    const raw = String(s).trim().toUpperCase();
+    const map = {
+      SCHEDULED: "SCHEDULED",
+      PLANNED: "SCHEDULED",
+      RUNNING: "RUNNING",
+      IN_PROGRESS: "RUNNING",
+      COMPLETED: "COMPLETED",
+      FINISHED: "COMPLETED",
+      CANCELED: "CANCELED",
+      CANCELLED: "CANCELED",
+    };
+    return map[raw] || "SCHEDULED";
+  };
+
+  const weekStats = useMemo(() => {
+    const total = weekDispatches.length;
+    let completed = 0,
+      canceled = 0;
+    weekDispatches.forEach((d) => {
+      const st = normalizeStatusLocal(d.status ?? d.dispatchStatus ?? d.state ?? d.statusCode);
+      if (st === "COMPLETED") completed++;
+      if (st === "CANCELED") canceled++;
+    });
+    return { total, completed, canceled };
+  }, [weekDispatches]);
+
+  const weeklyChartData = useMemo(() => {
+    const arr = [];
+    const start = new Date(weekRange.sunday);
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      const key = d.toISOString().slice(0, 10);
+      const count = (weekDispatches.filter((x) => (x._localDate || x.dispatchDate || x.date) === key) || []).length;
+      arr.push({ date: key, count });
+    }
+    return arr;
+  }, [weekRange, weekDispatches]);
+
+  const hourlyDistributionLocal = useMemo(() => {
+    const buckets = Array.from({ length: 24 }, (_, h) => ({ hour: h, count: 0 }));
+    const parseToMs = (val) => {
+      if (val == null) return null;
+      if (typeof val === "number") return val < 1e12 ? val * 1000 : val;
+      const s = String(val).trim();
+      if (/^\d+$/.test(s)) {
+        const n = Number(s);
+        return n < 1e12 ? n * 1000 : n;
+      }
+      const p = Date.parse(s);
+      return Number.isNaN(p) ? null : p;
+    };
+    weekDispatches.forEach((d) => {
+      const candidate = d.scheduledDepartureTime ?? d.scheduledDeparture ?? d.departureTime ?? d.scheduledDeparture;
+      const ms = parseToMs(candidate);
+      if (!ms) return;
+      const h = new Date(ms).getHours();
+      if (!Number.isNaN(h) && h >= 0 && h < 24) buckets[h].count += 1;
+    });
+    return buckets;
+  }, [weekDispatches]);
+
+  const { todayCounts, todayTotal } = useMemo(() => {
+    const counts = { SCHEDULED: 0, RUNNING: 0, COMPLETED: 0, CANCELED: 0 };
+    if (Array.isArray(dispatches7d)) {
+      dispatches7d.forEach(d => {
+        const dateKey = d._localDate || d.dispatchDate || d.date || null;
+        if (!dateKey) return;
+        if (dateKey !== todayStr) return; // 오늘 것만 카운트
+
+        const raw = String(d.status ?? d.dispatchStatus ?? d.state ?? d.statusCode ?? '').trim().toUpperCase();
+        let key = 'SCHEDULED';
+        if (raw.includes('RUN')) key = 'RUNNING';
+        else if (raw.includes('COMP')) key = 'COMPLETED';
+        else if (raw.includes('CANCEL')) key = 'CANCELED';
+
+        counts[key] = (counts[key] || 0) + 1;
+      });
+    }
+    const total = counts.SCHEDULED + counts.RUNNING + counts.COMPLETED + counts.CANCELED;
+    return { todayCounts: counts, todayTotal: total };
+  }, [dispatches7d, todayStr]);
 
   return (
-    <div>
-      <h2 className="text-2xl font-bold text-gray-900 mb-8 text-left">대시보드</h2>
+    <div className="p-6 bg-white">
+      <section aria-label="상단 헤더" className="mb-8">
+        <header className="flex items-center justify-between flex-wrap">
+          <h2 className="text-3xl font-extrabold text-gray-900 tracking-tight">대시보드</h2>
+        </header>
+      </section>
 
-        {/* 핵심 통계 */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-xl border border-gray-200/80 shadow-lg shadow-gray-300/40 p-6">
+      {/* KPI 카드 */}
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 mb-10">
+        {[
+          { title: "금일 총 배차", value: todayTotal, icon: <IoStatsChartOutline className="text-3xl text-blue-500" /> },
+          { title: "예정", value: todayCounts?.SCHEDULED ?? 0, icon: <IoCarSportOutline className="text-3xl text-green-500" /> },
+          { title: "운행중", value: todayCounts?.RUNNING ?? 0, icon: <IoCarSportOutline className="text-3xl text-blue-500" /> },
+          { title: "완료", value: todayCounts?.COMPLETED ?? 0, icon: <IoCheckmarkDoneOutline className="text-3xl text-orange-500" /> },
+          { title: "취소", value: todayCounts?.CANCELED ?? 0, icon: <IoClose className="text-3xl text-red-500" /> },
+        ].map((card, idx) => (
+          <div key={idx} className="bg-white rounded-2xl border border-gray-200 p-6 shadow-md hover:shadow-lg transition-shadow duration-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">오늘 총 배차</p>
-                <p className="text-2xl font-bold text-gray-900">{loading ? "—" : kpiCounts.todayTotal}</p>
+                <p className="text-sm font-medium text-gray-500">{card.title}</p>
+                <p className="mt-1 text-2xl sm:text-3xl font-bold text-gray-900">{dashLoading ? "—" : card.value ?? "—"}</p>
               </div>
-              <IoCarSportOutline className="text-3xl text-blue-500" />
+              {card.icon}
             </div>
           </div>
+        ))}
+      </section>
 
-          <div className="bg-white rounded-xl border border-gray-200/80 shadow-lg shadow-gray-300/40 p-6">
-            <div className="flex items-center justify-between">
+      {/* 메인 레이아웃 */}
+      <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* 차트 영역 */}
+        <main className="lg:col-span-2 space-y-6">
+          {/* 주간 배차 통계 카드 */}
+          <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-md hover:shadow-lg transition-shadow duration-200">
+            <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-sm font-medium text-gray-600">운행 중</p>
-                <p className="text-2xl font-bold text-green-600">{loading ? "—" : runningDispatches.length}</p>
+                <h4 className="text-lg font-semibold flex items-center gap-2">
+                  주간 배차 통계
+                </h4>
+                <div className="text-sm text-gray-500">기간: {weekRange.startStr} — {weekRange.endStr}</div>
               </div>
-              <IoStatsChartOutline className="text-3xl text-green-500" />
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl border border-gray-200/80 shadow-lg shadow-gray-300/40 p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">등록 운전자</p>
-                <p className="text-2xl font-bold text-purple-600">{loading ? "—" : kpiCounts.totalDrivers}</p>
-              </div>
-              <IoPeopleOutline className="text-3xl text-purple-500" />
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl border border-gray-200/80 shadow-lg shadow-gray-300/40 p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">미읽은 알림</p>
-                <p className="text-2xl font-bold text-orange-600">{loading ? "—" : kpiCounts.unreadNotifications}</p>
-              </div>
-              <IoNotificationsOutline className="text-3xl text-orange-500" />
-            </div>
-          </div>
-        </div>
-
-        {/* 메인 컨텐츠 영역 */}
-        <div className="grid lg:grid-cols-3 gap-6 mb-8">
-          {/* 오늘의 운행 현황 */}
-          <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200/80 shadow-lg shadow-gray-300/40">
-            <div className="px-6 py-4 border-b border-gray-200/60">
-              <h3 className="text-lg font-semibold text-gray-900">오늘의 운행 현황</h3>
-            </div>
-            <div className="p-6">
-              {loading ? (
-                <div className="text-center py-8 text-gray-500">데이터 로딩 중...</div>
-              ) : ((scheduledDispatches.length || runningDispatches.length || completedDispatches.length) === 0) ? (
-                <div className="text-center py-8 text-gray-500">오늘 예정된 배차가 없습니다.</div>
-              ) : (
-                <div>
-                  <div className="flex space-x-2 mb-4">
-                    <button onClick={() => setActiveTab('scheduled')} className={`px-3 py-2 rounded ${activeTab==='scheduled' ? 'bg-blue-500 text-white' : 'bg-white'}`}>예정 ({scheduledDispatches.length})</button>
-                    <button onClick={() => setActiveTab('running')} className={`px-3 py-2 rounded ${activeTab==='running' ? 'bg-green-500 text-white' : 'bg-white'}`}>운행중 ({runningDispatches.length})</button>
-                    <button onClick={() => setActiveTab('completed')} className={`px-3 py-2 rounded ${activeTab==='completed' ? 'bg-gray-700 text-white' : 'bg-white'}`}>완료 ({completedDispatches.length})</button>
-                  </div>
-
-                  {activeTab === 'scheduled' && (
-                    <div className="space-y-2">
-                      {scheduledDispatches.slice(0, 6).map((dispatch) => (
-                        <div key={dispatch.dispatchId} className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200">
-                          <div className="flex items-center gap-3">
-                            <IoTimerOutline className="text-blue-600" />
-                            <div>
-                              <p className="font-medium text-blue-900">{dispatch.driverName || `운전자 ${dispatch.driverId}`}</p>
-                              <p className="text-sm text-blue-700">예정: {dispatch.scheduledDepartureTime ?? dispatch.scheduledDeparture ?? dispatch.departureTime}</p>
-                            </div>
-                          </div>
-                          <div className="text-sm text-blue-600">차량: {dispatch.vehicleNumber || dispatch.busId || 'N/A'}</div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {activeTab === 'running' && (
-                    <div className="space-y-2">
-                      {runningDispatches.slice(0, 6).map((dispatch) => (
-                        <div key={dispatch.dispatchId} className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
-                          <div className="flex items-center gap-3">
-                            <IoBusOutline className="text-green-600" />
-                            <div>
-                              <p className="font-medium text-green-900">{dispatch.driverName || `운전자 ${dispatch.driverId}`}</p>
-                              <p className="text-sm text-green-700">예정: {dispatch.scheduledDepartureTime ?? dispatch.scheduledDeparture ?? dispatch.departureTime} • 실제: {dispatch.actualDepartureTime ?? dispatch.actualDeparture ?? '-'}</p>
-                            </div>
-                          </div>
-                          <div className="text-sm text-green-600">차량: {dispatch.vehicleNumber || dispatch.busId || 'N/A'}</div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {activeTab === 'completed' && (
-                    <div className="space-y-2">
-                      {completedDispatches.slice(0, 6).map((dispatch) => (
-                        <div key={dispatch.dispatchId} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
-                          <div className="flex items-center gap-3">
-                            <IoCheckmarkCircleOutline className="text-gray-700" />
-                            <div>
-                              <p className="font-medium text-gray-900">{dispatch.driverName || `운전자 ${dispatch.driverId}`}</p>
-                              <p className="text-sm text-gray-600">예정: {dispatch.scheduledDepartureTime ?? dispatch.scheduledDeparture ?? '-'} • 도착: {dispatch.actualArrivalTime ?? dispatch.actualArrival ?? '-'}</p>
-                            </div>
-                          </div>
-                          <div className="text-sm text-gray-500">차량: {dispatch.vehicleNumber || dispatch.busId || 'N/A'}</div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+              <div className="flex flex-col items-end gap-3">
+                <div className="text-right">
+                  <div className="text-sm text-gray-500">총 배차</div>
+                  <div className="text-3xl font-extrabold text-gray-900">{weekStats.total}</div>
                 </div>
-              )}
-            </div>
-          </div>
-
-          {/* 빠른 액션 */}
-          <div className="space-y-6">
-            {/* 주간 요약 */}
-            <div className="bg-white rounded-xl border border-gray-200/80 shadow-lg shadow-gray-300/40">
-              <div className="px-6 py-4 border-b border-gray-200/60">
-                <h3 className="text-lg font-semibold text-gray-900">이번 주 요약</h3>
-              </div>
-              <div className="p-4 space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
                   <div className="flex items-center gap-2">
-                    <IoCarSportOutline className="text-blue-500" />
-                    <span className="text-sm text-gray-600">총 배차</span>
+                    <span className="w-2.5 h-2.5 rounded-full bg-green-500" />
+                    <div className="text-sm text-gray-600">완료 <span className="font-semibold text-green-600">{weekStats.completed}</span></div>
                   </div>
-                  <span className="text-lg font-bold text-blue-600">{dispatches7d.length}건</span>
-                </div>
-                
-                <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <IoPeopleOutline className="text-purple-500" />
-                    <span className="text-sm text-gray-600">활동 운전자</span>
-                  </div>
-                  <span className="text-lg font-bold text-purple-600">
-                    {new Set(dispatches7d.map(d => d.driverId)).size}명
-                  </span>
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <IoBusOutline className="text-green-500" />
-                    <span className="text-sm text-gray-600">운행 버스</span>
-                  </div>
-                  <span className="text-lg font-bold text-green-600">
-                    {new Set(dispatches7d.map(d => d.busId)).size}대
-                  </span>
-                </div>
-                
-                <div className="pt-2 border-t border-gray-100">
-                  <div className="flex items-center justify-between text-xs text-gray-500">
-                    <span>최근 7일 기준</span>
-                    <span>매일 평균 {Math.round(dispatches7d.length / 7)}건</span>
+                    <span className="w-2.5 h-2.5 rounded-full bg-red-500" />
+                    <div className="text-sm text-gray-600">취소 <span className="font-semibold text-red-600">{weekStats.canceled}</span></div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
 
-        {/* 최근 활동 */}
-        {completedDispatches.length > 0 && (
-          <div className="bg-white rounded-xl border border-gray-200/80 shadow-lg shadow-gray-300/40">
-            <div className="px-6 py-4 border-b border-gray-200/60">
-              <h3 className="text-lg font-semibold text-gray-900">오늘 완료된 운행 ({completedDispatches.length}건)</h3>
-            </div>
-            <div className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {completedDispatches.slice(0, 6).map((dispatch) => (
-                  <div key={dispatch.dispatchId} className="p-4 bg-gray-50 rounded-lg shadow-md shadow-gray-200/50">
-                    <div className="flex items-center gap-2 mb-2">
-                      <IoCheckmarkCircleOutline className="text-green-500" />
-                      <span className="font-medium text-gray-900">{dispatch.driverName || `운전자 ${dispatch.driverId}`}</span>
-                    </div>
-                    <p className="text-sm text-gray-600">{dispatch.departureTime} - {dispatch.arrivalTime}</p>
-                    <p className="text-sm text-gray-500">버스 {dispatch.vehicleNumber || dispatch.busId || 'N/A'}</p>
-                  </div>
-                ))}
-              </div>
-              {completedDispatches.length > 6 && (
-                <div className="text-center mt-4">
-                  <button 
-                    onClick={() => navigate('/operating-schedule')}
-                    className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-                  >
-                    전체 보기 →
-                  </button>
-                </div>
-              )}
-            </div>
+          {/* 주간 차트 */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <section className="bg-white rounded-2xl border border-gray-200 p-4 shadow-md hover:shadow-lg transition-shadow duration-200">
+              <h5 className="text-sm font-semibold mb-3">주간 배차 추이</h5>
+              <WeeklyDispatchBar data={weeklyChartData} />
+            </section>
+
+            <section className="bg-white rounded-2xl border border-gray-200 p-4 shadow-md hover:shadow-lg transition-shadow duration-200">
+              <h5 className="text-sm font-semibold mb-3">시간대별 출발 분포 (주간 기준)</h5>
+              <HourlyDepartureColumn data={hourlyDistributionLocal} />
+            </section>
           </div>
-        )}
+        </main>
+
+        {/* 오른쪽: 알림 패널 */}
+        <aside
+          className="bg-white rounded-2xl border border-gray-200 p-4 shadow-md hover:shadow-lg transition-shadow duration-200 cursor-pointer"
+          onClick={() => { try { navigate('/insight'); } catch {} }}
+          role="button"
+          tabIndex={0}
+        >
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="text-sm font-semibold">안읽은 알림</h4>
+            <span className="text-xs text-gray-500">{notifications?.length ?? 0}개</span>
+          </div>
+
+          {notificationsLoading ? (
+            <div className="text-gray-500">로딩 중…</div>
+          ) : !notifications || notifications.length === 0 ? (
+            <div className="text-gray-500 text-sm">미읽음 알림이 없습니다.</div>
+          ) : (
+            <ul className="space-y-2">
+              {notifications.slice(0,5).map(n => (
+                <li key={n.id} className="p-2 rounded-lg border border-gray-100 hover:bg-gray-50 transition-colors duration-150">
+                  <div className="text-sm text-gray-800 truncate">{n.message || '알림'}</div>
+                  <div className="text-xs text-gray-400 mt-1">{(n.createdAt && new Date(n.createdAt).toLocaleString()) || ''}</div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </aside>
+      </section>
     </div>
   );
 };

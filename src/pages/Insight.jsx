@@ -5,7 +5,9 @@ import { useWebSocket } from '../components/WebSocket/WebSocketProvider';
 import { useNotification } from '../components/Notification/contexts/NotificationProvider';
 import { useDriveDetailAPI } from '../hooks/useDriveDetailAPI';
 import { useToken } from '../components/Token/TokenProvider';
-import KakaoMap from '../components/Map/Map';
+import KakaoMapContainer from '../components/Map/KakaoMapContainer';
+import RealtimeMarkers from '../components/Map/RealtimeMarkers';
+import EventMarkers from '../components/Map/EventMarkers';
 
 // Insight 페이지: status 기반 KPI (금일 배차 / 완료 / 지연 / 남은) + RUNNING 리스트 + 알림 + 지도
 
@@ -236,7 +238,12 @@ const Insight = () => {
   <div className="lg:col-span-7 bg-white rounded-xl shadow-sm border border-gray-100 p-3 md:p-4 transition-[width]">
 
             <div className="relative rounded-xl overflow-hidden ring-1 ring-gray-100">
-            <KakaoMap markers={markers.filter(Boolean)} height="420px" />
+            <KakaoMapContainer height="420px" level={4}>
+              {/* RealtimeMarkers displays driver avatar + label (uses markers from hook) */}
+              <RealtimeMarkers drivers={markers.filter(Boolean).map(m => ({ lat: m.lat, lng: m.lng, label: m.title || m.vehicleNumber || m.driverName, avatar: m.avatar }))} />
+              {/* EventMarkers can be used if you have aggregated running events to show pins - leave empty if not available */}
+              <EventMarkers events={[]} />
+            </KakaoMapContainer>
             {markers.filter(Boolean).length === 0 && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <div className="text-sm text-gray-500 bg-white/80 backdrop-blur rounded-full px-4 py-1 ring-1 ring-gray-200">실시간 위치 없음</div>

@@ -5,7 +5,10 @@ import axios from "axios";
 import { useDriverAPI } from "../hooks/useDriverAPI";
 import { useDriverDispatchAPI } from "../hooks/useDriverDispatchAPI";
 import { useToken } from "../components/Token/TokenProvider";
-import KakaoMap from "../components/Map/Map";
+import KakaoMapContainer from "../components/Map/KakaoMapContainer";
+import RoutePolyline from "../components/Map/RoutePolyline";
+import EventMarkers from "../components/Map/EventMarkers";
+import RealtimeMarkers from "../components/Map/RealtimeMarkers";
 import { useDriveDetailAPI } from "../hooks/useDriveDetailAPI";
 
 const DriveDetail = ({ onBackToInsight }) => {
@@ -186,10 +189,14 @@ const DriveDetail = ({ onBackToInsight }) => {
     };
   };
 
-  // map에 전달할 마커/폴리라인을 안정적으로 생성: 숫자로 강제 변환하고 유효 좌표만 남김
-  const mapMarkers = driveEvents
-    .map(evRaw => {
-      const ev = normalizeDriveEvent(evRaw);
+  // 이벤트에 인덱스를 추가하고, 지도용 마커 목록을 생성
+  const driveEventsWithIndex = React.useMemo(() => {
+    const arr = Array.isArray(driveEvents) ? driveEvents : [];
+    return arr.map((raw, idx) => ({ ...normalizeDriveEvent(raw), _index: idx + 1 }));
+  }, [driveEvents]);
+
+  const mapMarkers = driveEventsWithIndex
+    .map(ev => {
       return {
         lat: ev.latitude != null ? Number(ev.latitude) : null,
         lng: ev.longitude != null ? Number(ev.longitude) : null,
@@ -201,6 +208,8 @@ const DriveDetail = ({ onBackToInsight }) => {
           ev.eventType === 'SEATBELT_UNFASTENED' ? 'https://cdn-icons-png.flaticon.com/512/2919/2919906.png' :
           ev.eventType === 'PHONE_USAGE' ? 'https://cdn-icons-png.flaticon.com/512/15047/15047587.png' :
           undefined,
+        // 지도에 번호핀으로 렌더링하기 위한 레이블(인덱스)
+        label: ev._index,
       };
     })
     .filter(m => Number.isFinite(m.lat) && Number.isFinite(m.lng));
@@ -441,11 +450,23 @@ const DriveDetail = ({ onBackToInsight }) => {
                 부가 데이터 조회 실패: {extraError}
               </div>
             )}
-            <KakaoMap
-              polyline={driveLocations.map(loc => ({ lat: Number(loc.latitude), lng: Number(loc.longitude) })).filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lng))}
-              markers={mapMarkers}
-              height="340px"
-            />
+            <KakaoMapContainer height="340px" level={4}>
+              <RoutePolyline
+                path={driveLocations.map(loc => ({ lat: Number(loc.latitude), lng: Number(loc.longitude) })).filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lng))}
+                color="#2563eb"
+              />
+              <EventMarkers
+                mode="pin"
+                events={mapMarkers.map(m => ({ lat: m.lat, lng: m.lng, imageSrc: m.imageSrc, label: m.label }))}
+              />
+              {/* show static driver/bus marker as an overlay (non-realtime for completed dispatches) */}
+              <RealtimeMarkers drivers={[{
+                lat: Number(driveData.bus?.lat ?? driveData.bus?.latitude ?? 0),
+                lng: Number(driveData.bus?.lng ?? driveData.bus?.longitude ?? 0),
+                avatar: driveData.driver?.avatarUrl,
+                label: driveData.driver?.username || driveData.driver?.driverName || driveData.bus?.vehicleNumber
+              }].filter(d => Number.isFinite(d.lat) && Number.isFinite(d.lng))} />
+            </KakaoMapContainer>
           </div>
           {/* 상세 이벤트 이력 */}
           <div className="bg-white border border-gray-100 rounded-lg shadow-sm p-6">
@@ -456,39 +477,41 @@ const DriveDetail = ({ onBackToInsight }) => {
               <div className="max-h-72 overflow-y-auto pr-2">
                 <div className="space-y-3">
                   {driveEvents
-                    .map(e => normalizeDriveEvent(e))
+                    .map((e, idx) => ({ ...normalizeDriveEvent(e), _index: idx + 1 }))
                     .sort((a, b) => new Date(a.eventTimestamp || a.eventTime) - new Date(b.eventTimestamp || b.eventTime))
                     .map((ev, idx) => (
-                      <div key={ev.drivingEventId || idx} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <div className="flex items-center gap-2 mb-2">
-                              <span className={`px-2 py-1 rounded text-xs font-bold ${
-                                ev.eventType === 'DROWSINESS' ? 'bg-red-50 text-red-700' :
-                                ev.eventType === 'ACCELERATION' ? 'bg-yellow-50 text-yellow-700' :
-                                ev.eventType === 'BRAKING' ? 'bg-orange-50 text-orange-700' :
-                                ev.eventType === 'SMOKING' ? 'bg-purple-50 text-purple-700' :
-                                ev.eventType === 'SEATBELT_UNFASTENED' ? 'bg-blue-50 text-blue-700' :
-                                ev.eventType === 'PHONE_USAGE' ? 'bg-pink-50 text-pink-700' :
-                                'bg-gray-50 text-gray-700'
-                              }`}>
-                                {ev.eventType === "DROWSINESS" ? "졸음운전" :
-                                 ev.eventType === "ACCELERATION" ? "급가속" :
-                                 ev.eventType === "BRAKING" ? "급제동" :
-                                 ev.eventType === "SMOKING" ? "흡연" :
-                                 ev.eventType === "SEATBELT_UNFASTENED" ? "안전벨트 미착용" :
-                                 ev.eventType === "PHONE_USAGE" ? "휴대폰 사용" :
-                                 ev.eventType}
-                              </span>
+                          <div key={ev.drivingEventId || idx} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition">
+                            <div className="flex justify-between items-start">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-3 mb-2">
+                                  {/* 인덱스 배지 */}
+                                  <span className="inline-flex items-center justify-center">{ev._index}</span>
+                                  <span className={`px-2 py-1 rounded text-xs font-bold ${
+                                    ev.eventType === 'DROWSINESS' ? 'bg-red-50 text-red-700' :
+                                    ev.eventType === 'ACCELERATION' ? 'bg-yellow-50 text-yellow-700' :
+                                    ev.eventType === 'BRAKING' ? 'bg-orange-50 text-orange-700' :
+                                    ev.eventType === 'SMOKING' ? 'bg-purple-50 text-purple-700' :
+                                    ev.eventType === 'SEATBELT_UNFASTENED' ? 'bg-blue-50 text-blue-700' :
+                                    ev.eventType === 'PHONE_USAGE' ? 'bg-pink-50 text-pink-700' :
+                                    'bg-gray-50 text-gray-700'
+                                  }`}> 
+                                    {ev.eventType === "DROWSINESS" ? "졸음운전" :
+                                     ev.eventType === "ACCELERATION" ? "급가속" :
+                                     ev.eventType === "BRAKING" ? "급제동" :
+                                     ev.eventType === "SMOKING" ? "흡연" :
+                                     ev.eventType === "SEATBELT_UNFASTENED" ? "안전벨트 미착용" :
+                                     ev.eventType === "PHONE_USAGE" ? "휴대폰 사용" :
+                                     ev.eventType}
+                                  </span>
+                                </div>
+                                <p className="text-gray-700 text-sm">{ev.description}</p>
+                              </div>
+                              <div className="text-right text-xs text-gray-500">
+                                {ev.eventTimestamp ? new Date(ev.eventTimestamp).toLocaleString('ko-KR') : '—'}
+                              </div>
                             </div>
-                            <p className="text-gray-700 text-sm">{ev.description}</p>
                           </div>
-                          <div className="text-right text-xs text-gray-500">
-                            {ev.eventTimestamp ? new Date(ev.eventTimestamp).toLocaleString('ko-KR') : '—'}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                        ))}
                 </div>
               </div>
             )}

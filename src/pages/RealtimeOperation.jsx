@@ -1,146 +1,82 @@
 import React from 'react';
-import axios from 'axios';
 import { useParams, useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import { IoArrowBack } from 'react-icons/io5';
 import useLiveDispatch from '../hooks/useLiveDispatch';
-import KakaoMap from '../components/Map/Map';
-import { useNotification } from '../components/Notification/contexts/NotificationProvider';
 import { useToken } from '../components/Token/TokenProvider';
+import KakaoMapContainer from '../components/Map/KakaoMapContainer';
+import RealtimeMarkers from '../components/Map/RealtimeMarkers';
+import EventMarkers from '../components/Map/EventMarkers';
 
-// RealtimeOperation - Phase 1.5 리디자인
-// 구조:
-// 1) 상단: 요약 헤더 (배차/운전자/차량 상태 + 상태 배지)
-// 2) 본문 2열 (lg 이상):
-//    - 좌측 (지도 패널): 경로/현재 위치
-//    - 우측 (정보 패널): OBD 테이블, 실시간 KPI 칩, 관련 알림 목록
-// 모바일/태블릿에서는 순차적 단일 컬럼으로 스택
-
-const RealtimeOperation = () => {
+// RealtimeOperation 페이지
+// - UI 전용 파일: 데이터는 모두 useLiveDispatch 훅에서 제공받습니다.
+// - 주석은 모두 한국어로 작성되어 있습니다.
+export default function RealtimeOperation() {
   const { id } = useParams();
   const navigate = useNavigate();
   const dispatchId = id;
-  const { loading, error, meta, latestLocation, kpis, stale } = useLiveDispatch(dispatchId);
-  const [metaLocal, setMetaLocal] = React.useState(null);
-  // 운행 이벤트 목록 상태
-  const [driveEvents, setDriveEvents] = React.useState([]);
-  const [eventLoading, setEventLoading] = React.useState(true);
-  const [eventError, setEventError] = React.useState(null);
-  const [driveRecord, setDriveRecord] = React.useState(null);
-  const [recordLoading, setRecordLoading] = React.useState(false);
-  const [recordError, setRecordError] = React.useState(null);
-  const { getAccessToken } = useToken();
-  const { version: notificationVersion, notifications } = useNotification();
+  const { getToken: getAccessToken } = useToken();
+
+  // useLiveDispatch 훅에서 실시간 위치/OBD, 이벤트, 주행기록을 모두 가져옵니다.
+  const {
+    loading,
+    error,
+    meta,
+    latestLocation,
+    latestObd,
+    kpis,
+    stale,
+    locationSamples,
+    obdSamples,
+    driveEvents,
+    driveRecord,
+    eventsLoading,
+    eventsError,
+    refreshEvents,
+  } = useLiveDispatch(dispatchId);
+
   const [ending, setEnding] = React.useState(false);
   const [endError, setEndError] = React.useState(null);
 
-  // 이벤트 로드 함수(재사용)
-  const fetchEvents = React.useCallback(async () => {
-    if (!dispatchId) return;
-    setEventLoading(true);
-    setEventError(null);
-    try {
-      const token = getAccessToken();
-      const headers = token ? { Authorization: `Bearer ${token}` } : {};
-      // fetch events and driving-record in parallel
-      setRecordLoading(true);
-      const [eventsRes, recordRes] = await Promise.all([
-        axios.get(`/api/admin/dispatches/${dispatchId}/events`, { headers }),
-        axios.get(`/api/admin/dispatches/${dispatchId}/driving-record`, { headers }).catch(e => ({ __err: e }))
-      ]);
-      const eventsData = eventsRes.data?.data ?? eventsRes.data ?? [];
-      setDriveEvents(Array.isArray(eventsData) ? eventsData : [eventsData]);
-      if (recordRes && recordRes.__err) {
-        setDriveRecord(null);
-        setRecordError(recordRes.__err.response?.data?.message || recordRes.__err.message || '운행기록 조회 실패');
-      } else {
-        const rec = recordRes.data?.data ?? recordRes.data ?? null;
-        setDriveRecord(rec);
-        setRecordError(null);
-      }
-    } catch (err) {
-      setEventError(err.response?.data?.message || err.message || '운행 이벤트 조회 실패');
-      setDriveEvents([]);
-      setDriveRecord(null);
-      setRecordError(null);
-    } finally {
-      setEventLoading(false);
-      setRecordLoading(false);
-    }
-  }, [dispatchId, getAccessToken]);
-
-  // 초기 및 dispatchId 변경 시 최초 로드
-  React.useEffect(() => {
-    fetchEvents();
-  }, [fetchEvents]);
-
-  // 알림이 도착하면 관련 배차에 대한 이벤트를 재요청
-  React.useEffect(() => {
-    if (!dispatchId) return;
-    try {
-      // 이전에 본 알림 id 집합을 유지하여 새로 추가된 알림만 처리
-      if (!RealtimeOperation._prevNotifIds) RealtimeOperation._prevNotifIds = new Set();
-      const prevIds = RealtimeOperation._prevNotifIds;
-      const current = Array.isArray(notifications) ? notifications : [];
-      const currentIds = new Set(current.map(n => n?.id).filter(Boolean));
-
-      // 새로 추가된 id 목록 계산
-      const newIds = Array.from(currentIds).filter(id => !prevIds.has(id));
-
-      // prevIds 갱신
-      RealtimeOperation._prevNotifIds = currentIds;
-
-      if (newIds.length === 0) return;
-
-      // 새로 추가된 알림들 중 dispatchId가 현재 dispatchId와 일치하는 것이 있는지 확인
-      const related = newIds.some(id => {
-        const n = current.find(x => x?.id === id);
-        if (!n) return false;
-        const nid = n.dispatchId ?? n.dispatchID ?? n.refId ?? n.referenceId ?? n.data?.dispatchId ?? n.payload?.dispatchId ?? null;
-        return nid != null && String(nid) === String(dispatchId);
-      });
-
-      if (related) {
-        fetchEvents();
-      }
-    } catch (e) {
-      console.warn('[RealtimeOperation] 알림 수신 처리 중 오류', e);
-    }
-  }, [notificationVersion, notifications, dispatchId, fetchEvents]);
-
-  // 지도 마커 (단일)
+  // 지도 마커 생성: 현재 위치가 유효할 때만 표시
   const markers = React.useMemo(() => {
     if (!latestLocation) return [];
-    const lat = latestLocation.latitude || latestLocation.lat;
-    const lng = latestLocation.longitude || latestLocation.lng;
+    const lat = latestLocation.latitude ?? latestLocation.lat;
+    const lng = latestLocation.longitude ?? latestLocation.lng;
     if (typeof lat !== 'number' || typeof lng !== 'number') return [];
     return [{ id: dispatchId, lat, lng, title: meta?.driverName || '현재 위치' }];
   }, [latestLocation, meta, dispatchId]);
 
-  // 지도 중심 좌표 (사용자 위치 기준)
+  // 이벤트에 인덱스 추가
+  const driveEventsWithIndex = React.useMemo(() => {
+    const arr = Array.isArray(driveEvents) ? driveEvents : [];
+    return arr.map((ev, idx) => ({ ...ev, _index: idx + 1 }));
+  }, [driveEvents]);
+
+  // 지도 중심 좌표 계산
   const mapCenter = React.useMemo(() => {
     if (!latestLocation) return null;
-    const lat = latestLocation.latitude || latestLocation.lat;
-    const lng = latestLocation.longitude || latestLocation.lng;
+    const lat = latestLocation.latitude ?? latestLocation.lat;
+    const lng = latestLocation.longitude ?? latestLocation.lng;
     if (typeof lat !== 'number' || typeof lng !== 'number') return null;
     return { lat, lng };
   }, [latestLocation]);
 
-  // OBD / KPI 데이터 구성
+  // OBD/지표 표시용 행
   const obdRows = React.useMemo(() => [
-    { label: '속도', value: fmtNum(kpis.speed, 'km/h') },
-    { label: 'RPM', value: fmtNum(kpis.rpm, 'rpm') },
-    { label: 'SOC', value: fmtNum(kpis.soc, '%') },
-    { label: '토크', value: fmtNum(kpis.torque) },
-    { label: '스로틀', value: fmtNum(kpis.throttle, '%') },
-    { label: '브레이크', value: fmtNum(kpis.brake, '%') },
-    { label: 'Stalled', value: kpis.stalled == null ? '—' : (kpis.stalled ? 'YES' : 'NO') },
-    { label: '위치 갱신', value: kpis.lastLocationAgeSec == null ? '—' : `${kpis.lastLocationAgeSec}초 전`, isAge: true },
-    { label: 'OBD 갱신', value: kpis.lastObdAgeSec == null ? '—' : `${kpis.lastObdAgeSec}초 전`, isAge: true },
+    { label: '속도', value: fmtNum(kpis?.speed, 'km/h') },
+    { label: 'RPM', value: fmtNum(kpis?.rpm, 'rpm') },
+    { label: 'SOC', value: fmtNum(kpis?.soc, '%') },
+    { label: '토크', value: fmtNum(kpis?.torque) },
+    { label: '스로틀', value: fmtNum(kpis?.throttle, '%') },
+    { label: '브레이크', value: fmtNum(kpis?.brake, '%') },
+    { label: 'Stalled', value: kpis?.stalled == null ? '—' : (kpis.stalled ? 'YES' : 'NO') },
+    { label: '위치 갱신', value: kpis?.lastLocationAgeSec == null ? '—' : `${kpis.lastLocationAgeSec}초 전`, isAge: true },
+    { label: 'OBD 갱신', value: kpis?.lastObdAgeSec == null ? '—' : `${kpis.lastObdAgeSec}초 전`, isAge: true },
   ], [kpis]);
 
   return (
     <div className="max-w-7xl mx-auto p-4 space-y-5" role="main" aria-label="실시간 운행">
-      {/* 뒤로가기 버튼 */}
       <button
         onClick={() => navigate(-1)}
         className="flex items-center gap-2 px-4 py-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors"
@@ -149,15 +85,13 @@ const RealtimeOperation = () => {
         <span className="font-medium">뒤로가기</span>
       </button>
 
-      {/* 헤더 */}
       <div className="space-y-3">
         <h1 className="text-2xl font-bold text-gray-900 text-left">실시간 운행</h1>
         <div className="flex items-center flex-wrap gap-3">
-          <MetaPill color="indigo" label="운전자" value={(metaLocal || meta)?.driverName || '—'} />
-          <MetaPill color="teal" label="차량" value={(metaLocal || meta)?.vehicleNumber || '—'} />
-          <StatusPill status={(metaLocal || meta)?.status} />
-          {/* Live 버튼/표시는 제거됨 */}
-          {( (metaLocal || meta)?.status !== 'COMPLETED' ) && (
+          <MetaPill color="indigo" label="운전자" value={meta?.driverName || '—'} />
+          <MetaPill color="teal" label="차량" value={meta?.vehicleNumber || '—'} />
+          <StatusPill status={meta?.status} />
+          {(meta?.status !== 'COMPLETED') && (
             <button
               onClick={async () => {
                 if (!dispatchId) return;
@@ -165,15 +99,14 @@ const RealtimeOperation = () => {
                 setEnding(true);
                 setEndError(null);
                 try {
-                  const token = getAccessToken();
+                  const token = getAccessToken && getAccessToken();
                   const headers = token ? { Authorization: `Bearer ${token}` } : {};
                   const resp = await axios.patch(`/api/admin/dispatches/${dispatchId}/end`, {}, { headers, timeout: 5000 });
+                  // 응답으로 최신 meta가 오면 화면 갱신
                   const data = resp.data?.data || resp.data;
-                  // 반영
-                  setMetaLocal(data);
-                  console.log('배차 종료 성공', data);
+                  // 단순히 새 meta로 덮어쓰기
+                  // useLiveDispatch 내부에서는 meta 상태를 관리하므로 여기선 강제 새로고침 대신 페이지 네비게이션이나 refresh 이벤트를 고려할 수 있음
                 } catch (e) {
-                  console.error('배차 종료 실패', e);
                   setEndError(e.response?.data?.message || e.message || '배차 종료 실패');
                 } finally {
                   setEnding(false);
@@ -194,19 +127,21 @@ const RealtimeOperation = () => {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-        {/* 좌측 지도 */}
         <section className="lg:col-span-7 bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex flex-col gap-3" aria-label="지도">
           <div className="flex items-center justify-between">
             <h2 className="font-semibold text-sm text-gray-800">경로 / 현재 위치</h2>
             {markers.length === 0 && <span className="text-[11px] text-gray-400">데이터 대기중…</span>}
           </div>
           <div className="relative rounded-lg overflow-hidden ring-1 ring-gray-100">
-            <KakaoMap 
-              markers={markers} 
-              height="480px" 
-              center={mapCenter}
-              level={4} // 적당한 축척 (약 250m)
-            />
+            <KakaoMapContainer height="480px" center={mapCenter} level={4}>
+              <RealtimeMarkers drivers={markers.map(m => ({ lat: m.lat, lng: m.lng, label: m.title || m.driverName || m.vehicleNumber, avatar: m.avatar }))} />
+              <EventMarkers mode="pin" events={driveEventsWithIndex.map(ev => ({
+                lat: Number(ev.latitude ?? ev.lat ?? ev.location?.latitude),
+                lng: Number(ev.longitude ?? ev.lng ?? ev.location?.longitude),
+                imageSrc: undefined,
+                label: ev._index
+              }))} />
+            </KakaoMapContainer>
             {markers.length === 0 && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <div className="text-sm text-gray-500 bg-white/85 backdrop-blur rounded-full px-4 py-1 ring-1 ring-gray-200">위치 데이터 없음</div>
@@ -215,9 +150,7 @@ const RealtimeOperation = () => {
           </div>
         </section>
 
-        {/* 우측 정보 패널 */}
         <aside className="lg:col-span-5 flex flex-col gap-5" aria-label="실시간 데이터 패널">
-          {/* OBD 카드 그리드 */}
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
             <div className="px-4 py-3 flex items-center justify-between border-b border-gray-100">
               <h2 className="font-semibold text-sm text-gray-800">OBD 실시간 데이터</h2>
@@ -239,7 +172,6 @@ const RealtimeOperation = () => {
                     }`}>
                       {r.value}
                     </span>
-                    {/* 데이터 갱신 시간 표시 */}
                     {r.isAge && (
                       <span className="absolute top-1.5 right-1.5 inline-flex items-center rounded-full bg-orange-100/80 backdrop-blur px-1.5 py-0.5 ring-1 ring-orange-200 text-[9px] font-semibold text-orange-600 group-hover:ring-orange-300">
                         TIME
@@ -251,17 +183,15 @@ const RealtimeOperation = () => {
             </div>
           </div>
 
-          {/* 운행 이벤트 목록 */}
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm flex flex-col h-full max-h-[360px]">
             <div className="px-4 py-3 border-b border-gray-100">
               <div className="flex items-center justify-between">
-                <h2 className="font-semibold text-sm text-gray-800">운행 이벤트 <span className="ml-1 text-[10px] font-normal text-gray-400">{driveEvents.length}</span></h2>
-                <div className="flex items-center gap-2">
-                  {eventLoading && <span className="text-[11px] text-gray-400">로딩중…</span>}
-                  {!eventLoading && driveEvents.length === 0 && <span className="text-[11px] text-gray-400">없음</span>}
+                  <h2 className="font-semibold text-sm text-gray-800">운행 이벤트 <span className="ml-1 text-[10px] font-normal text-gray-400">{driveEvents.length}</span></h2>
+                  <div className="flex items-center gap-2">
+                    {eventsLoading && <span className="text-[11px] text-gray-400">로딩중…</span>}
+                    {!eventsLoading && driveEvents.length === 0 && <span className="text-[11px] text-gray-400">없음</span>}
+                  </div>
                 </div>
-              </div>
-              {/* KPI 칩을 제목 아래에 배치 */}
               {driveRecord && (
                 <div className="mt-2 flex items-center gap-2 flex-wrap">
                   <KpiChip label="점수" value={`${driveRecord.drivingScore ?? 0}점`} />
@@ -275,17 +205,18 @@ const RealtimeOperation = () => {
               )}
             </div>
             <ul className="flex-1 overflow-auto divide-y divide-gray-100 text-xs">
-              {eventError && (
-                <li className="px-4 py-10 flex items-center justify-center text-[11px] text-rose-500">{eventError}</li>
+              {eventsError && (
+                <li className="px-4 py-10 flex items-center justify-center text-[11px] text-rose-500">{eventsError}</li>
               )}
-              {!eventLoading && driveEvents.length === 0 && !eventError && (
+              {!eventsLoading && driveEvents.length === 0 && !eventsError && (
                 <li className="px-4 py-10 flex items-center justify-center text-[11px] text-gray-400">이 배차에 대한 운행 이벤트가 없습니다.</li>
               )}
-              {driveEvents.map(ev => (
-                <li key={ev.drivingEventId} className="px-4 py-2 hover:bg-sky-50/60 transition-colors">
+              {driveEventsWithIndex.map(ev => (
+                <li key={ev.drivingEventId || ev._index} className="px-4 py-2 hover:bg-sky-50/60 transition-colors">
                   <div className="flex items-start justify-between gap-2">
                     <div className="space-y-0.5">
                       <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm text-gray-700">{ev._index}.</span>
                         <TypeBadge type={ev.eventType} />
                         <span className="font-medium text-gray-900">{ev.eventType}</span>
                       </div>
@@ -305,11 +236,9 @@ const RealtimeOperation = () => {
       </div>
     </div>
   );
-};
+}
 
-export default RealtimeOperation;
-
-// 작은 KPI 칩 컴포넌트 (여유 있는 패딩 + 그림자)
+// --- 하단 헬퍼 컴포넌트/유틸 ---
 const KpiChip = ({ label, value }) => (
   <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-gray-200 bg-white text-[12px] font-medium text-gray-700 shadow-sm">
     <span className="opacity-70 text-[11px]">{label}</span>
@@ -323,26 +252,12 @@ function fmtNum(v, suffix) {
   return String(v);
 }
 
-const Badge = ({ children, tone = 'gray' }) => {
-  const tones = {
-    green: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    rose: 'bg-rose-50 text-rose-700 border-rose-200',
-    amber: 'bg-amber-50 text-amber-700 border-amber-200',
-    gray: 'bg-gray-50 text-gray-600 border-gray-200'
-  };
-  const cls = tones[tone] || tones.gray;
-  return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border ${cls}`}>{children}</span>;
-};
-
-// 알림 타입 뱃지
 const TypeBadge = ({ type }) => {
   if (!type) return null;
   const map = {
-    // 기존 알림 타입들
     ALERT: 'bg-rose-100 text-rose-700 border-rose-200',
     WARNING: 'bg-amber-100 text-amber-700 border-amber-200',
     DRIVING_WARNING: 'bg-orange-100 text-orange-700 border-orange-200',
-    // 새로운 드라이빙 이벤트 타입들
     DROWSINESS: 'bg-red-100 text-red-700 border-red-200',
     ACCELERATION: 'bg-yellow-100 text-yellow-700 border-yellow-200',
     BRAKING: 'bg-orange-100 text-orange-700 border-orange-200',
@@ -351,8 +266,6 @@ const TypeBadge = ({ type }) => {
     PHONE_USAGE: 'bg-pink-100 text-pink-700 border-pink-200',
   };
   const cls = map[type] || 'bg-gray-100 text-gray-600 border-gray-200';
-  
-  // 타입별 한글 라벨
   const labels = {
     ALERT: 'ALERT',
     WARNING: 'WARNING', 
@@ -364,28 +277,10 @@ const TypeBadge = ({ type }) => {
     SEATBELT_UNFASTENED: '안전벨트',
     PHONE_USAGE: '휴대폰사용',
   };
-  
   const label = labels[type] || type;
   return <span className={`inline-flex items-center h-5 px-2 rounded-full text-[10px] font-semibold border ${cls}`}>{label}</span>;
 };
 
-function formatTime(d) {
-  if (!d) return '—';
-  try {
-    const date = d instanceof Date ? d : new Date(d);
-    return date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  } catch { return '—'; }
-}
-
-const Skeleton = ({ lines = 3 }) => (
-  <div className="space-y-2 animate-pulse" aria-label="loading">
-    {Array.from({ length: lines }).map((_, i) => (
-      <div key={i} className="h-3 rounded bg-gray-200" />
-    ))}
-  </div>
-);
-
-// 메타 정보 배지 컴포넌트
 const MetaPill = ({ label, value, color = 'gray' }) => {
   const tone = metaTone(color);
   return (
@@ -399,17 +294,16 @@ const MetaPill = ({ label, value, color = 'gray' }) => {
 
 function metaTone(color) {
   const map = {
-    indigo: { bg: 'bg-indigo-50', border: 'border-indigo-200', text: 'text-indigo-700', dot: 'bg-indigo-500' },
-    teal: { bg: 'bg-teal-50', border: 'border-teal-200', text: 'text-teal-700', dot: 'bg-teal-500' },
-    sky: { bg: 'bg-sky-50', border: 'border-sky-200', text: 'text-sky-700', dot: 'bg-sky-500' },
-    rose: { bg: 'bg-rose-50', border: 'border-rose-200', text: 'text-rose-700', dot: 'bg-rose-500' },
-    emerald: { bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700', dot: 'bg-emerald-500' },
-    gray: { bg: 'bg-gray-50', border: 'border-gray-200', text: 'text-gray-700', dot: 'bg-gray-400' },
+    indigo: { Abg: 'bg-indigo-50', border: 'border-indigo-200', text: 'text-indigo-700', dot: 'bg-indigo-500' },
+    teal: { Abg: 'bg-teal-50', border: 'border-teal-200', text: 'text-teal-700', dot: 'bg-teal-500' },
+    sky: { Abg: 'bg-sky-50', border: 'border-sky-200', text: 'text-sky-700', dot: 'bg-sky-500' },
+    rose: { Abg: 'bg-rose-50', border: 'border-rose-200', text: 'text-rose-700', dot: 'bg-rose-500' },
+    emerald: { Abg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700', dot: 'bg-emerald-500' },
+    gray: { Abg: 'bg-gray-50', border: 'border-gray-200', text: 'text-gray-700', dot: 'bg-gray-400' },
   };
   return map[color] || map.gray;
 }
 
-// 상태 Pill
 const StatusPill = ({ status }) => {
   if (!status) return <MetaPill label="상태" value="—" color="gray" />;
   const normalized = status.toUpperCase();
@@ -422,20 +316,11 @@ const StatusPill = ({ status }) => {
   return <MetaPill label="상태" value={status} color={color} />;
 };
 
-// Live / Stale 표현
-const LiveStatePill = ({ stale }) => {
-  const isLive = !stale?.location && !stale?.obd;
-  if (isLive) {
-    return (
-      <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[12px] font-semibold text-emerald-700">
-        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" aria-hidden />LIVE
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[12px] font-semibold text-amber-700">
-      <span className="w-2 h-2 rounded-full bg-amber-500" aria-hidden />
-      {stale.location && '위치 지연'}{stale.location && stale.obd && ' / '}{stale.obd && 'OBD 지연'}
-    </span>
-  );
-};
+function formatTime(d) {
+  if (!d) return '—';
+  try {
+    const date = d instanceof Date ? d : new Date(d);
+    return date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  } catch { return '—'; }
+}
+
