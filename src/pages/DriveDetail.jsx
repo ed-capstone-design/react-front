@@ -186,6 +186,25 @@ const DriveDetail = ({ onBackToInsight }) => {
     };
   };
 
+  // map에 전달할 마커/폴리라인을 안정적으로 생성: 숫자로 강제 변환하고 유효 좌표만 남김
+  const mapMarkers = driveEvents
+    .map(evRaw => {
+      const ev = normalizeDriveEvent(evRaw);
+      return {
+        lat: ev.latitude != null ? Number(ev.latitude) : null,
+        lng: ev.longitude != null ? Number(ev.longitude) : null,
+        imageSrc:
+          ev.eventType === 'DROWSINESS' ? 'https://cdn-icons-png.flaticon.com/512/565/565547.png' :
+          ev.eventType === 'ACCELERATION' ? 'https://cdn-icons-png.flaticon.com/512/565/565604.png' :
+          ev.eventType === 'BRAKING' ? 'https://cdn-icons-png.flaticon.com/512/565/565606.png' :
+          ev.eventType === 'SMOKING' ? 'https://cdn-icons-png.flaticon.com/512/2917/2917995.png' :
+          ev.eventType === 'SEATBELT_UNFASTENED' ? 'https://cdn-icons-png.flaticon.com/512/2919/2919906.png' :
+          ev.eventType === 'PHONE_USAGE' ? 'https://cdn-icons-png.flaticon.com/512/15047/15047587.png' :
+          undefined,
+      };
+    })
+    .filter(m => Number.isFinite(m.lat) && Number.isFinite(m.lng));
+
   // 실시간 구독 제거: 이 페이지는 완료된 배차의 운행 경로를 REST로만 표시합니다.
 
   if (loading) {
@@ -423,56 +442,14 @@ const DriveDetail = ({ onBackToInsight }) => {
               </div>
             )}
             <KakaoMap
-              polyline={driveLocations.map(loc => ({ lat: loc.latitude, lng: loc.longitude }))}
-              markers={[
-                // 이벤트 마커들
-                ...driveEvents.map(evRaw => {
-                  const ev = normalizeDriveEvent(evRaw);
-                  return ({
-                    lat: ev.latitude,
-                    lng: ev.longitude,
-                    imageSrc:
-                      ev.eventType === 'DROWSINESS' ? 'https://cdn-icons-png.flaticon.com/512/565/565547.png' :
-                      ev.eventType === 'ACCELERATION' ? 'https://cdn-icons-png.flaticon.com/512/565/565604.png' :
-                      ev.eventType === 'BRAKING' ? 'https://cdn-icons-png.flaticon.com/512/565/565606.png' :
-                      ev.eventType === 'SMOKING' ? 'https://cdn-icons-png.flaticon.com/512/2917/2917995.png' :
-                      ev.eventType === 'SEATBELT_UNFASTENED' ? 'https://cdn-icons-png.flaticon.com/512/2919/2919906.png' :
-                      ev.eventType === 'PHONE_USAGE' ? 'https://cdn-icons-png.flaticon.com/512/15047/15047587.png' :
-                      undefined,
-                  });
-                }),
-              ]}
+              polyline={driveLocations.map(loc => ({ lat: Number(loc.latitude), lng: Number(loc.longitude) })).filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lng))}
+              markers={mapMarkers}
               height="340px"
             />
           </div>
           {/* 상세 이벤트 이력 */}
           <div className="bg-white border border-gray-100 rounded-lg shadow-sm p-6">
             <h3 className="text-xl font-bold text-gray-900 mb-4">상세 이벤트 이력</h3>
-            {/* 운전 점수: 이벤트 이력과 함께 표시 */}
-            {((driveRecord && (driveRecord.drivingScore != null || driveRecord.drowsinessCount != null)) || driveData.dispatch.drivingScore != null) && (
-              <div className="py-3 mb-4 bg-white/50 px-3 rounded border-l-4 border-green-400">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="text-green-700 text-sm font-medium">운전 점수</div>
-                  <div className="font-bold text-green-800 text-lg">{(driveRecord?.drivingScore ?? driveData.dispatch.drivingScore)}점</div>
-                </div>
-                <div className="w-full bg-gray-100 rounded-full h-2 mb-2 overflow-hidden">
-                  <div
-                    className={`h-2 rounded-full ${((driveRecord?.drivingScore ?? driveData.dispatch.drivingScore) >= 75) ? 'bg-green-500' : ((driveRecord?.drivingScore ?? driveData.dispatch.drivingScore) >= 50) ? 'bg-yellow-400' : 'bg-rose-400'}`}
-                    style={{ width: `${Math.max(0, Math.min(100, (driveRecord?.drivingScore ?? driveData.dispatch.drivingScore)))}%` }}
-                  />
-                </div>
-                {(driveRecord) && (
-                  <div className="grid grid-cols-2 gap-2 text-xs text-gray-700">
-                    <div className="p-2 bg-gray-50 rounded">졸음: <strong className="text-sm text-red-600">{driveRecord.drowsinessCount ?? 0}</strong></div>
-                    <div className="p-2 bg-gray-50 rounded">급가속: <strong className="text-sm text-yellow-600">{driveRecord.accelerationCount ?? 0}</strong></div>
-                    <div className="p-2 bg-gray-50 rounded">급제동: <strong className="text-sm text-orange-600">{driveRecord.brakingCount ?? 0}</strong></div>
-                    <div className="p-2 bg-gray-50 rounded">흡연: <strong className="text-sm text-purple-600">{driveRecord.smokingCount ?? 0}</strong></div>
-                    <div className="p-2 bg-gray-50 rounded">안전벨트: <strong className="text-sm text-blue-600">{driveRecord.seatbeltUnfastenedCount ?? 0}</strong></div>
-                    <div className="p-2 bg-gray-50 rounded">휴대폰: <strong className="text-sm text-pink-600">{driveRecord.phoneUsageCount ?? 0}</strong></div>
-                  </div>
-                )}
-              </div>
-            )}
             {driveEvents.length === 0 ? (
               <p className="text-gray-400 text-center py-8">이 배차에서 발생한 이벤트가 없습니다.</p>
             ) : (

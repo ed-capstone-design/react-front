@@ -4,8 +4,16 @@ const KakaoMap = ({ markers = [], polyline = [], width = "100%", height = "400px
   const mapRef = useRef(null);
   const mapObj = useRef(null);
 
+  // Read API key once at component init so we can show a clear error in dev when it's missing.
+  const kakaoMapKey = process.env.REACT_APP_KAKAO_MAP_API_KEY;
+
   useEffect(() => {
-    const kakaoMapKey = process.env.REACT_APP_KAKAO_MAP_API_KEY;
+    // If API key is not provided, avoid inserting an invalid script tag and fail fast with a console error.
+    if (!kakaoMapKey) {
+      console.error('[KakaoMap] REACT_APP_KAKAO_MAP_API_KEY is not set. Please add it to your environment (.env) at project root.');
+      return;
+    }
+
     // 스크립트가 이미 있으면 추가하지 않음
     if (!window.kakao) {
       const script = document.createElement("script");
@@ -23,7 +31,7 @@ const KakaoMap = ({ markers = [], polyline = [], width = "100%", height = "400px
       });
     }
     // eslint-disable-next-line
-  }, []);
+  }, [kakaoMapKey]);
 
   useEffect(() => {
     if (window.kakao && mapObj.current) {
@@ -183,6 +191,18 @@ const KakaoMap = ({ markers = [], polyline = [], width = "100%", height = "400px
     polylineObj.setMap(mapObj.current);
     mapObj.current.polyline = polylineObj;
   };
+
+  // Show friendly message when API key is missing so developers can quickly fix env setup.
+  if (!kakaoMapKey) {
+    return (
+      <div style={{ width, height, minHeight: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff7ed', border: '1px solid #ffedd5', color: '#92400e' }}>
+        <div style={{ padding: 12, textAlign: 'center' }}>
+          <div style={{ fontWeight: 700, marginBottom: 6 }}>지도 API 키가 설정되어 있지 않습니다.</div>
+          <div style={{ fontSize: 13 }}>프로젝트 루트의 <code>.env</code> 파일에 <code>REACT_APP_KAKAO_MAP_API_KEY=your_key</code> 를 추가한 후 개발 서버를 재시작하세요.</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div 
