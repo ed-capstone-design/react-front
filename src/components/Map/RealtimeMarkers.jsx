@@ -34,6 +34,30 @@ const RealtimeMarkers = ({ map, drivers = [] }) => {
       createdOverlaysRef.current.push(overlay);
     });
 
+    // Auto-center & fit: set map bounds to center at markers' midpoint and cover ~10km radius
+    try {
+      const validDrivers = drivers.filter(d => d && !Number.isNaN(Number(d.lat)) && !Number.isNaN(Number(d.lng)));
+      if (validDrivers.length > 0) {
+        // compute center (average) in lat/lng
+        const latSum = validDrivers.reduce((s, d) => s + Number(d.lat), 0);
+        const lngSum = validDrivers.reduce((s, d) => s + Number(d.lng), 0);
+        const centerLat = latSum / validDrivers.length;
+        const centerLng = lngSum / validDrivers.length;
+
+        // convert 10km to degree deltas (approx)
+        const km = 10; // requested radius
+        const degLat = km / 110.574; // approx km per degree latitude
+        const degLng = km / (111.320 * Math.cos((centerLat * Math.PI) / 180));
+
+        const sw = new kakao.maps.LatLng(centerLat - degLat, centerLng - degLng);
+        const ne = new kakao.maps.LatLng(centerLat + degLat, centerLng + degLng);
+        const bounds = new kakao.maps.LatLngBounds(sw, ne);
+        try { map.setBounds(bounds); } catch (e) { /* ignore map errors */ }
+      }
+    } catch (e) {
+      // silently ignore centering errors
+    }
+
     return () => {
       createdOverlaysRef.current.forEach(o => o.setMap(null));
       createdOverlaysRef.current = [];

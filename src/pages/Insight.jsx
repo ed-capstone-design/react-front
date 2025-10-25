@@ -111,6 +111,49 @@ const Insight = () => {
     await fetchDispatchEventStats(n.relatedDispatchId || n.refId || n.referenceId);
   };
 
+  // Auto-fit child: when map is available, fit bounds to given markers with padding (km)
+  const AutoFitMarkers = ({ map, markers = [], paddingKm = 2 }) => {
+    React.useEffect(() => {
+      if (!map || !window.kakao) return;
+      try {
+        const pts = (Array.isArray(markers) ? markers : []).map(m => {
+          const lat = Number(m.lat ?? m.latitude ?? m.y ?? m.latlng?.lat);
+          const lng = Number(m.lng ?? m.longitude ?? m.x ?? m.latlng?.lng ?? m.lon ?? m.lng);
+          if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+          return { lat, lng };
+        }).filter(Boolean);
+        if (pts.length === 0) return;
+
+        // compute min/max
+        let minLat = Infinity, maxLat = -Infinity, minLng = Infinity, maxLng = -Infinity;
+        pts.forEach(p => {
+          if (p.lat < minLat) minLat = p.lat;
+          if (p.lat > maxLat) maxLat = p.lat;
+          if (p.lng < minLng) minLng = p.lng;
+          if (p.lng > maxLng) maxLng = p.lng;
+        });
+
+        // padding in degrees: approx conversion
+        const padMeters = Math.max(0, Number(paddingKm) * 1000);
+        const avgLat = (minLat + maxLat) / 2;
+        const padLat = padMeters / 110574; // meters per degree latitude
+        const padLng = padMeters / (111320 * Math.cos((avgLat * Math.PI) / 180) || 1);
+
+        const sw = new window.kakao.maps.LatLng(minLat - padLat, minLng - padLng);
+        const ne = new window.kakao.maps.LatLng(maxLat + padLat, maxLng + padLng);
+        const bounds = new window.kakao.maps.LatLngBounds(sw, ne);
+
+        // set bounds with fit
+        map.setBounds(bounds);
+      } catch (e) {
+        // ignore errors
+        // console.warn('[AutoFitMarkers] fit failed', e);
+      }
+    }, [map, JSON.stringify(markers), paddingKm]);
+
+    return null;
+  };
+
   // 개별 알림에 대한 '읽음' 처리 로딩 상태: 중복 클릭 방지
   const [markingIds, setMarkingIds] = React.useState(() => new Set());
 
@@ -243,6 +286,8 @@ const Insight = () => {
               <RealtimeMarkers drivers={markers.filter(Boolean).map(m => ({ lat: m.lat, lng: m.lng, label: m.title || m.vehicleNumber || m.driverName, avatar: m.avatar }))} />
               {/* EventMarkers can be used if you have aggregated running events to show pins - leave empty if not available */}
               <EventMarkers events={[]} />
+              {/* Auto-fit the map to current markers with 2km padding */}
+              <AutoFitMarkers markers={markers} paddingKm={2} />
             </KakaoMapContainer>
             {markers.filter(Boolean).length === 0 && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">

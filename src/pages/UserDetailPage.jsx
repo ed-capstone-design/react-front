@@ -163,10 +163,12 @@ const UserDetailPage = () => {
       };
       
       history?.forEach(dispatch => {
-        if (dispatch.status === 'COMPLETED') stats.completed++;
-        else if (dispatch.status === 'SCHEDULED') stats.scheduled++;
-        else if (dispatch.status === 'CANCELLED') stats.cancelled++;
-        else if (dispatch.status === 'DELAYED') stats.delayed++;
+        const st = String(dispatch.status ?? '').toUpperCase();
+        if (st === 'COMPLETED') stats.completed++;
+        else if (st === 'SCHEDULED') stats.scheduled++;
+        else if (st === 'CANCELED' || st === 'CANCELLED') stats.cancelled++;
+        else if (st === 'DELAYED') stats.delayed++;
+        // other statuses (RUNNING, IN_PROGRESS, etc.) are not included in the summary counts here
       });
       
       setDispatchStats(stats);
@@ -300,10 +302,11 @@ const UserDetailPage = () => {
         };
         
         history?.forEach(dispatch => {
-          if (dispatch.status === 'COMPLETED') stats.completed++;
-          else if (dispatch.status === 'SCHEDULED') stats.scheduled++;
-          else if (dispatch.status === 'CANCELLED') stats.cancelled++;
-          else if (dispatch.status === 'DELAYED') stats.delayed++;
+          const st = String(dispatch.status ?? '').toUpperCase();
+          if (st === 'COMPLETED') stats.completed++;
+          else if (st === 'SCHEDULED') stats.scheduled++;
+          else if (st === 'CANCELED' || st === 'CANCELLED') stats.cancelled++;
+          else if (st === 'DELAYED') stats.delayed++;
         });
         
         setDispatchStats(stats);
@@ -578,16 +581,19 @@ const UserDetailPage = () => {
                           <td className="py-2 px-4">{dispatch.dispatchDate}</td>
                           <td className="py-2 px-4">{dispatch.busId}번</td>
                           <td className="py-2 px-4">
-                            <span className={`px-2 py-1 rounded text-xs font-bold ${
-                              dispatch.status === "COMPLETED" ? "bg-green-50 text-green-700" :
-                              dispatch.status === "SCHEDULED" ? "bg-blue-50 text-blue-700" :
-                              dispatch.status === "DELAYED" ? "bg-orange-50 text-orange-700" :
-                              "bg-gray-50 text-gray-500"
-                            }`}>
-                              {dispatch.status === "COMPLETED" ? "완료" :
-                               dispatch.status === "SCHEDULED" ? "예정" :
-                               dispatch.status === "DELAYED" ? "지연" : "대기"}
-                            </span>
+                            {
+                              (() => {
+                                const st = String(dispatch.status ?? '').toUpperCase();
+                                let cls = 'bg-gray-50 text-gray-500';
+                                let label = '대기';
+                                if (st === 'COMPLETED') { cls = 'bg-green-50 text-green-700'; label = '완료'; }
+                                else if (st === 'SCHEDULED') { cls = 'bg-blue-50 text-blue-700'; label = '예정'; }
+                                else if (st === 'RUNNING' || st === 'IN_PROGRESS') { cls = 'bg-blue-50 text-blue-700'; label = '운행중'; }
+                                else if (st === 'CANCELED' || st === 'CANCELLED') { cls = 'bg-red-50 text-red-700'; label = '취소'; }
+                                else if (st === 'DELAYED') { cls = 'bg-orange-50 text-orange-700'; label = '지연'; }
+                                return <span className={`px-2 py-1 rounded text-xs font-bold ${cls}`}>{label}</span>;
+                              })()
+                            }
                           </td>
                           <td className="py-2 px-4 rounded-r">{dispatch.drivingScore || "-"}점</td>
                         </tr>
