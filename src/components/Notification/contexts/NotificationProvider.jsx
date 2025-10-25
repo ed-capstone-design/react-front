@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { getMyNotifications, getMyUnreadNotifications, markAsRead as markAsReadApi } from '../../../api/notifications';
+import dayjs from 'dayjs';
 import { useToken } from '../../Token/TokenProvider';
 import { useWebSocket } from '../../WebSocket/WebSocketProvider';
 import { useToast } from '../../Toast/ToastProvider';
@@ -18,7 +19,7 @@ export const NotificationProvider = ({ children }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   // token 값 자체를 구독해야 로그인 직후(effect 재실행) 초기 전체 fetch 가 동작함
-  const { getToken, token } = useToken();
+  const { getToken, token, onTokenRefresh } = useToken();
   const { subscribePersistent, isConnected, subscribedDestinations } = useWebSocket();
   const toast = useToast();
   const didLogSubscribedRef = useRef(false);
@@ -35,11 +36,12 @@ export const NotificationProvider = ({ children }) => {
         setNotifications([]);
         return [];
       }
-  const list = await getMyUnreadNotifications(token);
-  const onlyUnread = Array.isArray(list) ? list.filter(n => !n.isRead) : [];
-  setNotifications(onlyUnread);
-  try { console.log('[Notification] refresh -> unread count', onlyUnread.length, onlyUnread.map(x=>x.id)); } catch {}
-  return onlyUnread;
+      try { console.debug('[Notification] refresh start, tokenPreview:', token ? `${token.substring(0,10)}...` : null); } catch {}
+      const list = await getMyUnreadNotifications(token);
+      const onlyUnread = Array.isArray(list) ? list.filter(n => !n.isRead) : [];
+      setNotifications(onlyUnread);
+      try { console.log('[Notification] refresh -> unread count', onlyUnread.length, onlyUnread.map(x=>x.id)); } catch {}
+      return onlyUnread;
     } catch (e) {
       console.error('[Notification] 목록 조회 실패', e);
       setError(e);
@@ -77,13 +79,18 @@ export const NotificationProvider = ({ children }) => {
       // 백엔드가 보낸 nested payload 병합
       const raw = rawRoot && rawRoot.payload ? { ...rawRoot, ...rawRoot.payload } : rawRoot;
 
-      // createdAt 안전 파싱 (마이크로초 -> 밀리초로 truncate 시도)
-      let createdAtDate;
+      // createdAt 안전 파싱 (마이크로초 -> 밀리초로 truncate 시도) -> normalize to ISO string via dayjs
+      let createdAtIso;
       if (raw?.createdAt) {
-        const truncated = raw.createdAt.replace(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3})(\d+)(Z|[+\-].*)?$/, '$1$3');
-        createdAtDate = new Date(truncated || raw.createdAt);
+        try {
+          const truncated = String(raw.createdAt).replace(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3})(\d+)(Z|[+\-].*)?$/, '$1$3');
+          const parsed = dayjs(truncated || raw.createdAt);
+          createdAtIso = parsed.isValid() ? parsed.toISOString() : dayjs().toISOString();
+        } catch {
+          createdAtIso = dayjs().toISOString();
+        }
       } else {
-        createdAtDate = new Date();
+        createdAtIso = dayjs().toISOString();
       }
 
       // 토스트 정책 확장: WARNING, ALERT, DRIVING_WARNING
@@ -120,13 +127,13 @@ export const NotificationProvider = ({ children }) => {
         message: raw.message,
         type: raw.notificationType,
         url: raw.relatedUrl,
-        createdAt: createdAtDate,
+        createdAt: createdAtIso,
         dispatchId: raw.dispatchId ?? null,
         vehicleNumber: raw.vehicleNumber ?? null,
         driverName: raw.driverName ?? null,
         latitude: raw.latitude ?? null,
         longitude: raw.longitude ?? null,
-        scheduledDepartureTime: raw.scheduledDepartureTime ? new Date(raw.scheduledDepartureTime) : null,
+        scheduledDepartureTime: raw.scheduledDepartureTime ? dayjs(raw.scheduledDepartureTime).toISOString() : null,
         isRead: !!raw.isRead,
       };
       // Only keep unread notifications in the context. If incoming is already read, ignore it
@@ -142,10 +149,11 @@ export const NotificationProvider = ({ children }) => {
           ...incoming,
           // preserve existing isRead OR incoming (incoming should be false here)
           isRead: existed.isRead || incoming.isRead,
-          createdAt: new Date(Math.max(existed.createdAt, incoming.createdAt)),
+          // pick the latest createdAt (ISO strings) using dayjs
+          createdAt: dayjs(existed.createdAt).valueOf() > dayjs(incoming.createdAt).valueOf() ? existed.createdAt : incoming.createdAt,
         } : incoming;
         if (!merged.isRead) map.set(merged.id, merged);
-        const arr = Array.from(map.values()).sort((a, b) => b.createdAt - a.createdAt).slice(0, 1000);
+        const arr = Array.from(map.values()).sort((a, b) => dayjs(b.createdAt).valueOf() - dayjs(a.createdAt).valueOf()).slice(0, 1000);
         try { console.log('[Notification] realtime merged -> unread count', arr.length); } catch {}
         return arr;
       });
@@ -172,6 +180,17 @@ export const NotificationProvider = ({ children }) => {
       console.log('[Notification] 로그인 후 초기 전체 알림 로드 수행 (token effect)');
     }
   }, [token, refresh]);
+
+  // 토큰이 갱신될 때(예: refresh 성공) 서버에서 최신 알림을 다시 가져오도록 구독
+  useEffect(() => {
+    if (typeof onTokenRefresh !== 'function') return;
+    const off = onTokenRefresh((newAccessToken) => {
+      try { console.debug('[Notification] onTokenRefresh triggered, fetching latest unread notifications'); } catch {}
+      // 새 토큰이 발급되면 즉시 동기화
+      refresh();
+    });
+    return () => { try { off && off(); } catch {} };
+  }, [onTokenRefresh, refresh]);
 
   // 공통 destination 상수 (완전 자동 구독)
   const NOTIFICATION_DEST = '/user/queue/notifications';

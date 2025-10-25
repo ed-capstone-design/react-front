@@ -579,7 +579,7 @@ const UserDetailPage = () => {
                         <tr key={`dispatch-${dispatch?.dispatchId || index}`} onClick={() => navigate(`/drivedetail/${dispatch.dispatchId}`)} className="hover:bg-blue-50 transition rounded cursor-pointer">
                           <td className="py-2 px-4 rounded-l">{(dispatchPage - 1) * itemsPerPage + index + 1}</td>
                           <td className="py-2 px-4">{dispatch.dispatchDate}</td>
-                          <td className="py-2 px-4">{dispatch.busId}번</td>
+                          <td className="py-2 px-4">{dispatch.vehicleNumber}번</td>
                           <td className="py-2 px-4">
                             {
                               (() => {

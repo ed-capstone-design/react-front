@@ -281,7 +281,7 @@ const Insight = () => {
   <div className="lg:col-span-7 bg-white rounded-xl shadow-sm border border-gray-100 p-3 md:p-4 transition-[width]">
 
             <div className="relative rounded-xl overflow-hidden ring-1 ring-gray-100">
-            <KakaoMapContainer height="420px" level={4}>
+            <KakaoMapContainer height="420px" level={2}>
               {/* RealtimeMarkers displays driver avatar + label (uses markers from hook) */}
               <RealtimeMarkers drivers={markers.filter(Boolean).map(m => ({ lat: m.lat, lng: m.lng, label: m.title || m.vehicleNumber || m.driverName, avatar: m.avatar }))} />
               {/* EventMarkers can be used if you have aggregated running events to show pins - leave empty if not available */}

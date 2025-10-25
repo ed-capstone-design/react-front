@@ -1,4 +1,5 @@
 import React from 'react';
+import dayjs from 'dayjs';
 import { useNotification } from './contexts/NotificationProvider';
 
 /**
@@ -12,7 +13,7 @@ const NotificationPanel = ({ pageSize = 15, onNavigate }) => {
   const [page, setPage] = React.useState(1);
   const [filter, setFilter] = React.useState('ALL'); // ALL | UNREAD | READ
 
-  const sorted = React.useMemo(() => [...notifications].sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt)), [notifications]);
+  const sorted = React.useMemo(() => [...notifications].sort((a,b) => dayjs(b.createdAt).valueOf() - dayjs(a.createdAt).valueOf()), [notifications]);
 
   const filtered = React.useMemo(() => {
     if (filter === 'UNREAD') return sorted.filter(n => !n.isRead);
@@ -31,7 +32,7 @@ const NotificationPanel = ({ pageSize = 15, onNavigate }) => {
     return filtered.slice(start, start + pageSize);
   }, [filtered, page, pageSize, totalPages]);
 
-  const formatDateTime = (d) => new Date(d).toLocaleString('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+  const formatDateTime = (d) => dayjs(d).format('YYYY-MM-DD HH:mm');
 
   return (
     <div className="flex flex-col h-full">

@@ -1,14 +1,16 @@
 import axios from 'axios';
+import dayjs from 'dayjs';
 import { extractResponseData, extractErrorMessage } from '../utils/responseUtils';
 
 // createdAt 문자열이 마이크로초(6자리) 포함될 수 있으므로 3자리로 잘라 Date 파싱
 function safeDate(v) {
-  if (!v) return new Date();
+  if (!v) return dayjs().toISOString();
   try {
-    const truncated = String(v).replace(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3})(\d+)(Z|[+\-].*)?$/, '$1$3');
-    const d = new Date(truncated || v);
-    return isNaN(d.getTime()) ? new Date() : d;
-  } catch { return new Date(); }
+    const s = String(v);
+    const truncated = s.replace(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3})(\d+)(Z|[+\-].*)?$/, '$1$3');
+    const parsed = dayjs(truncated || s);
+    return parsed.isValid() ? parsed.toISOString() : dayjs().toISOString();
+  } catch { return dayjs().toISOString(); }
 }
 
 // 서버 응답 flatten: 루트 + payload 병합
@@ -20,6 +22,7 @@ const mapToNotification = (n) => {
     message: n.message,
     type: n.notificationType,
     url: n.relatedUrl,
+    // normalize to ISO string
     createdAt: safeDate(n.createdAt),
     dispatchId: p.dispatchId ?? null,
     vehicleNumber: p.vehicleNumber ?? null,
@@ -37,7 +40,9 @@ export async function getMyNotifications(token) {
       headers: token ? { Authorization: `Bearer ${token}` } : undefined,
     });
     const list = extractResponseData(res, []);
-    return Array.isArray(list) ? list.map(mapToNotification).filter(Boolean).sort((a, b) => b.createdAt - a.createdAt) : [];
+    return Array.isArray(list)
+      ? list.map(mapToNotification).filter(Boolean).sort((a, b) => dayjs(b.createdAt).valueOf() - dayjs(a.createdAt).valueOf())
+      : [];
   } catch (error) {
     console.error('알림 목록 조회 실패:', error);
     const errorMessage = extractErrorMessage(error, '알림 목록을 불러올 수 없습니다.');
@@ -47,11 +52,16 @@ export async function getMyNotifications(token) {
 
 export async function getMyUnreadNotifications(token) {
   try {
-    const res = await axios.get('/api/notifications/me/unread', {
+    const url = '/api/notifications/me/unread';
+    try { console.debug('[api/notifications] getMyUnreadNotifications -> request', { url, tokenPreview: token ? `${token.substring(0,10)}...` : null }); } catch {}
+    const res = await axios.get(url, {
       headers: token ? { Authorization: `Bearer ${token}` } : undefined,
     });
+    try { console.debug('[api/notifications] getMyUnreadNotifications -> response', { status: res?.status, dataLength: Array.isArray(res?.data?.data || res?.data) ? (res.data.data || res.data).length : null }); } catch {}
     const list = extractResponseData(res, []);
-    return Array.isArray(list) ? list.map(mapToNotification).filter(Boolean).sort((a, b) => b.createdAt - a.createdAt) : [];
+    return Array.isArray(list)
+      ? list.map(mapToNotification).filter(Boolean).sort((a, b) => dayjs(b.createdAt).valueOf() - dayjs(a.createdAt).valueOf())
+      : [];
   } catch (error) {
     console.error('안읽은 알림 목록 조회 실패:', error);
     const errorMessage = extractErrorMessage(error, '안읽은 알림 목록을 불러올 수 없습니다.');

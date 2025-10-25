@@ -314,8 +314,8 @@ const Auth = () => {
                   type="number" 
                   placeholder="경력(년)" 
                   min="0"
-                  value={signupData.career}
-                  onChange={(e) => setSignupData({...signupData, career: e.target.value})}
+                  value={signupData.careerYears}
+                  onChange={(e) => setSignupData({...signupData, careerYears: e.target.value})}
                   required 
                   className="w-full bg-gray-50 border-2 border-gray-200 rounded-xl px-4 py-3.5 my-1.5 text-sm text-gray-800 font-medium transition-all duration-200 focus:bg-white focus:border-sky-500 focus:outline-none focus:ring-3 focus:ring-sky-500/10"
                 />

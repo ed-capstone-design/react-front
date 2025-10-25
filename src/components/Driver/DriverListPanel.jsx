@@ -186,7 +186,7 @@ const DriverListPanel = () => {
               <option value="B">B등급</option>
               <option value="C">C등급</option>
               <option value="D">D등급</option>
-              <option value="F">F등급</option>
+              <option value="E">E등급</option>
             </select>
           </div>
         </div>

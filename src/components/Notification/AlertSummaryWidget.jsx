@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import dayjs from 'dayjs';
 import { useNotificationCount } from "./NotificationCountProvider";
 import axios from "axios";
 import { 
@@ -43,8 +44,9 @@ const AlertSummaryWidget = () => {
 
   // 최근 24시간 내 알림 수
   const recentAlerts = unreadNotifications.filter(n => {
-    const diff = new Date() - new Date(n.warningtime);
-    return diff < 24 * 60 * 60 * 1000;
+    try {
+      return dayjs().diff(dayjs(n.warningtime)) < 24 * 60 * 60 * 1000;
+    } catch { return false; }
   }).length;
 
   // 긴급 알림 수 (Acceleration + Abnormal)
@@ -141,7 +143,7 @@ const AlertSummaryWidget = () => {
                   <div key={index} className="flex items-center gap-2 py-2 px-3 bg-red-50 rounded text-sm mb-2">
                     {getWarningTypeIcon(notification.warningType)}
                     <div className="flex-1 truncate text-red-700">
-                      {getWarningTypeLabel(notification.warningType)} - {new Date(notification.warningtime).toLocaleString()}
+                      {getWarningTypeLabel(notification.warningType)} - {dayjs(notification.warningtime).format('YYYY-MM-DD HH:mm')}
                     </div>
                   </div>
                 ))

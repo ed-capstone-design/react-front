@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
+import dayjs from 'dayjs';
 import { useToken } from "../components/Token/TokenProvider";
 import { useNotification } from "../components/Notification/contexts/NotificationProvider";
 
 // 레거시 복원 버전 (단일 훅 내 fetch + 파생 계산)
 
 export const useDashboardData = () => {
-  const { getToken } = useToken();
+  const { getToken, accessToken, onTokenRefresh } = useToken();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -87,9 +88,18 @@ export const useDashboardData = () => {
   const isoToLocalDateStr = (isoLike) => {
     if (!isoLike) return null;
     try {
-      const d = new Date(isoLike);
-      if (Number.isNaN(d.getTime())) return null;
-      return toLocalDateStrWithOffset(d);
+      // Normalize fractional seconds: if backend sends microseconds (6+ digits) trim to milliseconds (3 digits)
+      try {
+        const s = String(isoLike);
+        const truncated = s.replace(/(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3})\d+(Z|[+\-].*)?$/, '$1$2');
+        const d = new Date(truncated);
+        if (Number.isNaN(d.getTime())) return null;
+        return toLocalDateStrWithOffset(d);
+      } catch (e) {
+        const d = new Date(isoLike);
+        if (Number.isNaN(d.getTime())) return null;
+        return toLocalDateStrWithOffset(d);
+      }
     } catch { return null; }
   };
 
@@ -116,47 +126,51 @@ export const useDashboardData = () => {
 
   // Normalize schedule date/times similar to useOperatingSchedule
   const normalizeScheduleDateTimes = (payload) => {
-    if (!payload) return payload;
-    const out = { ...payload };
-    // base date candidates
-    const baseDate = out.dispatchDate || out.date || out.scheduledDate || null;
-    const pad = (n) => String(n).padStart(2, '0');
-    const formatLocalIso = (d) => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-
-    const normalizeTimeOnly = (timeStr) => {
-      if (timeStr == null) return null;
-      if (typeof timeStr !== 'string') timeStr = String(timeStr);
-      if (timeStr.includes('T')) return timeStr.split('T')[1].substring(0,5);
-      const m = timeStr.match(/(\d{1,2}:\d{2})/);
-      return m ? m[1] : null;
-    };
-
-    const combineDateAndTime = (dateStr, timeStr) => {
-      const t = normalizeTimeOnly(timeStr) || '00:00';
-      return `${dateStr}T${t}:00`;
-    };
-
-    // scheduledDepartureTime
-    if (out.scheduledDepartureTime) {
-      // if time-only, combine with baseDate
-      if (baseDate && !out.scheduledDepartureTime.includes('T')) {
-        out.scheduledDepartureTime = combineDateAndTime(baseDate, out.scheduledDepartureTime);
-      }
-    } else if (out.scheduledDeparture) {
-      out.scheduledDepartureTime = out.scheduledDeparture;
-    }
-
-    // scheduledArrivalTime
-    if (out.scheduledArrivalTime) {
-      if (baseDate && !out.scheduledArrivalTime.includes('T')) {
-        out.scheduledArrivalTime = combineDateAndTime(baseDate, out.scheduledArrivalTime);
-      }
-    } else if (out.scheduledArrival) {
-      out.scheduledArrivalTime = out.scheduledArrival;
-    }
-
-    // If both exist and arrival <= departure, assume next-day arrival
     try {
+      const out = { ...payload };
+      // Find base date: try dispatchDate, date, scheduledDate, or use todayStr as fallback
+      const baseDate = out.dispatchDate || out.date || out.scheduledDate || todayStr || '';
+
+      const pad = (n) => String(n).padStart(2, '0');
+      const formatLocalIso = (d) => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+
+      const normalizeTimeOnly = (timeStr) => {
+        if (timeStr == null) return null;
+        if (typeof timeStr !== 'string') timeStr = String(timeStr);
+        if (timeStr.includes('T')) {
+          const part = timeStr.split('T')[1] || '';
+          return part.substring(0,5);
+        }
+        const m = timeStr.match(/(\d{1,2}:\d{2})/);
+        return m ? m[1] : null;
+      };
+
+      const combineDateAndTime = (dateStr, timeStr) => {
+        const t = normalizeTimeOnly(timeStr) || '00:00';
+        return `${dateStr}T${t}:00`;
+      };
+
+      // scheduledDepartureTime
+      if (out.scheduledDepartureTime) {
+        if (!out.scheduledDepartureTime.includes('T')) {
+          out.scheduledDepartureTime = combineDateAndTime(baseDate, out.scheduledDepartureTime);
+        }
+      }
+      if (!out.scheduledDepartureTime && out.scheduledDeparture) {
+        out.scheduledDepartureTime = out.scheduledDeparture;
+      }
+
+      // scheduledArrivalTime
+      if (out.scheduledArrivalTime) {
+        if (!out.scheduledArrivalTime.includes('T')) {
+          out.scheduledArrivalTime = combineDateAndTime(baseDate, out.scheduledArrivalTime);
+        }
+      }
+      if (!out.scheduledArrivalTime && out.scheduledArrival) {
+        out.scheduledArrivalTime = out.scheduledArrival;
+      }
+
+      // If both exist, and arrival <= departure, add 1 day to arrival
       if (out.scheduledDepartureTime && out.scheduledArrivalTime) {
         const dep = new Date(out.scheduledDepartureTime);
         let arr = new Date(out.scheduledArrivalTime);
@@ -165,11 +179,11 @@ export const useDashboardData = () => {
           out.scheduledArrivalTime = formatLocalIso(arr);
         }
       }
-    } catch (e) {
-      // noop
-    }
 
-    return out;
+      return out;
+    } catch (e) {
+      return payload;
+    }
   };
 
   const getDateStr = (d) => d?._localDate || deriveLocalDate(d);
@@ -195,18 +209,26 @@ export const useDashboardData = () => {
     } catch { return null; }
   };
 
-  const todayStr = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  // Use dayjs (consistent with useOperatingSchedule) and respect tzOffsetMinutes
+  const todayStr = useMemo(() => {
+    try {
+      return dayjs().add(tzOffsetMinutes, 'minute').format('YYYY-MM-DD');
+    } catch (e) {
+      return dayjs().format('YYYY-MM-DD');
+    }
+  }, [tzOffsetMinutes]);
+
   const sevenDaysRange = useMemo(() => {
-    const end = new Date();
-    const start = new Date();
-    start.setDate(end.getDate() - 6); // 최근 7일
-    const toStr = (d) => d.toISOString().slice(0, 10);
-    return { startStr: toStr(start), endStr: toStr(end) };
-  }, []);
+    const end = dayjs().add(tzOffsetMinutes, 'minute');
+    const start = end.subtract(6, 'day'); // 최근 7일
+    return { startStr: start.format('YYYY-MM-DD'), endStr: end.format('YYYY-MM-DD') };
+  }, [tzOffsetMinutes]);
 
   const fetchAll = async () => {
-    const token = getToken();
+    // prefer context accessToken when available (reactive), fallback to getToken()
+    const token = accessToken || (getToken && getToken());
     if (!token) {
+      console.debug('[useDashboardData] fetchAll aborted - no token yet');
       setLoading(false);
       return;
     }
@@ -217,15 +239,26 @@ export const useDashboardData = () => {
     setLoading(true);
     setError(null);
     try {
+  // Backend expects plain YYYY-MM-DD date strings (no time or trailing 'Z').
+  // Send date-only strings for startDate/endDate to match server parsing.
+  const startDateParam = sevenDaysRange.startStr;
+  const endDateParam = sevenDaysRange.endStr;
+  console.debug('[useDashboardData] fetchAll start', { startDateParam, endDateParam, tokenPreview: token ? token.substring(0,10) + '...' : null });
       const authHeader = { Authorization: `Bearer ${token}` };
       const [dispatchRes, driversRes] = await Promise.all([
         axios.get("/api/admin/dispatches", {
-          params: { startDate: sevenDaysRange.startStr, endDate: sevenDaysRange.endStr },
+          params: { startDate: startDateParam, endDate: endDateParam },
             headers: authHeader,
           signal
         }),
         axios.get("/api/admin/drivers", { headers: authHeader, signal })
       ]);
+      console.debug('[useDashboardData] fetchAll responses received', {
+        dispatchStatus: dispatchRes?.status,
+        driversStatus: driversRes?.status,
+        dispatchCount: Array.isArray(dispatchRes?.data?.data || dispatchRes?.data) ? (dispatchRes.data.data || dispatchRes.data).length : null,
+        driversCount: Array.isArray(driversRes?.data?.data || driversRes?.data) ? (driversRes.data.data || driversRes.data).length : null
+      });
       const rawDispatches = dispatchRes.data?.data || dispatchRes.data || [];
       const drivers = driversRes.data?.data || driversRes.data || [];
       const enhanced = Array.isArray(rawDispatches) ? rawDispatches.map(ds => {
@@ -250,26 +283,44 @@ export const useDashboardData = () => {
   useEffect(() => {
     fetchAll();
     return () => abortRef.current?.abort();
+    // Re-run when date range or accessToken changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sevenDaysRange.startStr, sevenDaysRange.endStr, getToken]);
+  }, [sevenDaysRange.startStr, sevenDaysRange.endStr, accessToken]);
+
+  // If token is refreshed later (refresh flow), ensure we re-fetch dashboard data
+  useEffect(() => {
+    if (typeof onTokenRefresh !== 'function') return;
+    const off = onTokenRefresh((newToken) => {
+      try { console.debug('[useDashboardData] onTokenRefresh triggered, re-fetching dashboard data'); } catch {}
+      fetchAll();
+    });
+    return () => { try { off && off(); } catch {} };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onTokenRefresh, sevenDaysRange.startStr, sevenDaysRange.endStr]);
 
   // fetch only today's dispatches via API (to mirror useOperatingSchedule approach)
   const [todayDispatchesFromApi, setTodayDispatchesFromApi] = useState([]);
   const fetchToday = async () => {
-    const token = getToken();
+    const token = accessToken || (getToken && getToken());
     if (!token) return;
     try {
+  // Send date-only params for today's range (backend expects YYYY-MM-DD)
+  const startDateParam = todayStr;
+  const endDateParam = todayStr;
+  console.debug('[useDashboardData] fetchToday start', { today: todayStr, startDateParam, endDateParam, tokenPreview: token ? token.substring(0,10) + '...' : null });
       const authHeader = { Authorization: `Bearer ${token}` };
-      const resp = await axios.get('/api/admin/dispatches', { params: { startDate: todayStr, endDate: todayStr }, headers: authHeader });
+  const resp = await axios.get('/api/admin/dispatches', { params: { startDate: startDateParam, endDate: endDateParam }, headers: authHeader });
+      console.debug('[useDashboardData] fetchToday response', { status: resp?.status, count: Array.isArray(resp?.data?.data || resp?.data) ? (resp.data.data || resp.data).length : null });
       const raw = resp.data?.data || resp.data || [];
       const enhancedToday = Array.isArray(raw) ? raw.map(ds => ({ ...ds, ...normalizeScheduleDateTimes(ds), _localDate: deriveLocalDate(ds) })) : [];
       setTodayDispatchesFromApi(enhancedToday);
     } catch (e) {
+      console.error('[useDashboardData] fetchToday failed', e?.response?.status, e?.message || e);
       console.error('[useDashboardData] fetchToday 실패', e);
     }
   };
 
-  useEffect(() => { fetchToday(); }, [todayStr, getToken]);
+  useEffect(() => { fetchToday(); }, [todayStr, accessToken]);
 
   // Prefer API-provided today's dispatches (mirrors useOperatingSchedule) but fall back to 7d-derived
   const todayDispatches = useMemo(() => {
@@ -367,9 +418,8 @@ export const useDashboardData = () => {
   const weeklyCounts = useMemo(() => {
     const result = [];
     for (let i = 6; i >= 0; i--) {
-      const base = new Date();
-      base.setDate(base.getDate() - i);
-      const key = toLocalDateStrWithOffset(base);
+      const base = dayjs().subtract(i, 'day').add(tzOffsetMinutes, 'minute');
+      const key = base.format('YYYY-MM-DD');
       const count = dispatches7d.filter(x => getDateStr(x) === key).length;
       result.push({ date: key, count });
     }

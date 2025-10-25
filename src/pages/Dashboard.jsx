@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import dayjs from 'dayjs';
 import { IoCarSportOutline, IoStatsChartOutline, IoCheckmarkDoneOutline, IoClose } from "react-icons/io5";
 import { useDashboardData } from "../hooks/useDashboardData";
 import WeeklyDispatchBar from "../components/Dashboard/charts/WeeklyDispatchBar";
@@ -7,27 +8,23 @@ import { useNotification } from "../components/Notification/contexts/Notificatio
 import { useNavigate } from "react-router-dom";
 
 const DashboardContent = () => {
-  const todayStr = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  // todayStr and range are provided by useDashboardData to ensure consistent date handling
 
   const { notifications = [], loading: notificationsLoading = false } = useNotification();
   const navigate = useNavigate();
 
-  const { loading: dashLoading, weeklyCounts, dispatches7d, todayScheduled, todayRunning, todayCompleted } = useDashboardData();
+  const { loading: dashLoading, weeklyCounts, dispatches7d, todayScheduled, todayRunning, todayCompleted, range, todayStr } = useDashboardData();
 
   const weekRange = useMemo(() => {
-    const now = new Date();
-    const sunday = new Date(now);
-    sunday.setDate(now.getDate() - now.getDay());
-    sunday.setHours(0, 0, 0, 0);
-    const saturday = new Date(sunday);
-    saturday.setDate(sunday.getDate() + 6);
-    saturday.setHours(23, 59, 59, 999);
-    const toYmd = (d) => d.toISOString().slice(0, 10);
-    return { startStr: toYmd(sunday), endStr: toYmd(saturday), sunday, saturday };
-  }, []);
+    if (!range) return { startStr: null, endStr: null, sunday: null, saturday: null };
+    const sunday = dayjs(range.startStr).startOf('day').toDate();
+    const saturday = dayjs(range.endStr).endOf('day').toDate();
+    return { startStr: range.startStr, endStr: range.endStr, sunday, saturday };
+  }, [range]);
 
   const weekDispatches = useMemo(() => {
     if (!Array.isArray(dispatches7d)) return [];
+    if (!weekRange.startStr || !weekRange.endStr) return [];
     return dispatches7d.filter((d) => {
       const dateKey = d._localDate || d.dispatchDate || d.date || null;
       if (!dateKey) return false;
@@ -65,11 +62,11 @@ const DashboardContent = () => {
 
   const weeklyChartData = useMemo(() => {
     const arr = [];
-    const start = new Date(weekRange.sunday);
+    if (!weekRange.startStr) return arr;
+    const start = dayjs(weekRange.startStr);
     for (let i = 0; i < 7; i++) {
-      const d = new Date(start);
-      d.setDate(start.getDate() + i);
-      const key = d.toISOString().slice(0, 10);
+      const d = start.add(i, 'day');
+      const key = d.format('YYYY-MM-DD');
       const count = (weekDispatches.filter((x) => (x._localDate || x.dispatchDate || x.date) === key) || []).length;
       arr.push({ date: key, count });
     }
@@ -216,7 +213,7 @@ const DashboardContent = () => {
               {notifications.slice(0,5).map(n => (
                 <li key={n.id} className="p-2 rounded-lg border border-gray-100 hover:bg-gray-50 transition-colors duration-150">
                   <div className="text-sm text-gray-800 truncate">{n.message || '알림'}</div>
-                  <div className="text-xs text-gray-400 mt-1">{(n.createdAt && new Date(n.createdAt).toLocaleString()) || ''}</div>
+                  <div className="text-xs text-gray-400 mt-1">{(n.createdAt && dayjs(n.createdAt).format('YYYY-MM-DD HH:mm')) || ''}</div>
                 </li>
               ))}
             </ul>
