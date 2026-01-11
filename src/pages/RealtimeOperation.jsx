@@ -20,7 +20,7 @@ const RealtimeOperation = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const dispatchId = id;
-  const { loading, error, meta, latestLocation, kpis, stale } = useLiveDispatch(dispatchId);
+  const { loading, error, meta, latestLocation, kpis} = useLiveDispatch(dispatchId);
   const [metaLocal, setMetaLocal] = React.useState(null);
   // 운행 이벤트 목록 상태
   const [driveEvents, setDriveEvents] = React.useState([]);
@@ -142,7 +142,6 @@ const RealtimeOperation = () => {
           <MetaPill color="indigo" label="운전자" value={(metaLocal || meta)?.driverName || '—'} />
           <MetaPill color="teal" label="차량" value={(metaLocal || meta)?.vehicleNumber || '—'} />
           <StatusPill status={(metaLocal || meta)?.status} />
-          {/* Live 버튼/표시는 제거됨 */}
           {( (metaLocal || meta)?.status !== 'COMPLETED' ) && (
             <button
               onClick={async () => {
@@ -190,9 +189,8 @@ const RealtimeOperation = () => {
             <KakaoMap 
               height="480px" 
               center={mapCenter}
-              level={4} // 적당한 축척 (약 250m)
+              level={4} // 
             >
-              {/* RealtimeMarkers expects prop `drivers` and will be injected with `map` by KakaoMapContainer */}
               <RealtimeMarkers drivers={markers.map(m => ({ lat: m.lat, lng: m.lng, label: m.title, avatar: m.avatar }))} />
             </KakaoMap>
             {markers.length === 0 && (
@@ -281,13 +279,6 @@ const RealtimeOperation = () => {
 
 export default RealtimeOperation;
 
-// 작은 KPI 칩 컴포넌트
-const KpiChip = ({ label, value }) => (
-  <div className="flex items-center gap-1 pl-2 pr-2.5 py-1 rounded-full border border-gray-200 bg-gray-50 text-[11px] font-medium text-gray-700">
-    <span className="opacity-70">{label}</span>
-    <span className="font-semibold text-gray-900 tracking-tight">{value ?? '—'}</span>
-  </div>
-);
 
 function fmtNum(v, suffix) {
   if (v === null || v === undefined) return '—';
@@ -295,16 +286,6 @@ function fmtNum(v, suffix) {
   return String(v);
 }
 
-const Badge = ({ children, tone = 'gray' }) => {
-  const tones = {
-    green: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    rose: 'bg-rose-50 text-rose-700 border-rose-200',
-    amber: 'bg-amber-50 text-amber-700 border-amber-200',
-    gray: 'bg-gray-50 text-gray-600 border-gray-200'
-  };
-  const cls = tones[tone] || tones.gray;
-  return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border ${cls}`}>{children}</span>;
-};
 
 // 알림 타입 뱃지
 const TypeBadge = ({ type }) => {
@@ -349,13 +330,7 @@ function formatTime(d) {
   } catch { return '—'; }
 }
 
-const Skeleton = ({ lines = 3 }) => (
-  <div className="space-y-2 animate-pulse" aria-label="loading">
-    {Array.from({ length: lines }).map((_, i) => (
-      <div key={i} className="h-3 rounded bg-gray-200" />
-    ))}
-  </div>
-);
+
 
 // 메타 정보 배지 컴포넌트
 const MetaPill = ({ label, value, color = 'gray' }) => {
@@ -394,20 +369,3 @@ const StatusPill = ({ status }) => {
   return <MetaPill label="상태" value={status} color={color} />;
 };
 
-// Live / Stale 표현
-const LiveStatePill = ({ stale }) => {
-  const isLive = !stale?.location && !stale?.obd;
-  if (isLive) {
-    return (
-      <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[12px] font-semibold text-emerald-700">
-        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" aria-hidden />LIVE
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[12px] font-semibold text-amber-700">
-      <span className="w-2 h-2 rounded-full bg-amber-500" aria-hidden />
-      {stale.location && '위치 지연'}{stale.location && stale.obd && ' / '}{stale.obd && 'OBD 지연'}
-    </span>
-  );
-};

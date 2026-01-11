@@ -22,6 +22,7 @@ export const useOperatingSchedule = () => {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState(null);
 
+
   // 기간 및 필터 상태
   const [period, setPeriod] = useState({
     start: dayjs().subtract(1, 'day').format('YYYY-MM-DD'),
@@ -66,69 +67,6 @@ export const useOperatingSchedule = () => {
     }
   }, []);
 
-  // --- 날짜/시간 정규화 유틸 ---
-  const pad = (n) => String(n).padStart(2, '0');
-  const formatLocalIso = (d) => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-
-  // timeStr: 'HH:mm' 또는 'HH:mm:ss' 또는 ISO -> 반환 'HH:mm'
-  const normalizeTimeOnly = (timeStr) => {
-    if (!timeStr && timeStr !== 0) return null;
-    if (typeof timeStr !== 'string') timeStr = String(timeStr);
-    if (timeStr.includes('T')) {
-      const part = timeStr.split('T')[1] || '';
-      return part.substring(0,5);
-    }
-    // maybe '14:30:00' or '14:30'
-    const m = timeStr.match(/(\d{1,2}:\d{2})/);
-    return m ? m[1] : null;
-  };
-
-  // Combine dateStr 'YYYY-MM-DD' and time 'HH:mm' into local ISO without timezone: 'YYYY-MM-DDTHH:mm:00'
-  const combineDateAndTime = (dateStr, timeStr) => {
-    const t = normalizeTimeOnly(timeStr) || '00:00';
-    return `${dateStr}T${t}:00`;
-  };
-
-  // Ensure scheduled departure/arrival are full local ISO strings and if arrival <= departure, treat arrival as next day
-  const normalizeScheduleDateTimes = (payload) => {
-    try {
-      const out = { ...payload };
-      // Find base date: try dispatchDate, date, scheduledDate, or use period.start
-      const baseDate = out.dispatchDate || out.date || out.scheduledDate || period.start || ''; 
-      // departure
-      if (out.scheduledDepartureTime) {
-        // if it's a time-only value, combine with baseDate
-        if (!out.scheduledDepartureTime.includes('T')) {
-          out.scheduledDepartureTime = combineDateAndTime(baseDate, out.scheduledDepartureTime);
-        }
-      }
-      // arrival
-      if (out.scheduledArrivalTime) {
-        if (!out.scheduledArrivalTime.includes('T')) {
-          out.scheduledArrivalTime = combineDateAndTime(baseDate, out.scheduledArrivalTime);
-        }
-      }
-
-      // If both exist, and arrival <= departure, add 1 day to arrival
-      if (out.scheduledDepartureTime && out.scheduledArrivalTime) {
-        const dep = new Date(out.scheduledDepartureTime);
-        let arr = new Date(out.scheduledArrivalTime);
-        if (isNaN(dep.getTime()) || isNaN(arr.getTime())) {
-          // invalid dates, return original
-          return out;
-        }
-        if (arr.getTime() <= dep.getTime()) {
-          arr = new Date(arr.getTime() + 24 * 3600 * 1000);
-          // format back to local ISO (no Z)
-          out.scheduledArrivalTime = formatLocalIso(arr);
-        }
-      }
-      return out;
-    } catch (e) {
-      return payload;
-    }
-  };
-
   // 기간 내 스케줄 불러오기
   const loadSchedules = useCallback(async () => {
     try {
@@ -172,8 +110,7 @@ export const useOperatingSchedule = () => {
   const handleAddSchedule = useCallback(async (newSchedule) => {
     try {
       setLoading(true);
-      const payload = normalizeScheduleDateTimes(newSchedule);
-      await addSchedule(payload);
+      await addSchedule(newSchedule);
       toastRef.current.success("스케줄이 성공적으로 추가되었습니다.");
       setModalOpen(false);
       // 추가 후 해당 기간 스케줄 다시 로드
@@ -197,8 +134,7 @@ export const useOperatingSchedule = () => {
       console.log('✅ [useOperatingSchedule] 기존 배차 취소 완료:', dispatchId);
       
       // 2. 새로운 배차 생성
-      const payload = normalizeScheduleDateTimes(scheduleData);
-      await addSchedule(payload);
+      await addSchedule(scheduleData);
       console.log('✅ [useOperatingSchedule] 새로운 배차 생성 완료:', scheduleData);
       
       toastRef.current.success("스케줄이 성공적으로 수정되었습니다.");

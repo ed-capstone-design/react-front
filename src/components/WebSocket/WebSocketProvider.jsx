@@ -542,7 +542,7 @@ export const WebSocketProvider = ({ children }) => {
         unsubscribe();
       }
     };
-  }, [onTokenRefresh, connect, disconnect, isConnected]);
+  }, [onTokenRefresh, connect, disconnect, isConnected]); 
 
   return (
     <WebSocketContext.Provider value={value}>

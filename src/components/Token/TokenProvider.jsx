@@ -14,7 +14,7 @@ try {
     localStorage.setItem('accessToken', legacy);
     // refreshToken 은 없으므로 로그인 재시도 시 발급받도록.
   }
-} catch {}
+} catch { }
 
 // 저장된 accessToken이 있으면 기본 Authorization 세팅
 try {
@@ -22,7 +22,7 @@ try {
   if (bootAccess) {
     axios.defaults.headers.common['Authorization'] = `Bearer ${bootAccess}`;
   }
-} catch {}
+} catch { }
 
 // 전역 요청/응답 인터셉터를 모듈 로드 시 한 번만 설치 (초기 요청도 커버)
 if (!axios.__legacyRewriteInstalled) {
@@ -54,7 +54,7 @@ if (!axios.__legacyRewriteInstalled) {
             config.url = '/api/notifications/me';
           }
         }
-      } catch {}
+      } catch { }
 
       const finalUrl = (() => {
         try {
@@ -118,27 +118,27 @@ const TokenContext = createContext({
   refreshToken: null,
   getAccessToken: () => null,
   getRefreshToken: () => null,
-  setTokens: () => {},
-  clearTokens: () => {},
+  setTokens: () => { },
+  clearTokens: () => { },
   refreshAccessToken: () => Promise.resolve(null),
   isAccessTokenValid: () => false,
   getUserInfoFromToken: () => null,
   // 토큰 갱신 이벤트
-  onTokenRefresh: () => {},
-  offTokenRefresh: () => {},
+  onTokenRefresh: () => { },
+  offTokenRefresh: () => { },
   // Backwards compatibility (legacy single token API)
   token: null,
   getToken: () => null,
-  setToken: () => {},
-  removeToken: () => {},
+  setToken: () => { },
+  removeToken: () => { },
   isTokenValid: () => false,
   // 사용자 정보
   getUserInfo: () => null,
-  setUserInfo: () => {},
-  clearUserInfo: () => {},
+  setUserInfo: () => { },
+  clearUserInfo: () => { },
   // 인증 제어
-  login: () => {},
-  logout: () => {},
+  login: () => { },
+  logout: () => { },
 });
 
 export const useToken = () => useContext(TokenContext);
@@ -166,7 +166,7 @@ export const TokenProvider = ({ children }) => {
       if (localStorage.getItem('DEBUG_AXIOS')) {
         console.log("🔑 [TokenProvider] 토큰 조회:", token ? `${token.substring(0, 20)}...` : '토큰 없음');
       }
-    } catch {}
+    } catch { }
     return token;
   };
 
@@ -177,7 +177,7 @@ export const TokenProvider = ({ children }) => {
   // 사용자 정보 가져오기 (렌더링 중 상태 변경 방지)
   const getUserInfo = () => {
     if (userInfo) return userInfo;
-    
+
     // 메모리에 없으면 localStorage에서 가져오기 (상태 업데이트 없이)
     const storedUserInfo = localStorage.getItem('userInfo');
     if (storedUserInfo) {
@@ -253,7 +253,6 @@ export const TokenProvider = ({ children }) => {
     setRefreshTokenState(null);
   };
 
-  const removeToken = clearTokens; // backward compatibility
 
   // 로그인 (토큰과 사용자 정보 함께 저장)
   const login = (loginResponse = {}) => {
@@ -280,10 +279,10 @@ export const TokenProvider = ({ children }) => {
     try {
       const accessToken = getAccessToken();
       const refreshToken = getRefreshToken();
-      
+
       if (accessToken) {
         console.log("🚪 서버에 로그아웃 요청 중...");
-        
+
         // 서버에 로그아웃 요청
         const response = await axios.post('/api/auth/logout', {}, {
           headers: {
@@ -294,7 +293,7 @@ export const TokenProvider = ({ children }) => {
           withCredentials: true,
           timeout: 5000
         });
-        
+
         if (response.data?.success) {
           console.log("✅ 서버 로그아웃 성공:", response.data.message);
         }
@@ -310,14 +309,14 @@ export const TokenProvider = ({ children }) => {
     }
   };
 
-    // 초기화: 기존 토큰 복원 및 서버 검증
+  // 초기화: 기존 토큰 복원 및 서버 검증
   useEffect(() => {
     const existingToken = localStorage.getItem('accessToken') || localStorage.getItem('authToken');
     console.log("🚀 [TokenProvider] 초기화 시작");
-    
+
     if (existingToken) {
       console.log("✅ 기존 토큰 발견 - 서버 유효성 검증 시작");
-      
+
       // 서버에서 토큰 유효성 검증 및 refresh token 상태 확인
       const verifyTokenWithServer = async () => {
         try {
@@ -421,7 +420,7 @@ export const TokenProvider = ({ children }) => {
           }
         }
       };
-      
+
       verifyTokenWithServer();
     } else {
       console.log("⚠️ 토큰 없음 - 로그인 필요");
@@ -453,20 +452,20 @@ export const TokenProvider = ({ children }) => {
     try {
       const payload = parseJwt(token);
       if (!payload) return null;
-      
+
       try {
         if (localStorage.getItem('DEBUG_AXIOS')) {
           console.log("🔍 JWT 페이로드 내용:", payload);
         }
-      } catch {}
-      
+      } catch { }
+
       // JWT 표준 클레임 검증
       const currentTime = Math.floor(Date.now() / 1000);
       if (payload.exp && payload.exp < currentTime) {
         console.warn("토큰이 만료되었습니다.");
         return null;
       }
-      
+
       // 백엔드 JWT 토큰 구조에 맞춘 사용자 정보 추출
       // JwtResponseDto: { token, userId, email, username, roles }
       // JWT 페이로드에는 보통 sub(subject), email, username 등이 포함됨
@@ -539,22 +538,22 @@ export const TokenProvider = ({ children }) => {
     const refreshToken = getRefreshToken();
     const currentAccess = getAccessToken();
     if (!refreshToken) return null;
-    
+
     const task = (async () => {
       try {
         console.log("🔄 Access Token 갱신 시도 중...");
-        
+
         // 웹 환경에서는 쿠키 방식 우선 사용하되, 서버가 body의 refreshToken을 요구하면 함께 전송
         const resp = await axios.post('/api/auth/refresh', { refreshToken }, {
           headers: currentAccess ? { 'Authorization': `Bearer ${currentAccess}` } : {},
           withCredentials: true, // refresh_token 쿠키 사용
           timeout: 5000
         });
-        
+
         // AccessTokenResponse 구조: { accessToken }
         const responseData = resp.data?.data || resp.data;
         const newAccess = responseData?.accessToken;
-        
+
         if (newAccess) {
           setTokens({ accessToken: newAccess, refreshToken });
           console.log('✅ Access Token 재발급 성공');
@@ -565,7 +564,7 @@ export const TokenProvider = ({ children }) => {
       } catch (e) {
         const status = e.response?.status;
         const errorData = e.response?.data;
-        
+
         // 서버 재시작이나 refresh token 무효화 감지
         if (status === 401 || status === 403) {
           console.log("🚨 Refresh Token 무효화 감지:", {
@@ -573,20 +572,20 @@ export const TokenProvider = ({ children }) => {
             message: errorData?.message,
             error: errorData?.error
           });
-          
+
           // 특정 에러 메시지로 서버 재시작 감지
           const errorMessage = (errorData?.message || errorData?.error || '').toLowerCase();
-          if (errorMessage.includes('invalid') || 
-              errorMessage.includes('expired') || 
-              errorMessage.includes('not found') ||
-              status === 401) {
+          if (errorMessage.includes('invalid') ||
+            errorMessage.includes('expired') ||
+            errorMessage.includes('not found') ||
+            status === 401) {
             console.log("❌ 서버 재시작으로 인한 Refresh Token 무효화 - 강제 로그아웃");
-            
+
             // 모든 토큰과 사용자 정보 삭제
             setTimeout(() => {
               clearTokens();
               clearUserInfo();
-              
+
               // 현재 페이지가 로그인 페이지가 아니면 로그인 페이지로 이동
               if (window.location.pathname !== '/signin' && window.location.pathname !== '/signup') {
                 window.location.href = '/signin';
@@ -662,10 +661,12 @@ export const TokenProvider = ({ children }) => {
             if (isRefreshing) {
               // refresh가 진행 중이면 대기 큐에 넣고 토큰이 발급되면 재시도
               return new Promise((resolve, reject) => {
-                pendingQueue.push({ resolve: (token) => {
-                  originalRequest.headers = { ...(originalRequest.headers || {}), Authorization: `Bearer ${token}` };
-                  resolve(axios(originalRequest));
-                }, reject });
+                pendingQueue.push({
+                  resolve: (token) => {
+                    originalRequest.headers = { ...(originalRequest.headers || {}), Authorization: `Bearer ${token}` };
+                    resolve(axios(originalRequest));
+                  }, reject
+                });
               });
             }
 

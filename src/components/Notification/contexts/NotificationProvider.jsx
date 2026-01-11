@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { getMyNotifications, getMyUnreadNotifications, markAsRead as markAsReadApi } from '../../../api/notifications';
+import { getMyUnreadNotifications, markAsRead as markAsReadApi } from '../../../api/notifications';
 import dayjs from 'dayjs';
 import { useToken } from '../../Token/TokenProvider';
 import { useWebSocket } from '../../WebSocket/WebSocketProvider';
@@ -19,10 +19,11 @@ export const NotificationProvider = ({ children }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   // token 값 자체를 구독해야 로그인 직후(effect 재실행) 초기 전체 fetch 가 동작함
+  
   const { getToken, token, onTokenRefresh } = useToken();
   const { subscribePersistent, isConnected, subscribedDestinations } = useWebSocket();
   const toast = useToast();
-  const didLogSubscribedRef = useRef(false);
+
 
   const unreadCount = useMemo(() => notifications.filter(n => !n.isRead).length, [notifications]);
 
