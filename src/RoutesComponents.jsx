@@ -1,5 +1,4 @@
 import { Navigate, Route, Routes, Outlet } from "react-router-dom";
-import { useToken } from "./components/Token/TokenProvider";
 import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
 import Drivers from './pages/Drivers';
@@ -11,17 +10,23 @@ import DriveDetail from './pages/DriveDetail';
 import RealtimeOperation from './pages/RealtimeOperation';
 import MyPage from './pages/MyPage';
 import Layout from './components/Layout/Layout';
+import SkeletonPage from "./pages/SkeletonPage";
+import { useAuthContext } from "./Context/AuthProvider";
 
 export const AuthGate = ({ mode = "protect", children }) => {
-    const { isAccessTokenValid, clearTokens } = useToken();
-    const hasValidToken = isAccessTokenValid();
 
-    if (!hasValidToken) {
-        if (process.env.NODE_ENV === 'development') {
-            console.log('⚠️ 인증 실패 - 로그인 페이지로 리다이렉트');
-        }
-        clearTokens();
-        return <Navigate to="/signin" replace />;
+
+    const {
+        isLoggedIn,
+        isLoading,
+        isError
+    } = useAuthContext();
+
+    if (isLoading) {
+        return <SkeletonPage />;
+    }
+    if (!isLoggedIn) {
+        return <Navigate to="/auth" replace />;
     }
     if (mode === "entry") {
         return <Navigate to="/home" replace />;
@@ -31,16 +36,17 @@ export const AuthGate = ({ mode = "protect", children }) => {
 
 
 const ProtectedLayout = () => (
-    <AuthGate>
+    < AuthGate >
         <Layout>
             <Outlet />
         </Layout>
-    </AuthGate>
+    </AuthGate >
 );
 
 export const PrivateShell = () => (
     <Routes>
         <Route element={<ProtectedLayout />}>
+            <Route path="skeleton" element={<SkeletonPage />} />
             <Route path="/home" element={<Home />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/drivers" element={<Drivers />} />

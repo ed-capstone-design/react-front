@@ -9,7 +9,7 @@ const TopNav = ({ onLogoClick }) => {
   const location = useLocation();
   const { logout, getUserInfo, getUserInfoFromToken } = useToken();
   const { unreadCount } = useNotification();
-  
+
   // 안전하게 사용자 정보 가져오기
   const userInfo = getUserInfo();
   const tokenUserInfo = getUserInfoFromToken();
@@ -19,7 +19,7 @@ const TopNav = ({ onLogoClick }) => {
   const handleLogout = async () => {
     try {
       await logout(); // 서버에 로그아웃 요청 후 토큰과 사용자 정보 모두 제거
-      navigate('/signin');
+      navigate('/auth');
     } catch (error) {
       console.error('로그아웃 중 오류 발생:', error);
       // 오류가 발생해도 로그인 페이지로 이동 (로컬 토큰은 이미 삭제됨)
@@ -60,41 +60,41 @@ const TopNav = ({ onLogoClick }) => {
             </span>
           </button>
         </div>
-        
+
         <div className="space-x-6 flex items-center ml-auto">
-        <button 
-          className="flex items-center gap-2 text-gray-700 hover:text-blue-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded"
-          onClick={handleProfileClick}
-          aria-label="내 정보로 이동"
-        >
-          <IoPersonCircle className="text-2xl" />
-          <span className="font-semibold">{userName}</span>
-        </button>
-
-
-        {/* 알림 버튼 */}
-        {location.pathname !== '/insight' && (
-          <button 
-            className="relative focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded"
-            onClick={() => navigate('/insight')}
-            title="알림"
+          <button
+            className="flex items-center gap-2 text-gray-700 hover:text-blue-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded"
+            onClick={handleProfileClick}
+            aria-label="내 정보로 이동"
           >
-            <IoNotificationsOutline className="text-2xl text-gray-700" />
-            {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 font-bold">
-                {unreadCount > 99 ? '99+' : unreadCount}
-              </span>
-            )}
+            <IoPersonCircle className="text-2xl" />
+            <span className="font-semibold">{userName}</span>
           </button>
-        )}
-        <button 
-          onClick={handleLogout}
-          className="text-gray-700 hover:underline flex items-center gap-2 hover:text-red-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded"
-          aria-label="로그아웃"
-        >
-          <IoLogOut />
-          로그아웃
-        </button>
+
+
+          {/* 알림 버튼 */}
+          {location.pathname !== '/insight' && (
+            <button
+              className="relative focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded"
+              onClick={() => navigate('/insight')}
+              title="알림"
+            >
+              <IoNotificationsOutline className="text-2xl text-gray-700" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 font-bold">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
+            </button>
+          )}
+          <button
+            onClick={handleLogout}
+            className="text-gray-700 hover:underline flex items-center gap-2 hover:text-red-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded"
+            aria-label="로그아웃"
+          >
+            <IoLogOut />
+            로그아웃
+          </button>
         </div>
       </div>
     </nav>

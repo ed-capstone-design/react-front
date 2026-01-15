@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { TokenProvider } from './components/Token/TokenProvider';
 import Auth from './pages/Auth';
@@ -6,28 +7,45 @@ import { NotificationProvider } from './components/Notification/contexts/Notific
 import './App.css';
 import { WebSocketProvider } from './components/WebSocket/WebSocketProvider';
 import { AuthGate, PrivateShell } from './RoutesComponents';
+import { AuthProvider } from './Context/AuthProvider';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 function App() {
+  const queryClient = useMemo(() => new QueryClient(), []);
+
+
   return (
-    <TokenProvider>
-      <ToastProvider>
-        <WebSocketProvider>
-          <NotificationProvider>
+    <QueryClientProvider client={queryClient}>
+      <TokenProvider>
+        <AuthProvider>
+          <ToastProvider>
             <Router>
               <div className="App">
                 <Routes>
-                  {/* 공개(비보호) 경로 */}
+                  {/* ✅ 1. 공개 경로: 웹소켓이나 알림 프로바이더를 거치지 않음 */}
+                  {/* 토큰이 없어도 실행에 아무 지장이 없는 순수 영역입니다. */}
                   <Route path="/" element={<AuthGate mode="entry" />} />
-                  <Route path="/signin" element={<Auth />} />
-                  {/* 기타 모든 경로는 보호 쉘로 라우팅 */}
-                  <Route path="/*" element={<PrivateShell />} />
+                  <Route path="/auth" element={<Auth />} />
+
+                  {/* ✅ 2. 보호 경로: 로그인 성공 후에만 웹소켓과 알림을 활성화 */}
+                  {/* PrivateShell 내부에서 AuthGate가 한 번 더 토큰을 검사하므로 안전합니다. */}
+                  <Route
+                    path="/*"
+                    element={
+                      <WebSocketProvider>
+                        <NotificationProvider>
+                          <PrivateShell />
+                        </NotificationProvider>
+                      </WebSocketProvider>
+                    }
+                  />
                 </Routes>
               </div>
             </Router>
-          </NotificationProvider>
-        </WebSocketProvider>
-      </ToastProvider>
-    </TokenProvider>
+          </ToastProvider>
+        </AuthProvider>
+      </TokenProvider>
+    </QueryClientProvider>
   );
 }
 export default App;

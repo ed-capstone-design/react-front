@@ -42,7 +42,7 @@ export const tokenStorage = {
     if (!token) return null;
     try {
       const decoded = jwtDecode(token);
-      const isExpired = dayjs().unix() > decoded.exp; // 괄호 () 주의!
+      const isExpired = dayjs().unix() > decoded.exp;
       if (isExpired) {
         storage.remove(ACCESS_TOKEN_KEY);
         return null;

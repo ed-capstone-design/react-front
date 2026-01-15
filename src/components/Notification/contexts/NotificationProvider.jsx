@@ -19,7 +19,7 @@ export const NotificationProvider = ({ children }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   // token 값 자체를 구독해야 로그인 직후(effect 재실행) 초기 전체 fetch 가 동작함
-  
+
   const { getToken, token, onTokenRefresh } = useToken();
   const { subscribePersistent, isConnected, subscribedDestinations } = useWebSocket();
   const toast = useToast();
@@ -37,11 +37,11 @@ export const NotificationProvider = ({ children }) => {
         setNotifications([]);
         return [];
       }
-      try { console.debug('[Notification] refresh start, tokenPreview:', token ? `${token.substring(0,10)}...` : null); } catch {}
+      try { console.debug('[Notification] refresh start, tokenPreview:', token ? `${token.substring(0, 10)}...` : null); } catch { }
       const list = await getMyUnreadNotifications(token);
       const onlyUnread = Array.isArray(list) ? list.filter(n => !n.isRead) : [];
       setNotifications(onlyUnread);
-      try { console.log('[Notification] refresh -> unread count', onlyUnread.length, onlyUnread.map(x=>x.id)); } catch {}
+      try { console.log('[Notification] refresh -> unread count', onlyUnread.length, onlyUnread.map(x => x.id)); } catch { }
       return onlyUnread;
     } catch (e) {
       console.error('[Notification] 목록 조회 실패', e);
@@ -121,7 +121,7 @@ export const NotificationProvider = ({ children }) => {
           longitude: raw?.longitude,
           scheduledDepartureTime: raw?.scheduledDepartureTime,
         });
-      } catch {}
+      } catch { }
 
       const incoming = {
         id: raw.notificationId,
@@ -139,7 +139,7 @@ export const NotificationProvider = ({ children }) => {
       };
       // Only keep unread notifications in the context. If incoming is already read, ignore it
       if (incoming.isRead) {
-        try { console.log('[Notification] realtime incoming ignored (isRead=true):', incoming.id); } catch {}
+        try { console.log('[Notification] realtime incoming ignored (isRead=true):', incoming.id); } catch { }
         return;
       }
       setNotifications(prev => {
@@ -155,7 +155,7 @@ export const NotificationProvider = ({ children }) => {
         } : incoming;
         if (!merged.isRead) map.set(merged.id, merged);
         const arr = Array.from(map.values()).sort((a, b) => dayjs(b.createdAt).valueOf() - dayjs(a.createdAt).valueOf()).slice(0, 1000);
-        try { console.log('[Notification] realtime merged -> unread count', arr.length); } catch {}
+        try { console.log('[Notification] realtime merged -> unread count', arr.length); } catch { }
         return arr;
       });
       // 강제 재렌더 필요 시 버전 증가
@@ -186,11 +186,11 @@ export const NotificationProvider = ({ children }) => {
   useEffect(() => {
     if (typeof onTokenRefresh !== 'function') return;
     const off = onTokenRefresh((newAccessToken) => {
-      try { console.debug('[Notification] onTokenRefresh triggered, fetching latest unread notifications'); } catch {}
+      try { console.debug('[Notification] onTokenRefresh triggered, fetching latest unread notifications'); } catch { }
       // 새 토큰이 발급되면 즉시 동기화
       refresh();
     });
-    return () => { try { off && off(); } catch {} };
+    return () => { try { off && off(); } catch { } };
   }, [onTokenRefresh, refresh]);
 
   // 공통 destination 상수 (완전 자동 구독)
@@ -211,12 +211,12 @@ export const NotificationProvider = ({ children }) => {
   // 프론트 임의 알림 추가용 함수 (탭 간 동기화 제거)
 
 
-  const value = { 
-    notifications, 
-    unreadCount, 
-    loading, 
-    error, 
-    refresh, 
+  const value = {
+    notifications,
+    unreadCount,
+    loading,
+    error,
+    refresh,
     markAsRead,
     version,
   };

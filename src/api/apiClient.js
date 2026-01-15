@@ -93,7 +93,7 @@ apiClient.interceptors.response.use(
         // 보안을 위해 잔여 토큰 삭제
         tokenStorage.remove();
         // 로그인 페이지로 강제 리다이렉트 (React 외부이므로 window.location 사용)
-        window.location.href = "/signin";
+        window.location.href = "/auth";
 
         return Promise.reject(refreshError);
       } finally {
