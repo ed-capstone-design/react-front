@@ -1,11 +1,26 @@
-import { createContext, useContext, useMemo } from "react";
-import { useAuthCheck } from "../hooks/QueryLayer/useAuth";
-
+import { createContext, useContext, useEffect, useMemo } from "react";
+import { AUTH_KEYS, useAuthCheck } from "../hooks/QueryLayer/useAuth";
+import { useQueryClient } from "@tanstack/react-query";
+import { authManager } from "../components/Token/authManager";
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
+
+    const queryClient = useQueryClient();
     const { data: user, isLoading, isError } = useAuthCheck();
 
+    useEffect(() => {
+        const unsubscribe = authManager.onChange((newToken) => {
+
+            if (newToken) {
+                queryClient.invalidateQueries({ queryKey: AUTH_KEYS.user() });
+            } else {
+                queryClient.removeQueries({ queryKey: AUTH_KEYS.all });
+            }
+        })
+        //clearup을 구독 해제로 제공함
+        return unsubscribe;
+    }, [queryClient,])
 
     const authState = useMemo(() => ({
         user,

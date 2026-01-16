@@ -1,9 +1,9 @@
 import axios from "axios";
-import { tokenStorage } from "../components/Token/tokenStorage";
+import { authManager } from "../components/Token/authManager";
 
 // 1. Axios 인스턴스 생성
 export const apiClient = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || "http://localhost:8080",
+  baseURL: process.env.REACT_APP_API_URL,
   headers: {
     "Content-Type": "application/json",
   },
@@ -15,7 +15,7 @@ export const apiClient = axios.create({
 // 역할: 모든 API 요청 전, 로컬 스토리지의 Access Token을 헤더에 주입
 apiClient.interceptors.request.use(
   (config) => {
-    const accessToken = tokenStorage.get();
+    const accessToken = authManager.getToken();
     // 토큰이 존재할 경우 Authorization 헤더에 Bearer 스키마로 추가
     if (accessToken) {
       config.headers["Authorization"] = `Bearer ${accessToken}`;
@@ -79,9 +79,10 @@ apiClient.interceptors.response.use(
         if (!newAccessToken) {
           throw new Error("새로운 토큰 없음");
         }
-        // 1. 스토리지에 새 토큰 저장
-        tokenStorage.set(newAccessToken);
-        // 2. 대기열(Queue)에 쌓인 요청들에 새 토큰 브로드캐스트 및 재개
+
+        // 1. 대기열(Queue)에 쌓인 요청들에 새 토큰 브로드캐스트 및 재개
+        //매니저에제 알림
+        authManager.login(newAccessToken);
         onRefreshed(newAccessToken);
 
         // 3. 실패했던 최초 요청의 헤더 갱신 및 재시도
@@ -91,10 +92,7 @@ apiClient.interceptors.response.use(
         // [심각] 리프레시 토큰조차 만료되었거나 갱신 실패 시
         console.error(`토큰 갱신 실패 ${status}:${refreshError.message}`);
         // 보안을 위해 잔여 토큰 삭제
-        tokenStorage.remove();
-        // 로그인 페이지로 강제 리다이렉트 (React 외부이므로 window.location 사용)
-        window.location.href = "/auth";
-
+        authManager.logout();
         return Promise.reject(refreshError);
       } finally {
         // 성공/실패 여부와 관계없이 갱신 상태 해제

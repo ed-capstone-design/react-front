@@ -1,5 +1,5 @@
 import { apiClient } from "../apiClient";
-import { tokenStorage } from "../../components/Token/tokenStorage";
+import { authManager } from "../../components/Token/authManager";
 
 const AUTH_URL = "/api/auth";
 export const authService = {
@@ -12,7 +12,7 @@ export const authService = {
     const { accessToken, ...userInfo } = response.data;
 
     if (accessToken) {
-      tokenStorage.set(accessToken);
+      authManager.login(accessToken);
     }
     return userInfo;
   },
@@ -22,7 +22,7 @@ export const authService = {
     } catch (error) {
       console.warn("로그아웃 서버 요청 실패:", error);
     } finally {
-      tokenStorage.remove();
+      authManager.logout();
     }
   },
   refresh: async () => {

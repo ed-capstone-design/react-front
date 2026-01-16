@@ -1,6 +1,6 @@
 import SockJS from "sockjs-client";
 import { Client } from "@stomp/stompjs";
-import { tokenStorage } from "../Token/tokenStorage";
+import { authManager } from "../components/Token/authManager";
 
 const baseURL = process.env.REACT_APP_WS_URL;
 
@@ -15,7 +15,7 @@ export const createWebSocketClient = ({ onConnect, onDisconnect, onError }) => {
     heartbeatOutgoing: 4 * 1000,
 
     beforeConnect: () => {
-      const freshToken = tokenStorage.get();
+      const freshToken = authManager.getToken();
       if (!freshToken) {
         console.warn("[SocketClient] 연결 실패: Token 없음");
       }

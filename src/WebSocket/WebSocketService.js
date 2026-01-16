@@ -125,6 +125,4 @@ class WebSocketService {
   }
 }
 
-// ⚠️ 수정: 클래스 이름과 인스턴스 이름이 같으면 에러 남
-// 소문자로 시작하는 이름으로 변경
 export const webSocketService = new WebSocketService();

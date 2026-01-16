@@ -2,8 +2,8 @@ import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { authService } from "../../api/ServiceLayer/authService";
 import { userService } from "../../api/ServiceLayer/userService";
-import { tokenStorage } from "../../components/Token/tokenStorage";
-
+import { authManager } from "../../components/Token/authManager";
+import { useSyncExternalStore } from "react";
 export const AUTH_KEYS = {
   all: ["auth"],
   user: () => [...AUTH_KEYS.all, "user"],
@@ -28,13 +28,11 @@ export const useSignup = () => {
 
 export const useLogin = () => {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: authService.login,
     onSuccess: (userInfo) => {
       console.log("로그인 성공:", userInfo);
-      queryClient.setQueryData(AUTH_KEYS.user(), userInfo);
       navigate("/");
     },
     onError: (error) => {
@@ -58,8 +56,11 @@ export const useLogout = () => {
 };
 
 export const useAuthCheck = () => {
-  const isTokenExists = !!tokenStorage.get();
-
+  const token = useSyncExternalStore(
+    (callback) => authManager.onChange(callback), // 구독 함수 (변경 시 리액트에게 알림)
+    () => authManager.getToken() // 스냅샷 함수 (현재 값 가져오기)
+  );
+  const isTokenExists = !!token;
   return useQuery({
     queryKey: AUTH_KEYS.user(),
     queryFn: userService.getMe,
