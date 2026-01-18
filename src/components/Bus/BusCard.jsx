@@ -1,13 +1,11 @@
-import React from "react";
-
 const BusCard = ({ bus, onEdit, onDelete, onSelect, isSelected }) => {
   const getRouteTypeLabel = (type) => {
     const labels = {
-      'CITY':'시내',
-      'COMMUTER':'광역',
-      'TOWN':'마을버스',
-      'EXPRESS':'고속버스',
-      'INTERCITY':'시외버스'
+      'CITY': '시내',
+      'COMMUTER': '광역',
+      'TOWN': '마을버스',
+      'EXPRESS': '고속버스',
+      'INTERCITY': '시외버스'
     };
     return labels[type] || type;
   };
@@ -21,23 +19,13 @@ const BusCard = ({ bus, onEdit, onDelete, onSelect, isSelected }) => {
     return labels[type] || type;
   };
 
-  const getFuelTypeLabel = (type) => {
-    const labels = {
-      'DIESEL': '경유',
-      'LPG': 'LPG',
-      'ELECTRIC': '전기',
-      'HYBRID': '하이브리드'
-    };
-    return labels[type] || type;
-  };
-
   const getMaintenanceStatus = (lastMaintenance) => {
     if (!lastMaintenance) return { status: 'warning', text: '미점검' };
-    
+
     const lastDate = new Date(lastMaintenance);
     const today = new Date();
     const diffDays = Math.floor((today - lastDate) / (1000 * 60 * 60 * 24));
-    
+
     if (diffDays > 365) return { status: 'danger', text: '점검필요' };
     if (diffDays > 300) return { status: 'warning', text: '점검예정' };
     return { status: 'good', text: '정상' };
@@ -48,9 +36,8 @@ const BusCard = ({ bus, onEdit, onDelete, onSelect, isSelected }) => {
 
   return (
     <div
-      className={`bg-white rounded-xl shadow-lg p-5 hover:shadow-xl transition cursor-pointer border ${
-        isSelected ? 'border-blue-500 ring-2 ring-blue-200 bg-blue-50' : 'border-gray-100 hover:border-blue-200'
-      }`}
+      className={`bg-white rounded-xl shadow-lg p-5 hover:shadow-xl transition cursor-pointer border ${isSelected ? 'border-blue-500 ring-2 ring-blue-200 bg-blue-50' : 'border-gray-100 hover:border-blue-200'
+        }`}
       onClick={() => onSelect && onSelect(bus)}
     >
       {/* 상단 라벨/버튼 */}
@@ -100,11 +87,10 @@ const BusCard = ({ bus, onEdit, onDelete, onSelect, isSelected }) => {
         <div className="text-xs text-gray-500">
           차령 <span className="font-semibold text-gray-700">{vehicleAge}년</span> · 정비 <span className="font-semibold text-gray-700">{bus.repairCount}회</span>
         </div>
-        <div className={`px-2 py-1 rounded-full text-xs font-semibold shadow-sm ${
-          maintenanceStatus.status === 'good' ? 'bg-green-100 text-green-700' :
+        <div className={`px-2 py-1 rounded-full text-xs font-semibold shadow-sm ${maintenanceStatus.status === 'good' ? 'bg-green-100 text-green-700' :
           maintenanceStatus.status === 'warning' ? 'bg-yellow-100 text-yellow-700' :
-          'bg-red-100 text-red-700'
-        }`}>
+            'bg-red-100 text-red-700'
+          }`}>
           {maintenanceStatus.text}
         </div>
       </div>

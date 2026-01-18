@@ -1,4 +1,3 @@
-import React from 'react';
 import { useNotification } from '../components/Notification/contexts/NotificationProvider';
 import { useNavigate } from 'react-router-dom';
 

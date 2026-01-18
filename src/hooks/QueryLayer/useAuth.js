@@ -18,11 +18,6 @@ export const useSignup = () => {
       alert("회원가입에 성공하였습니다. 로그인해주세요");
       navigate("/auth");
     },
-    onError: (error) => {
-      const message =
-        error.response?.data?.message || "회원가입에 실패하였습니다.";
-      alert(message);
-    },
   });
 };
 
@@ -34,11 +29,6 @@ export const useLogin = () => {
     onSuccess: (userInfo) => {
       console.log("로그인 성공:", userInfo);
       navigate("/");
-    },
-    onError: (error) => {
-      const message =
-        error.response?.data?.message || "로그인에 실패하였습니다.";
-      alert(message);
     },
   });
 };

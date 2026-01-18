@@ -1,5 +1,5 @@
-import { createContext, useContext, useEffect, useMemo } from "react";
-import { AUTH_KEYS, useAuthCheck } from "../hooks/QueryLayer/useAuth";
+import { createContext, useContext, useEffect, useMemo, useCallback } from "react";
+import { AUTH_KEYS, useAuthCheck, useLogout } from "../hooks/QueryLayer/useAuth";
 import { useQueryClient } from "@tanstack/react-query";
 import { authManager } from "../components/Token/authManager";
 const AuthContext = createContext(null);
@@ -8,6 +8,10 @@ export const AuthProvider = ({ children }) => {
 
     const queryClient = useQueryClient();
     const { data: user, isLoading, isError } = useAuthCheck();
+    const { mutate: logoutMutate } = useLogout();
+    const logout = useCallback(() => {
+        logoutMutate();
+    }, [logoutMutate]);
 
     useEffect(() => {
         const unsubscribe = authManager.onChange((newToken) => {
@@ -27,7 +31,8 @@ export const AuthProvider = ({ children }) => {
         isLoggedIn: !!user,
         isLoading,
         isError
-    }), [user, isLoading, isError]);
+        , logout
+    }), [user, isLoading, isError, logout]);
 
     return (
         <AuthContext.Provider value={authState}>

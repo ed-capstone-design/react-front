@@ -1,20 +1,18 @@
-import React from 'react';
-import { IoLogOut, IoMenu, IoPersonCircle, IoNotificationsOutline } from 'react-icons/io5';
+import { IoLogOut, IoPersonCircle, IoNotificationsOutline } from 'react-icons/io5';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useToken } from '../Token/TokenProvider';
-import { useNotification } from '../Notification/contexts/NotificationProvider';
-
+import { useNotificationContext } from '../../Context/NotificationProvider';
+import { useAuthContext } from '../../Context/AuthProvider';
 const TopNav = ({ onLogoClick }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { logout, getUserInfo, getUserInfoFromToken } = useToken();
-  const { unreadCount } = useNotification();
+  const { user: userInfo, isLoading,
+    logout,
+  } = useAuthContext();
 
-  // 안전하게 사용자 정보 가져오기
-  const userInfo = getUserInfo();
-  const tokenUserInfo = getUserInfoFromToken();
-  const displayUserInfo = userInfo || tokenUserInfo;
-  const userName = displayUserInfo?.username || displayUserInfo?.name || "사용자";
+  const { unreadCount } = useNotificationContext();
+
+  //사용자 정보 가져오기
+  const userName = userInfo?.data?.username || userInfo?.data?.email || "사용자";
 
   const handleLogout = async () => {
     try {
@@ -23,7 +21,7 @@ const TopNav = ({ onLogoClick }) => {
     } catch (error) {
       console.error('로그아웃 중 오류 발생:', error);
       // 오류가 발생해도 로그인 페이지로 이동 (로컬 토큰은 이미 삭제됨)
-      navigate('/signin');
+      navigate('/auth');
     }
   };
 
@@ -68,7 +66,8 @@ const TopNav = ({ onLogoClick }) => {
             aria-label="내 정보로 이동"
           >
             <IoPersonCircle className="text-2xl" />
-            <span className="font-semibold">{userName}</span>
+            {isLoading ? <span className="font-semibold">{userName}</span> : <span className="font-semibold">{userName}</span>}
+
           </button>
 
 

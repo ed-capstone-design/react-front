@@ -45,26 +45,6 @@ const RunningDrivers = () => {
   const [runningDrivers, setRunningDrivers] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // 운행중인 운전자 데이터 로드 - 주석처리
-  /*
-  useEffect(() => {
-    const loadRunningDrivers = async () => {
-      try {
-        setLoading(true);
-        const drivers = await fetchRunningDrivers();
-        setRunningDrivers(drivers);
-      } catch (error) {
-        console.error('운행중인 운전자 데이터 로드 실패:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadRunningDrivers();
-  }, []); // 의존성 배열을 빈 배열로 변경
-  */
-
-  // 임시로 loading을 false로 설정
   useEffect(() => {
     setLoading(false);
   }, []);

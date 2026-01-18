@@ -5,7 +5,7 @@ import { IoArrowBack } from 'react-icons/io5';
 import useLiveDispatch from '../hooks/useLiveDispatch';
 import KakaoMap from '../components/Map/KakaoMapContainer';
 import RealtimeMarkers from '../components/Map/RealtimeMarkers';
-import { useNotification } from '../components/Notification/contexts/NotificationProvider';
+import { useNotificationContext } from '../Context/NotificationProvider';
 import { useToken } from '../components/Token/TokenProvider';
 
 // RealtimeOperation - Phase 1.5 리디자인
@@ -20,14 +20,14 @@ const RealtimeOperation = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const dispatchId = id;
-  const { loading, error, meta, latestLocation, kpis} = useLiveDispatch(dispatchId);
+  const { loading, error, meta, latestLocation, kpis } = useLiveDispatch(dispatchId);
   const [metaLocal, setMetaLocal] = React.useState(null);
   // 운행 이벤트 목록 상태
   const [driveEvents, setDriveEvents] = React.useState([]);
   const [eventLoading, setEventLoading] = React.useState(true);
   const [eventError, setEventError] = React.useState(null);
   const { getAccessToken } = useToken();
-  const { version: notificationVersion, notifications } = useNotification();
+  const { version: notificationVersion, notifications } = useNotificationContext();
   const [ending, setEnding] = React.useState(false);
   const [endError, setEndError] = React.useState(null);
 
@@ -142,7 +142,7 @@ const RealtimeOperation = () => {
           <MetaPill color="indigo" label="운전자" value={(metaLocal || meta)?.driverName || '—'} />
           <MetaPill color="teal" label="차량" value={(metaLocal || meta)?.vehicleNumber || '—'} />
           <StatusPill status={(metaLocal || meta)?.status} />
-          {( (metaLocal || meta)?.status !== 'COMPLETED' ) && (
+          {((metaLocal || meta)?.status !== 'COMPLETED') && (
             <button
               onClick={async () => {
                 if (!dispatchId) return;
@@ -186,8 +186,8 @@ const RealtimeOperation = () => {
             {markers.length === 0 && <span className="text-[11px] text-gray-400">데이터 대기중…</span>}
           </div>
           <div className="relative rounded-lg overflow-hidden ring-1 ring-gray-100">
-            <KakaoMap 
-              height="480px" 
+            <KakaoMap
+              height="480px"
               center={mapCenter}
               level={4} // 
             >
@@ -220,9 +220,8 @@ const RealtimeOperation = () => {
                     <span className="text-[10px] font-medium tracking-wide text-gray-500 group-hover:text-sky-600 transition-colors">
                       {r.label}
                     </span>
-                    <span className={`text-[13px] font-semibold tabular-nums tracking-tight ${
-                      r.isAge ? 'text-orange-600' : 'text-gray-900'
-                    }`}>
+                    <span className={`text-[13px] font-semibold tabular-nums tracking-tight ${r.isAge ? 'text-orange-600' : 'text-gray-900'
+                      }`}>
                       {r.value}
                     </span>
                     {/* 데이터 갱신 시간 표시 */}
@@ -304,11 +303,11 @@ const TypeBadge = ({ type }) => {
     PHONE_USAGE: 'bg-pink-100 text-pink-700 border-pink-200',
   };
   const cls = map[type] || 'bg-gray-100 text-gray-600 border-gray-200';
-  
+
   // 타입별 한글 라벨
   const labels = {
     ALERT: 'ALERT',
-    WARNING: 'WARNING', 
+    WARNING: 'WARNING',
     DRIVING_WARNING: 'DRIVING_WARNING',
     DROWSINESS: '졸음운전',
     ACCELERATION: '급가속',
@@ -317,7 +316,7 @@ const TypeBadge = ({ type }) => {
     SEATBELT_UNFASTENED: '안전벨트',
     PHONE_USAGE: '휴대폰사용',
   };
-  
+
   const label = labels[type] || type;
   return <span className={`inline-flex items-center h-5 px-2 rounded-full text-[10px] font-semibold border ${cls}`}>{label}</span>;
 };
@@ -362,9 +361,9 @@ const StatusPill = ({ status }) => {
   const normalized = status.toUpperCase();
   const color = (
     normalized.includes('RUN') ? 'emerald' :
-    normalized.includes('COMP') ? 'indigo' :
-    normalized.includes('CANCEL') ? 'rose' :
-    'gray'
+      normalized.includes('COMP') ? 'indigo' :
+        normalized.includes('CANCEL') ? 'rose' :
+          'gray'
   );
   return <MetaPill label="상태" value={status} color={color} />;
 };

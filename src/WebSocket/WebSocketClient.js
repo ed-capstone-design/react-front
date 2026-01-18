@@ -15,26 +15,33 @@ export const createWebSocketClient = ({ onConnect, onDisconnect, onError }) => {
     heartbeatOutgoing: 4 * 1000,
 
     beforeConnect: () => {
-      const freshToken = authManager.getToken();
-      if (!freshToken) {
-        console.warn("[SocketClient] 연결 실패: Token 없음");
-      }
-      client.connectHeaders = {
-        Authorization: `Bearer ${freshToken}`,
-      };
-      console.log("[SocketClient] Header 토큰 주입 완료");
+      const token = authManager.getToken();
+
+      client.connectHeaders = token ? { Authorization: `Bearer ${token}` } : {};
     },
+
     onConnect: (frame) => {
-      console.log(`[,sSocketClient]연결${frame.headers}`);
+      console.log(`[SocketClient]연결${frame.headers}`);
       if (onConnect) {
         onConnect(frame);
       }
     },
 
-    onError: (frame) => {
-      console.error(" [SocketClient] 브로커 에러:", frame.headers["message"]);
-      console.error("상세 내용:", frame.body);
-      if (onError) onError(frame);
+    onWebSocketError: (event) => {
+      console.warn("[Socket] WebSocket 네트워크 에러", event);
+      onError?.({ type: "NETWORK", event });
+    },
+    onStompError: (frame) => {
+      const message = frame.headers["message"];
+
+      if (message?.includes("401") || message?.includes("Unauthorized")) {
+        console.warn("[Stomp] 인증 오류 → 로그아웃");
+        authManager.logout();
+        onError?.({ type: "AUTH", message });
+        return;
+      }
+
+      onError?.({ type: "STOMP", message, frame });
     },
 
     onWebSocketClose: (event) => {

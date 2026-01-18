@@ -1,15 +1,17 @@
-import React, { useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useDriverAPI } from "../../hooks/useDriverAPI";
 import DriverCard from "./DriverCard";
 import EditDriverModal from "./EditDriverModal";
 import { useToast } from "../Toast/ToastProvider";
+import { useDriverList, useDeleteDriver } from "../../hooks/QueryLayer/useDriver";
 
 const DriverListPanel = () => {
   const navigate = useNavigate();
-  const { drivers, loading, error, deleteDriver, fetchDrivers } = useDriverAPI();
+
+  const { data: drivers = [], isLoading: loading, isError, error } = useDriverList()
+  const { mutate: deleteDriver } = useDeleteDriver();
   const toast = useToast();
-  
+
   const [selectedDriver, setSelectedDriver] = useState(null);
   const [modalMode, setModalMode] = useState('view'); // 'view', 'edit', 'create'
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -17,21 +19,16 @@ const DriverListPanel = () => {
   const [searchType, setSearchType] = useState('all'); // 'all', 'username', 'licenseNumber', 'grade'
   const [gradeFilter, setGradeFilter] = useState('all'); // 'all', 'A', 'B', 'C', 'D', 'F'
 
-  // 컴포넌트 마운트 시 운전자 목록 로드
-  useEffect(() => {
-    fetchDrivers();
-  }, [fetchDrivers]);
-
   // 통계 계산
-  const getDriverStats = () => {
+  const stats = useMemo(() => {
     if (!drivers.length) return { total: 0, gradeA: 0, gradeB: 0, gradeC: 0, avgScore: 0 };
-    
+
     const gradeA = drivers.filter(d => d.grade === 'A').length;
     const gradeB = drivers.filter(d => d.grade === 'B').length;
     const gradeC = drivers.filter(d => d.grade === 'C').length;
     const totalScore = drivers.reduce((sum, d) => sum + (parseFloat(d.avgDrivingScore) || 0), 0);
     const avgScore = drivers.length > 0 ? (totalScore / drivers.length).toFixed(1) : 0;
-    
+
     return {
       total: drivers.length,
       gradeA,
@@ -39,35 +36,32 @@ const DriverListPanel = () => {
       gradeC,
       avgScore
     };
-  };
+  }, [drivers]);
 
-  const stats = getDriverStats();
 
   // 검색 및 필터링
-  const filteredDrivers = drivers.filter(driver => {
-    // 등급 필터
-    if (gradeFilter !== 'all' && driver.grade !== gradeFilter) {
-      return false;
-    }
-    
-    // 검색어 필터
-    if (!searchTerm) return true;
-    
-    switch (searchType) {
-      case 'username':
-        return driver.username?.toLowerCase().includes(searchTerm.toLowerCase());
-      case 'licenseNumber':
-        return driver.licenseNumber?.toLowerCase().includes(searchTerm.toLowerCase());
-      case 'grade':
-        return driver.grade?.toLowerCase().includes(searchTerm.toLowerCase());
-      default:
-        return (
-          driver.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          driver.licenseNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          driver.grade?.toLowerCase().includes(searchTerm.toLowerCase())
-        );
-    }
-  });
+  const filteredDrivers = useMemo(() => {
+    return drivers.filter(driver => {
+      // 등급 필터
+      if (gradeFilter !== 'all' && driver.grade !== gradeFilter) return false;
+
+      // 검색어 필터
+      if (!searchTerm) return true;
+      const lowerSearch = searchTerm.toLowerCase();
+
+      switch (searchType) {
+        case 'username': return driver.username?.toLowerCase().includes(lowerSearch);
+        case 'licenseNumber': return driver.licenseNumber?.toLowerCase().includes(lowerSearch);
+        case 'grade': return driver.grade?.toLowerCase().includes(lowerSearch);
+        default:
+          return (
+            driver.username?.toLowerCase().includes(lowerSearch) ||
+            driver.licenseNumber?.toLowerCase().includes(lowerSearch) ||
+            driver.grade?.toLowerCase().includes(lowerSearch)
+          );
+      }
+    });
+  }, [drivers, searchTerm, searchType, gradeFilter]);
 
   const handleView = (driver) => {
     navigate(`/userdetailpage/${driver.userId}`);
@@ -79,33 +73,27 @@ const DriverListPanel = () => {
     setIsModalOpen(true);
   };
 
-  const handleDelete = async (driver) => {
+  const handleDelete = (driver) => {
     if (window.confirm(`${driver.username} 운전자를 삭제하시겠습니까?`)) {
-      const result = await deleteDriver(driver.userId);
-      if (result.success) {
-        toast.success(`${driver.username} 운전자가 성공적으로 삭제되었습니다.`);
-        fetchDrivers();
-      } else {
-        toast.error(result.error || '운전자 삭제에 실패했습니다.');
-      }
+      deleteDriver(driver.userId, {
+        onSuccess: () => {
+          toast.success("운전자가 삭제되었습니다.");
+        },
+        onError: (error) => {
+          toast.error(`운전자 삭제에 실패했습니다: ${error?.message}`);
+        }
+      })
     }
   };
 
-  const handleCreate = () => {
-    setSelectedDriver(null);
-    setModalMode('create');
-    setIsModalOpen(true);
-  };
 
   const closeModal = () => {
     setIsModalOpen(false);
     setSelectedDriver(null);
   };
 
-  const handleModalSuccess = () => {
-    closeModal();
-    fetchDrivers();
-  };
+  const handleModalSuccess = closeModal;
+
 
   if (loading && drivers.length === 0) {
     return (
@@ -193,9 +181,9 @@ const DriverListPanel = () => {
       </div>
 
       {/* 에러 메시지 */}
-      {error && (
+      {isError && (
         <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-red-600">오류: {error}</p>
+          <p className="text-red-600">오류: {error?.message}</p>
         </div>
       )}
 
@@ -204,8 +192,8 @@ const DriverListPanel = () => {
         <div className="text-center py-12">
           <div className="text-gray-400 text-lg mb-2">운전자가 없습니다</div>
           <div className="text-gray-500 text-sm">
-            {searchTerm || gradeFilter !== 'all' 
-              ? '검색 조건을 변경하거나 새 운전자를 추가해보세요.' 
+            {searchTerm || gradeFilter !== 'all'
+              ? '검색 조건을 변경하거나 새 운전자를 추가해보세요.'
               : '첫 번째 운전자를 추가해보세요.'}
           </div>
         </div>
@@ -227,7 +215,7 @@ const DriverListPanel = () => {
       {filteredDrivers.length > 0 && (
         <div className="mt-6 text-center text-sm text-gray-600">
           총 {filteredDrivers.length}명의 운전자가 있습니다
-          {(searchTerm || gradeFilter !== 'all') && 
+          {(searchTerm || gradeFilter !== 'all') &&
             ` (전체 ${drivers.length}명 중)`
           }
         </div>

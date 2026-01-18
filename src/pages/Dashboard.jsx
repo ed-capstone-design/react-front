@@ -1,16 +1,16 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import dayjs from 'dayjs';
 import { IoCarSportOutline, IoStatsChartOutline, IoCheckmarkDoneOutline, IoClose } from "react-icons/io5";
 import { useDashboardData } from "../hooks/useDashboardData";
 import WeeklyDispatchBar from "../components/Dashboard/charts/WeeklyDispatchBar";
 import HourlyDepartureColumn from "../components/Dashboard/charts/HourlyDepartureColumn";
-import { useNotification } from "../components/Notification/contexts/NotificationProvider";
+import { useNotificationContext } from "../Context/NotificationProvider";
 import { useNavigate } from "react-router-dom";
 
 const DashboardContent = () => {
   // todayStr and range are provided by useDashboardData to ensure consistent date handling
 
-  const { notifications = [], loading: notificationsLoading = false } = useNotification();
+  const { notifications = [], loading: notificationsLoading = false } = useNotificationContext();
   const navigate = useNavigate();
 
   const { loading: dashLoading, weeklyCounts, dispatches7d, todayScheduled, todayRunning, todayCompleted, range, todayStr } = useDashboardData();
@@ -195,7 +195,7 @@ const DashboardContent = () => {
         {/* 오른쪽: 알림 패널 */}
         <aside
           className="bg-white rounded-2xl border border-gray-200 p-4 shadow-md hover:shadow-lg transition-shadow duration-200 cursor-pointer"
-          onClick={() => { try { navigate('/insight'); } catch {} }}
+          onClick={() => { try { navigate('/insight'); } catch { } }}
           role="button"
           tabIndex={0}
         >
@@ -210,7 +210,7 @@ const DashboardContent = () => {
             <div className="text-gray-500 text-sm">미읽음 알림이 없습니다.</div>
           ) : (
             <ul className="space-y-2">
-              {notifications.slice(0,5).map(n => (
+              {notifications.slice(0, 5).map(n => (
                 <li key={n.id} className="p-2 rounded-lg border border-gray-100 hover:bg-gray-50 transition-colors duration-150">
                   <div className="text-sm text-gray-800 truncate">{n.message || '알림'}</div>
                   <div className="text-xs text-gray-400 mt-1">{(n.createdAt && dayjs(n.createdAt).format('YYYY-MM-DD HH:mm')) || ''}</div>

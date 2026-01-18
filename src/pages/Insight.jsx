@@ -1,10 +1,10 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useInsightData } from '../hooks/useInsightData';
-import { useWebSocket } from '../components/WebSocket/WebSocketProvider';
-import { useNotification } from '../components/Notification/contexts/NotificationProvider';
+import { useWebSocketContext } from '../Context/WebSocketProvider';
+import { useNotificationContext } from '../Context/NotificationProvider';
 import { useDriveDetailAPI } from '../hooks/useDriveDetailAPI';
-import { useToken } from '../components/Token/TokenProvider';
+
 import KakaoMapContainer from '../components/Map/KakaoMapContainer';
 import RealtimeMarkers from '../components/Map/RealtimeMarkers';
 import EventMarkers from '../components/Map/EventMarkers';
@@ -13,8 +13,8 @@ import EventMarkers from '../components/Map/EventMarkers';
 
 const Insight = () => {
   const navigate = useNavigate();
-  const { notifications, unreadCount } = useNotification();
-  const { isConnected, subscribeDispatchLocation, subscribedDestinations, testSubscribe } = useWebSocket();
+  const { notifications, unreadCount } = useNotificationContext();
+  const { isConnected, subscribeDispatchLocation, subscribedDestinations, testSubscribe } = useWebSocketContext();
   const {
     loading,
     kpis,
@@ -59,7 +59,7 @@ const Insight = () => {
   };
 
   // 알림 읽음 처리 (legacy: NotificationProvider의 markAsRead 사용 기대)
-  const { markAsRead } = useNotification();
+  const { markAsRead } = useNotificationContext();
 
   // 알림 항목 클릭: 읽음 처리 후 URL 이동(optional)
   const [statsModalOpen, setStatsModalOpen] = React.useState(false);
@@ -187,7 +187,7 @@ const Insight = () => {
   }, [activeTab, loadRunningEventsStats]);
 
   return (
-  <div className="max-w-7xl mx-auto p-3 md:p-4 space-y-4" role="main" aria-label="인사이트 메인">
+    <div className="max-w-7xl mx-auto p-3 md:p-4 space-y-4" role="main" aria-label="인사이트 메인">
       {/* TOP: 동적 지표 (운행 탭: 배차 KPI, 알림 탭: 경고 통계) */}
       <section aria-label="상단 지표" className="space-y-2">
         <header className="flex items-center gap-2 flex-wrap">
@@ -271,16 +271,16 @@ const Insight = () => {
         </div>
       )}
 
-    {/* 지도 + 우측 패널(탭: 운행 / 알림)
+      {/* 지도 + 우측 패널(탭: 운행 / 알림)
       비율 다시 조정: 요청된 70:30 → 10컬럼 기반 (map 7, panel 3)
       - 모바일: 단일 컬럼
       - lg 이상: grid-cols-10 / 지도 col-span-7 / 패널 col-span-3
       - 기존 4:1 과도 확대를 대체하고 패널 가독성 확보 */}
-  <section className="grid grid-cols-1 lg:grid-cols-10 gap-4 items-start">
+      <section className="grid grid-cols-1 lg:grid-cols-10 gap-4 items-start">
         {/* 지도 */}
-  <div className="lg:col-span-7 bg-white rounded-xl shadow-sm border border-gray-100 p-3 md:p-4 transition-[width]">
+        <div className="lg:col-span-7 bg-white rounded-xl shadow-sm border border-gray-100 p-3 md:p-4 transition-[width]">
 
-            <div className="relative rounded-xl overflow-hidden ring-1 ring-gray-100">
+          <div className="relative rounded-xl overflow-hidden ring-1 ring-gray-100">
             <KakaoMapContainer height="420px" level={2}>
               {/* RealtimeMarkers displays driver avatar + label (uses markers from hook) */}
               <RealtimeMarkers drivers={markers.filter(Boolean).map(m => ({ lat: m.lat, lng: m.lng, label: m.title || m.vehicleNumber || m.driverName, avatar: m.avatar }))} />
@@ -313,124 +313,124 @@ const Insight = () => {
             </div>
           </div>
         </div>
-    {/* 우측 패널: 30% 영역 (col-span-3) */}
-  <div className="lg:col-span-3 bg-white rounded-xl shadow-sm border border-gray-100 p-0 flex flex-col h-full min-w-0">
+        {/* 우측 패널: 30% 영역 (col-span-3) */}
+        <div className="lg:col-span-3 bg-white rounded-xl shadow-sm border border-gray-100 p-0 flex flex-col h-full min-w-0">
           {/* 탭 헤더 */}
-            <div className="flex items-stretch border-b border-gray-200 overflow-hidden rounded-t-xl">
-              <TabButton
-                active={activeTab === 'running'}
-                onClick={() => setActiveTab('running')}
-                label={`운행 중: ${running.length}`}
-                icon={<span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />}
-              />
-              <TabButton
-                active={activeTab === 'notifications'}
-                onClick={() => setActiveTab('notifications')}
-                label={`알림 · 미읽음 ${unreadCount}`}
-                icon={<span className="w-2 h-2 rounded-full bg-sky-500" />}
-              />
-            </div>
-            {/* 탭 내용 */}
-            {/* 패널 높이 지도(420px)와 동기화 */}
-            <div className="relative flex-1 h-[420px]">
-              {/* Running Panel */}
-              <FadePanel show={activeTab === 'running'}>
-                <div className="p-3 md:p-4 h-full flex flex-col overflow-hidden">
-                  {running.length === 0 ? (
-                    <div className="text-gray-400 text-sm text-center py-10">실시간 운행중인 배차가 없습니다.</div>
-                  ) : (
-                    <div className="flex-1 overflow-hidden">
-                      <div className="h-full flex flex-col border border-gray-200 rounded-lg bg-white/80 backdrop-blur-sm">
-                        <ul className="space-y-1.5 pr-1 flex-1 overflow-y-auto p-1.5">
-                          {running.map(d => (
-                            <li key={d.dispatchId} className="flex items-center justify-between p-1.5 rounded-md hover:bg-gray-50 transition-colors">
-                              <div className="min-w-0">
-                                <div className="text-sm font-medium text-gray-900 truncate flex items-center gap-1">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                                  {d.driverName || '운전자'}
+          <div className="flex items-stretch border-b border-gray-200 overflow-hidden rounded-t-xl">
+            <TabButton
+              active={activeTab === 'running'}
+              onClick={() => setActiveTab('running')}
+              label={`운행 중: ${running.length}`}
+              icon={<span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />}
+            />
+            <TabButton
+              active={activeTab === 'notifications'}
+              onClick={() => setActiveTab('notifications')}
+              label={`알림 · 미읽음 ${unreadCount}`}
+              icon={<span className="w-2 h-2 rounded-full bg-sky-500" />}
+            />
+          </div>
+          {/* 탭 내용 */}
+          {/* 패널 높이 지도(420px)와 동기화 */}
+          <div className="relative flex-1 h-[420px]">
+            {/* Running Panel */}
+            <FadePanel show={activeTab === 'running'}>
+              <div className="p-3 md:p-4 h-full flex flex-col overflow-hidden">
+                {running.length === 0 ? (
+                  <div className="text-gray-400 text-sm text-center py-10">실시간 운행중인 배차가 없습니다.</div>
+                ) : (
+                  <div className="flex-1 overflow-hidden">
+                    <div className="h-full flex flex-col border border-gray-200 rounded-lg bg-white/80 backdrop-blur-sm">
+                      <ul className="space-y-1.5 pr-1 flex-1 overflow-y-auto p-1.5">
+                        {running.map(d => (
+                          <li key={d.dispatchId} className="flex items-center justify-between p-1.5 rounded-md hover:bg-gray-50 transition-colors">
+                            <div className="min-w-0">
+                              <div className="text-sm font-medium text-gray-900 truncate flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                                {d.driverName || '운전자'}
+                              </div>
+                              <div className="text-xs text-gray-500">{d.vehicleNumber || '차량'}</div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button
+                                className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-green-100 text-green-700 hover:bg-green-200 transition-colors"
+                                onClick={() => navigate(`/realtime-operation/${d.dispatchId}`)}
+                              >운행중</button>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </FadePanel>
+            {/* Notifications Panel (운전자 리스트 스타일 적용) */}
+            <FadePanel show={activeTab === 'notifications'}>
+              <div className="p-3 md:p-4 h-full flex flex-col overflow-hidden">
+                {pagedNotifications.length === 0 ? (
+                  <div className="flex-1 flex items-center justify-center text-sm text-gray-500">알림이 없습니다.</div>
+                ) : (
+                  <div className="flex-1 overflow-hidden mt-1">
+                    <div className="h-full flex flex-col border border-gray-200 rounded-lg bg-white/80 backdrop-blur-sm">
+                      <ul className="space-y-1.5 pr-1 flex-1 overflow-y-auto p-1.5">
+                        {pagedNotifications.map(n => {
+                          const unread = !n.isRead;
+                          return (
+                            <li
+                              key={n.id}
+                              tabIndex={0}
+                              onClick={() => handleNotificationClick(n)}
+                              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleNotificationClick(n); } }}
+                              className={`group flex items-start justify-between p-2 rounded-md cursor-pointer transition-colors
+                                  ${unread ? 'bg-sky-50 hover:bg-sky-100' : 'hover:bg-gray-50'}`}
+                            >
+                              <div className="min-w-0 flex-1 pr-3">
+                                <div className="flex items-center gap-1">
+                                  <span className={`w-1.5 h-1.5 rounded-full ${unread ? 'bg-sky-500' : 'bg-gray-300'}`}></span>
+                                  <span className="text-[13px] text-gray-900 leading-snug line-clamp-2 break-words">{n.message || '알림'}</span>
                                 </div>
-                                <div className="text-xs text-gray-500">{d.vehicleNumber || '차량'}</div>
+                                <div className="text-[11px] text-gray-500 mt-1">{formatDateTime(n.createdAt)}</div>
                               </div>
                               <div className="flex items-center gap-2">
+                                {/* 개별 읽음 처리 버튼 */}
                                 <button
-                                  className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-green-100 text-green-700 hover:bg-green-200 transition-colors"
-                                  onClick={() => navigate(`/realtime-operation/${d.dispatchId}`)}
-                                >운행중</button>
+                                  onClick={(e) => handleMarkAsReadClick(e, n)}
+                                  className="px-2 py-0.5 text-xs rounded-md bg-white border hover:bg-gray-50 disabled:opacity-60"
+                                  disabled={markingIds.has(n.id) || !unread}
+                                  aria-label={markingIds.has(n.id) ? '읽는 중' : '읽음'}
+                                  title={unread ? '읽음 처리' : '이미 읽음'}
+                                >
+                                  {markingIds.has(n.id) ? '처리 중…' : '읽음'}
+                                </button>
                               </div>
                             </li>
-                          ))}
-                        </ul>
-                      </div>
+                          );
+                        })}
+                      </ul>
                     </div>
-                  )}
-                </div>
-              </FadePanel>
-              {/* Notifications Panel (운전자 리스트 스타일 적용) */}
-              <FadePanel show={activeTab === 'notifications'}>
-                <div className="p-3 md:p-4 h-full flex flex-col overflow-hidden">
-                  {pagedNotifications.length === 0 ? (
-                    <div className="flex-1 flex items-center justify-center text-sm text-gray-500">알림이 없습니다.</div>
-                  ) : (
-                    <div className="flex-1 overflow-hidden mt-1">
-                      <div className="h-full flex flex-col border border-gray-200 rounded-lg bg-white/80 backdrop-blur-sm">
-                        <ul className="space-y-1.5 pr-1 flex-1 overflow-y-auto p-1.5">
-                          {pagedNotifications.map(n => {
-                            const unread = !n.isRead;
-                            return (
-                              <li
-                                key={n.id}
-                                tabIndex={0}
-                                onClick={() => handleNotificationClick(n)}
-                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleNotificationClick(n); } }}
-                                className={`group flex items-start justify-between p-2 rounded-md cursor-pointer transition-colors
-                                  ${unread ? 'bg-sky-50 hover:bg-sky-100' : 'hover:bg-gray-50'}`}
-                              >
-                                <div className="min-w-0 flex-1 pr-3">
-                                  <div className="flex items-center gap-1">
-                                    <span className={`w-1.5 h-1.5 rounded-full ${unread ? 'bg-sky-500' : 'bg-gray-300'}`}></span>
-                                    <span className="text-[13px] text-gray-900 leading-snug line-clamp-2 break-words">{n.message || '알림'}</span>
-                                  </div>
-                                  <div className="text-[11px] text-gray-500 mt-1">{formatDateTime(n.createdAt)}</div>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  {/* 개별 읽음 처리 버튼 */}
-                                  <button
-                                    onClick={(e) => handleMarkAsReadClick(e, n)}
-                                    className="px-2 py-0.5 text-xs rounded-md bg-white border hover:bg-gray-50 disabled:opacity-60"
-                                    disabled={markingIds.has(n.id) || !unread}
-                                    aria-label={markingIds.has(n.id) ? '읽는 중' : '읽음'}
-                                    title={unread ? '읽음 처리' : '이미 읽음'}
-                                  >
-                                    {markingIds.has(n.id) ? '처리 중…' : '읽음'}
-                                  </button>
-                                </div>
-                              </li>
-                            );
-                          })}
-                        </ul>
-                      </div>
+                  </div>
+                )}
+                {totalPages > 1 && (
+                  <div className="mt-3 flex items-center justify-end gap-3">
+                    <div className="text-xs text-gray-500">페이지 {totalPages === 0 ? 0 : page} / {totalPages || 0}</div>
+                    <div className="flex items-center gap-1">
+                      <button
+                        className="px-2 py-1 text-xs rounded-lg bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200"
+                        onClick={() => setPage(p => Math.max(1, p - 1))}
+                        disabled={totalPages === 0 || page <= 1}
+                      >이전</button>
+                      <button
+                        className="px-2 py-1 text-xs rounded-lg bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200"
+                        onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                        disabled={totalPages === 0 || page >= totalPages}
+                      >다음</button>
                     </div>
-                  )}
-                  {totalPages > 1 && (
-                    <div className="mt-3 flex items-center justify-end gap-3">
-                      <div className="text-xs text-gray-500">페이지 {totalPages === 0 ? 0 : page} / {totalPages || 0}</div>
-                      <div className="flex items-center gap-1">
-                        <button
-                          className="px-2 py-1 text-xs rounded-lg bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200"
-                          onClick={() => setPage(p => Math.max(1, p - 1))}
-                          disabled={totalPages === 0 || page <= 1}
-                        >이전</button>
-                        <button
-                          className="px-2 py-1 text-xs rounded-lg bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200"
-                          onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                          disabled={totalPages === 0 || page >= totalPages}
-                        >다음</button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </FadePanel>
-            </div>
+                  </div>
+                )}
+              </div>
+            </FadePanel>
+          </div>
         </div>
       </section>
     </div>
@@ -460,11 +460,11 @@ const TypeSummary = ({ notifications, stats = {}, compact = false }) => {
         pushIf(n.payload?.drivingEventType);
         pushIf(n.payload?.eventType);
         pushIf(n.payload?.payload?.type);
-      } catch (e) {}
+      } catch (e) { }
       return out.map(x => String(x).trim()).filter(Boolean);
     };
 
-    const KNOWN = ['DROWSINESS','ACCELERATION','BRAKING','SMOKING','SEATBELT_UNFASTENED','PHONE_USAGE'];
+    const KNOWN = ['DROWSINESS', 'ACCELERATION', 'BRAKING', 'SMOKING', 'SEATBELT_UNFASTENED', 'PHONE_USAGE'];
 
     notifications.forEach(n => {
       const candidates = extractCandidates(n);
@@ -495,7 +495,7 @@ const TypeSummary = ({ notifications, stats = {}, compact = false }) => {
       // final fallback
       c.Abnormal += 1;
     });
-    const total = Object.values(c).reduce((a,b)=>a+b,0);
+    const total = Object.values(c).reduce((a, b) => a + b, 0);
     // include server-side stats if present (override client-derived when available)
     const server = stats || {};
     return { c, total, server };

@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from "react";
-import { useBusAPI } from "../../hooks/useBusAPI";
+import { useState, useEffect } from "react";
 import { useToast } from "../Toast/ToastProvider";
-
+import { useCreateBus, useUpdateBus } from "../../hooks/QueryLayer/useBus"
+  ;
 const BusDetailModal = ({ isOpen, onClose, bus, mode = 'view', onSuccess }) => {
-  const { addBus, updateBus } = useBusAPI();
+
+  const addBus = useCreateBus();
+  const updateBus = useUpdateBus();
   const toast = useToast();
   const [formData, setFormData] = useState({
     routeNumber: '',
@@ -84,7 +86,7 @@ const BusDetailModal = ({ isOpen, onClose, bus, mode = 'view', onSuccess }) => {
     } catch (error) {
       console.error('버스 저장 실패:', error);
       const action = mode === 'create' ? '추가' : '수정';
-      
+
       // 상세한 에러 메시지 제공
       if (error.response?.status === 500) {
         toast.error(`서버에서 오류가 발생했습니다. 관리자에게 문의하세요. (${action} 실패)`);

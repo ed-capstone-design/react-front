@@ -1,11 +1,13 @@
-import React, { useState, useEffect } from "react";
-import { useBusAPI } from "../../hooks/useBusAPI";
+import { useMemo, useState } from "react";
+import { useBusList, useDeleteBus } from "../../hooks/QueryLayer/useBus";
 import BusCard from "./BusCard";
 import BusDetailModal from "./BusDetailModal";
 import { useToast } from "../Toast/ToastProvider";
 
 const BusListPanel = () => {
-  const { buses, loading, error, deleteBus, getBusStats, fetchBuses } = useBusAPI();
+  const { data: buses = [], isLoading: loading, isError, error: errorObj } = useBusList();
+  const { mutate: deleteBus } = useDeleteBus();
+
   const toast = useToast();
   const [selectedBus, setSelectedBus] = useState(null);
   const [modalMode, setModalMode] = useState('view'); // 'view', 'edit', 'create'
@@ -13,27 +15,39 @@ const BusListPanel = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [searchType, setSearchType] = useState('all'); // 'all', 'routeNumber', 'vehicleNumber'
 
-  // 컴포넌트 마운트 시 버스 목록 로드
-  useEffect(() => {
-    fetchBuses();
-  }, [fetchBuses]);
+  const stats = useMemo(() => {
+    const total = buses.length;
+    if (total === 0) return { total: 0, avgAge: 0, byRouteType: {}, byFuelType: {} };
+    const totalAge = buses.reduce((acc, cur) => acc + (cur.years || 0), 0);
+    const byRouteType = buses.reduce((acc, bus) => {
+      acc[bus.routeType] = (acc[bus.routeType] || 0) + 1;
+      return acc;
+    }, {});
+    const byFuelType = buses.reduce((acc, bus) => {
+      acc[bus.fuelType] = (acc[bus.fuelType] || 0) + 1;
+      return acc;
+    }, {});
 
-  const stats = getBusStats();
+    return {
+      total,
+      avgAge: (totalAge / total).toFixed(1),
+      byRouteType,
+      byFuelType
+    };
+  }, [buses])
 
-  const filteredBuses = buses.filter(bus => {
-    if (!searchTerm) return true;
-    
+  const filteredBuses = useMemo(() => {
+    if (!searchTerm) return buses;
     const lowerSearchTerm = searchTerm.toLowerCase();
-    if (searchType === 'routeNumber') {
-      return bus.routeNumber.toLowerCase().includes(lowerSearchTerm);
-    } else if (searchType === 'vehicleNumber') {
-      return bus.vehicleNumber.toLowerCase().includes(lowerSearchTerm);
-    } else {
-      // searchType === 'all'
-      return bus.routeNumber.toLowerCase().includes(lowerSearchTerm) ||
-             bus.vehicleNumber.toLowerCase().includes(lowerSearchTerm);
-    }
-  });
+    return buses.filter(bus => {
+      const matchRoute = bus.routeNumber.toLowerCase().includes(lowerSearchTerm);
+      const matchVehicle = bus.vehicleNumber.toLowerCase().includes(lowerSearchTerm);
+
+      if (searchType === 'routeNumber') return matchRoute;
+      if (searchType === 'vehicleNumber') return matchVehicle;
+      return matchRoute || matchVehicle;
+    });
+  }, [buses, searchTerm, searchType]);
 
   const handleCardClick = (bus) => {
     setSelectedBus(bus);
@@ -49,14 +63,14 @@ const BusListPanel = () => {
 
   const handleDelete = async (bus) => {
     if (window.confirm(`${bus.routeNumber}번 버스를 삭제하시겠습니까?`)) {
-      const result = await deleteBus(bus.busId);
-      if (result.success) {
-        toast.success(`${bus.routeNumber}번 버스가 성공적으로 삭제되었습니다.`);
-        // 목록 새로고침
-        fetchBuses();
-      } else {
-        toast.error(result.error || '버스 삭제에 실패했습니다.');
-      }
+      deleteBus(bus.busId, {
+        onSuccess: () => {
+          toast.success('버스가 성공적으로 삭제되었습니다.');
+        },
+        onError: (error) => {
+          toast.error(`버스 삭제에 실패했습니다: ${error?.message}`);
+        },
+      });
     }
   };
 
@@ -71,11 +85,7 @@ const BusListPanel = () => {
     setSelectedBus(null);
   };
 
-  const handleModalSuccess = () => {
-    closeModal();
-    // 목록 새로고침
-    fetchBuses();
-  };
+  const handleModalSuccess = closeModal;
 
   if (loading && buses.length === 0) {
     return (
@@ -128,8 +138,8 @@ const BusListPanel = () => {
               type="text"
               placeholder={
                 searchType === 'routeNumber' ? "노선번호로 검색..." :
-                searchType === 'vehicleNumber' ? "차량번호로 검색..." :
-                "노선번호 또는 차량번호로 검색..."
+                  searchType === 'vehicleNumber' ? "차량번호로 검색..." :
+                    "노선번호 또는 차량번호로 검색..."
               }
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -151,9 +161,9 @@ const BusListPanel = () => {
       </div>
 
       {/* 에러 메시지 */}
-      {error && (
+      {isError && (
         <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
-          {error}
+          데이터를 불러오는 중 오류가 발생했습니다: {errorObj?.message}
         </div>
       )}
 

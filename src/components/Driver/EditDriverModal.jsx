@@ -1,86 +1,68 @@
-import React, { useState, useEffect } from "react";
-import { useDriverAPI } from "../../hooks/useDriverAPI";
+import { useState, useEffect } from "react";
 import { useToast } from "../Toast/ToastProvider";
-
+import { useUpdateDriver, useDeleteDriver } from "../../hooks/QueryLayer/useDriver";
 const EditDriverModal = ({ open, onClose, driver, onUpdateSuccess }) => {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [licenseNumber, setlicenseNumber] = useState("");
   const [careerYears, setCareerYears] = useState("");
   const [grade, setGrade] = useState("");
-  const [loading, setLoading] = useState(false);
   const toast = useToast();
-  const { updateDriver: updateDriverAPI, deleteDriver: deleteDriverAPI } = useDriverAPI();
-  
+
+  const { mutate: updateDriver, isPending: isUpdating } = useUpdateDriver();
+  const { mutate: deleteDriver, isPending: isDeleting } = useDeleteDriver();
+
+
   useEffect(() => {
     if (driver) {
       setPhoneNumber(driver.phoneNumber || "");
       setlicenseNumber(driver.licenseNumber || "");
-      setCareerYears(driver.careerYears  || "");
+      setCareerYears(driver.careerYears || "");
       setGrade(driver.grade || "");
     }
   }, [driver]);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
     if (!phoneNumber || !licenseNumber || !careerYears || !grade) {
       toast.warning("모든 필드를 입력해주세요.");
       return;
     }
-    setLoading(true);
-    try {
-      const updateData = {
-        phoneNumber,
-        licenseNumber,
-        careerYears: parseInt(careerYears),
-        grade
-      };
-      
-      console.log('🔄 운전자 수정 요청 데이터:', updateData);
-      const result = await updateDriverAPI(driver.userId, updateData);
-      
-      if (result.success) {
-        onClose();
-        toast.success("운전자 정보가 수정되었습니다!");
-        setPhoneNumber("");
-        setlicenseNumber("");
-        setCareerYears("");
-        setGrade("");
-        // 부모 컴포넌트에 업데이트 성공 알림
-        if (onUpdateSuccess) {
-          onUpdateSuccess();
-        }
-      } else {
-        toast.error(result.error || "운전자 정보 수정에 실패했습니다.");
-      }
-    } catch (error) {
-      toast.error("운전자 수정에 실패했습니다.");
-    } finally {
-      setLoading(false);
+    const updateData = {
+      phoneNumber,
+      licenseNumber,
+      careerYears: Number(careerYears),
+      grade,
     }
+    updateDriver({ driverId: driver.userId, updateData }, {
+      onSuccess: () => {
+        toast.success("운전자가 수정되었습니다.");
+        onUpdateSuccess?.();
+        onClose();
+      },
+      onError: (error) => {
+        const message = error.response?.data?.message || "수정 실패";
+        toast.error(message);
+      }
+    }
+    )
   };
 
   const handleDelete = async () => {
     if (!driver || !driver.userId) return;
     if (!window.confirm("정말 삭제하시겠습니까?")) return;
-    setLoading(true);
-    try {
-      const result = await deleteDriverAPI(driver.userId);
-      
-      if (result.success) {
+
+    deleteDriver(driver.userId, {
+      onSuccess: () => {
         toast.success("운전자가 삭제되었습니다.");
+        onUpdateSuccess?.();
         onClose();
-        // 부모 컴포넌트에 업데이트 성공 알림
-        if (onUpdateSuccess) {
-          onUpdateSuccess();
-        }
-      } else {
-        toast.error(result.error || "운전자 삭제에 실패했습니다.");
+      },
+      onError: (error) => {
+        const message = error.response?.data?.message || "삭제 실패";
+        toast.error(message);
       }
-    } catch (error) {
-      toast.error("운전자 삭제에 실패했습니다.");
-    } finally {
-      setLoading(false);
     }
+    )
   };
 
   if (!open) return null;
@@ -153,16 +135,16 @@ const EditDriverModal = ({ open, onClose, driver, onUpdateSuccess }) => {
                 type="button"
                 onClick={handleDelete}
                 className="px-4 py-2 bg-red-600 text-white rounded-lg font-semibold shadow hover:bg-red-700 text-xs transition disabled:opacity-50 border border-red-400"
-                disabled={loading}
+                disabled={isDeleting}
               >
                 삭제
               </button>
               <button
                 type="submit"
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold shadow hover:bg-blue-700 text-xs transition disabled:opacity-50 border border-blue-400"
-                disabled={loading}
+                disabled={isUpdating}
               >
-                {loading ? "수정 중..." : "수정"}
+                {isUpdating ? "수정 중..." : "수정"}
               </button>
             </div>
           </form>
