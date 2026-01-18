@@ -1,11 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { driverService } from "../../api/ServiceLayer/driverService";
-
+import { dispatchService } from "../../api/ServiceLayer/dispatchService";
 export const DRIVER_KEYS = {
   all: ["driver"],
-  list: () => [...DRIVER_KEYS.all, "list"],
+  list: (filters) =>
+    filters
+      ? [...DRIVER_KEYS.all, "list", filters]
+      : [...DRIVER_KEYS.all, "list"],
   detail: (id) => [...DRIVER_KEYS.all, "detail", id],
-  dispatches: (id, filters) => [...DRIVER_KEYS.all, "dispatches", id, filters],
 };
 
 export const useDriverList = () => {
@@ -31,8 +33,13 @@ export const useDriverDispatches = (driverId, startDate, endDate) => {
     enabled: !!driverId && !!startDate && !!endDate,
   });
 };
-
-// --- Mutations ---
+export const useAvailableDrivers = (startDate, endDate) => {
+  return useQuery({
+    queryKey: DRIVER_KEYS.list({ startDate, endDate }),
+    queryFn: () => dispatchService.getAvailableDrivers(startDate, endDate),
+    enabled: !!startDate && !!endDate,
+  });
+};
 
 export const useUpdateDriver = () => {
   const queryClient = useQueryClient();

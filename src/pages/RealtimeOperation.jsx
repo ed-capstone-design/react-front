@@ -6,7 +6,7 @@ import useLiveDispatch from '../hooks/useLiveDispatch';
 import KakaoMap from '../components/Map/KakaoMapContainer';
 import RealtimeMarkers from '../components/Map/RealtimeMarkers';
 import { useNotificationContext } from '../Context/NotificationProvider';
-import { useToken } from '../components/Token/TokenProvider';
+import { authManager } from '../components/Token/authManager';
 
 // RealtimeOperation - Phase 1.5 리디자인
 // 구조:
@@ -26,7 +26,7 @@ const RealtimeOperation = () => {
   const [driveEvents, setDriveEvents] = React.useState([]);
   const [eventLoading, setEventLoading] = React.useState(true);
   const [eventError, setEventError] = React.useState(null);
-  const { getAccessToken } = useToken();
+  const getAccessToken = () => authManager.getToken();
   const { version: notificationVersion, notifications } = useNotificationContext();
   const [ending, setEnding] = React.useState(false);
   const [endError, setEndError] = React.useState(null);

@@ -2,12 +2,12 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import AddSchedule from "../components/Schedule/AddSchedule";
 import { useOperatingSchedule } from "../hooks/useOperatingSchedule";
-import { useToken } from '../components/Token/TokenProvider';
+import { authManager } from "../components/Token/authManager";
 import axios from 'axios';
 
 const OperatingSchedule = () => {
   const navigate = useNavigate();
-  
+
   const {
     // 상태
     modalOpen,
@@ -35,8 +35,6 @@ const OperatingSchedule = () => {
     handleSearch
   } = useOperatingSchedule();
 
-  const { getAccessToken } = useToken();
-  const { getUserInfoFromToken, getUserInfo } = useToken();
   const [startingId, setStartingId] = React.useState(null);
   const [startError, setStartError] = React.useState(null);
 
@@ -66,21 +64,21 @@ const OperatingSchedule = () => {
           {/* 기간 선택 */}
           <div className="flex items-center gap-2">
             <label className="text-sm font-medium text-gray-700 whitespace-nowrap">기간:</label>
-            <input 
-              type="date" 
-              value={pendingPeriod.start} 
-              onChange={e => setPendingPeriod(p => ({...p, start: e.target.value}))} 
-              className="px-3 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" 
+            <input
+              type="date"
+              value={pendingPeriod.start}
+              onChange={e => setPendingPeriod(p => ({ ...p, start: e.target.value }))}
+              className="px-3 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
             <span className="text-gray-400">~</span>
-            <input 
-              type="date" 
-              value={pendingPeriod.end} 
-              onChange={e => setPendingPeriod(p => ({...p, end: e.target.value}))} 
-              className="px-3 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" 
+            <input
+              type="date"
+              value={pendingPeriod.end}
+              onChange={e => setPendingPeriod(p => ({ ...p, end: e.target.value }))}
+              className="px-3 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
           </div>
-          
+
           {/* 상태 필터 - 컴팩트한 태그 스타일 */}
           <div className="flex items-center gap-2 flex-wrap">
             <label className="text-sm font-medium text-gray-700 whitespace-nowrap">상태:</label>
@@ -88,17 +86,16 @@ const OperatingSchedule = () => {
               <button
                 key={opt.value}
                 onClick={() => handlePendingStatusChange(opt.value)}
-                className={`px-2 py-1 text-xs rounded-full border transition-all duration-200 ${
-                  pendingStatusFilter.includes(opt.value)
+                className={`px-2 py-1 text-xs rounded-full border transition-all duration-200 ${pendingStatusFilter.includes(opt.value)
                     ? 'bg-blue-100 border-blue-300 text-blue-700 shadow-sm'
                     : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
-                }`}
+                  }`}
               >
                 {opt.label}
               </button>
             ))}
           </div>
-          
+
           {/* 조회 버튼 */}
           <button
             onClick={handleSearch}
@@ -177,19 +174,18 @@ const OperatingSchedule = () => {
                           {extractTime(item.actualArrival)}
                         </td>
                         <td className="py-4 px-2 sm:px-3 text-sm">
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            item.status === "COMPLETED" ? "bg-green-100 text-green-800" :
-                            item.status === "RUNNING" ? "bg-blue-100 text-blue-800" :
-                            item.status === "SCHEDULED" ? "bg-gray-100 text-gray-800" :
-                            item.status === "DELAYED" ? "bg-orange-100 text-orange-800" :
-                            "bg-red-100 text-red-800"
-                          }`}>
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${item.status === "COMPLETED" ? "bg-green-100 text-green-800" :
+                              item.status === "RUNNING" ? "bg-blue-100 text-blue-800" :
+                                item.status === "SCHEDULED" ? "bg-gray-100 text-gray-800" :
+                                  item.status === "DELAYED" ? "bg-orange-100 text-orange-800" :
+                                    "bg-red-100 text-red-800"
+                            }`}>
                             {item.status === "COMPLETED" ? "완료" :
-                             item.status === "RUNNING" ? "운행중" :
-                             item.status === "SCHEDULED" ? "예정" :
-                             item.status === "DELAYED" ? "지연" : 
-                             item.status === "CANCELED" ? "취소" :
-                             (item.status || '-')}
+                              item.status === "RUNNING" ? "운행중" :
+                                item.status === "SCHEDULED" ? "예정" :
+                                  item.status === "DELAYED" ? "지연" :
+                                    item.status === "CANCELED" ? "취소" :
+                                      (item.status || '-')}
                           </span>
                         </td>
                         <td className="hidden xl:table-cell py-4 px-2 sm:px-3 text-sm text-center text-gray-900">
@@ -217,10 +213,10 @@ const OperatingSchedule = () => {
                                     setStartingId(item.dispatchId);
                                     try {
                                       // decide endpoint based on user role: admin uses admin API
-                                      const token = getAccessToken?.();
+                                      const token = authManager.getToken();
                                       const headers = token ? { Authorization: `Bearer ${token}` } : {};
                                       // try to extract roles from token or stored userinfo
-                                      const tokenInfo = (getUserInfoFromToken && getUserInfoFromToken()) || (getUserInfo && getUserInfo());
+                                      const tokenInfo = authManager.getUser();
                                       const roles = tokenInfo?.roles || [];
                                       const isAdmin = Array.isArray(roles) && roles.some(r => String(r).toLowerCase().includes('admin'));
                                       const endpoint = isAdmin ? `/api/admin/dispatches/${item.dispatchId}/start` : `/api/driver/me/dispatches/${item.dispatchId}/start`;
@@ -281,7 +277,7 @@ const OperatingSchedule = () => {
         onClose={() => setModalOpen(false)}
         onAdd={handleAddSchedule}
       />
-      
+
       {/* 수정 모달 */}
       <AddSchedule
         open={editModalOpen}

@@ -5,6 +5,8 @@ import {
   keepPreviousData,
 } from "@tanstack/react-query";
 import { dispatchService } from "../../api/ServiceLayer/dispatchService";
+import { BUS_KEYS } from "./useBus";
+import { DRIVER_KEYS } from "./useDriver";
 
 export const DISPATCH_KEYS = {
   all: ["dispatch"],
@@ -20,7 +22,7 @@ export const useDispatchList = (startDate, endDate, status) => {
   return useQuery({
     queryKey: DISPATCH_KEYS.list({ startDate, endDate, status }),
     queryFn: () => dispatchService.getDispatches(startDate, endDate, status),
-    placeholderData: keepPreviousData, // 깜빡임 방지
+    placeholderData: keepPreviousData,
   });
 };
 
@@ -41,6 +43,7 @@ export const useDispatchRecord = (dispatchId) => {
     enabled: !!dispatchId,
   });
 };
+
 //배차 생성
 export const useCreateDispatch = () => {
   const queryClient = useQueryClient();
@@ -48,6 +51,8 @@ export const useCreateDispatch = () => {
     mutationFn: dispatchService.createDispatch,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: DISPATCH_KEYS.all });
+      queryClient.invalidateQueries({ queryKey: BUS_KEYS.list() });
+      queryClient.invalidateQueries({ queryKey: DRIVER_KEYS.list() });
     },
   });
 };
@@ -74,6 +79,8 @@ export const useCompleteDispatch = () => {
         queryKey: DISPATCH_KEYS.detail(dispatchId),
       });
       queryClient.invalidateQueries({ queryKey: DISPATCH_KEYS.list() });
+      queryClient.invalidateQueries({ queryKey: BUS_KEYS.list() });
+      queryClient.invalidateQueries({ queryKey: DRIVER_KEYS.list() });
     },
   });
 };
@@ -83,7 +90,26 @@ export const useCancelDispatch = () => {
   return useMutation({
     mutationFn: dispatchService.cancelDispatch,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: DISPATCH_KEYS.list() });
+      queryClient.invalidateQueries({ queryKey: DISPATCH_KEYS.all });
+      queryClient.invalidateQueries({ queryKey: BUS_KEYS.list() });
+      queryClient.invalidateQueries({ queryKey: DRIVER_KEYS.list() });
     },
+  });
+};
+//특정 배차 운행 경로
+export const useDispatchPath = (dispatchId) => {
+  return useQuery({
+    queryKey: DISPATCH_KEYS.path(dispatchId), //
+    queryFn: () => dispatchService.getDispatchPath(dispatchId),
+    enabled: !!dispatchId,
+    staleTime: 1000 * 60 * 5, // 경로는 5분간 캐시 유지
+  });
+};
+//특정 배차 이벤트 경고내역
+export const useDispatchEvents = (dispatchId) => {
+  return useQuery({
+    queryKey: DISPATCH_KEYS.events(dispatchId), //
+    queryFn: () => dispatchService.getDispatchEvents(dispatchId),
+    enabled: !!dispatchId,
   });
 };

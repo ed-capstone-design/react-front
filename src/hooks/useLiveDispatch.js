@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { apiClient } from "../api/apiClient";
-import { useToken } from "../components/Token/TokenProvider";
+import { authManager } from "../components/Token/authManager";
 import { useWebSocketContext } from "../Context/WebSocketProvider";
 
 // 구성 상수: 나중 1초 주기로 바뀔 때 EXPECTED_INTERVAL_MS만 1000으로 변경
@@ -27,6 +27,7 @@ function normalizeTimestamp(sample) {
 export function useLiveDispatch(dispatchId) {
   const { subscribeDispatchLocation, subscribeDispatchObd } =
     useWebSocketContext();
+  const getToken = () => authManager.getToken();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [meta, setMeta] = useState(null); // dispatch 기본 정보
@@ -37,7 +38,6 @@ export function useLiveDispatch(dispatchId) {
   const [tick, setTick] = useState(0); // 버퍼 변경 강제 렌더용 경량 state
 
   // 초기 로드: dispatch 메타 (존재하는 경우)
-  const { getToken } = useToken();
 
   useEffect(() => {
     let cancelled = false;

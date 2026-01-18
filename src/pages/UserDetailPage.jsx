@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { IoPersonCircle, IoArrowBack, IoBus, IoWarning, IoStatsChart } from "react-icons/io5";
+import { IoPersonCircle, IoArrowBack } from "react-icons/io5";
 import axios from "axios";
 import { useToast } from "../components/Toast/ToastProvider";
-import { useScheduleAPI } from "../hooks/useScheduleAPI";
-import { useToken } from "../components/Token/TokenProvider";
+
+import { authManager } from "../components/Token/authManager";
+
 
 // axios 기본 URL 설정
 axios.defaults.baseURL = "http://localhost:8080";
@@ -13,13 +14,11 @@ const UserDetailPage = () => {
   const { id } = useParams(); // URL에서 사용자 ID 가져오기
   const navigate = useNavigate();
   const toast = useToast();
-  const { fetchSchedulesByDriver } = useScheduleAPI();
-  const { getToken } = useToken();
-  
+  const getToken = () => authManager.getToken();
+
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
-  
+
   // 운전자 기본 정보 상태
   const [username, setUserName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -27,7 +26,7 @@ const UserDetailPage = () => {
   const [careerYears, setCareerYears] = useState("");
   const [avgDrivingScore, setAvgDrivingScore] = useState("");
   const [grade, setGrade] = useState("");
-  
+
   const [dispatchHistory, setDispatchHistory] = useState([]);
   const [warningHistory, setWarningHistory] = useState([]);
   const [dispatchStats, setDispatchStats] = useState({
@@ -82,7 +81,7 @@ const UserDetailPage = () => {
     const now = new Date();
     const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
     const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    
+
     return {
       startDate: firstDay.toISOString().split('T')[0],
       endDate: lastDay.toISOString().split('T')[0]
@@ -93,7 +92,7 @@ const UserDetailPage = () => {
   const fetchUserData = async (userId) => {
     try {
       console.log(`👤 [UserDetailPage] 운전자 ${userId} 정보 조회 시작`);
-      
+
       const token = getToken();
       if (!token) {
         throw new Error('인증 토큰이 없습니다. 다시 로그인해주세요.');
@@ -101,12 +100,12 @@ const UserDetailPage = () => {
 
       // 실제 API 호출
       const response = await axios.get(`/api/admin/drivers/${userId}`, {
-        headers: { 
+        headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
       });
-      
+
       console.log(`👤 [UserDetailPage] 운전자 ${userId} 정보 응답:`, response.data);
       const driverData = response.data?.data || response.data;
       setUserName(driverData.username || "");
@@ -123,7 +122,7 @@ const UserDetailPage = () => {
       setCareerYears(driverData.careerYears || "");
       setAvgDrivingScore(driverData.avgDrivingScore || "");
       setGrade(driverData.grade || "");
-      
+
       console.log("✅ 운전자 정보 로드 완료");
       return driverData;
     } catch (error) {
@@ -146,13 +145,13 @@ const UserDetailPage = () => {
     try {
       console.log(`📅 [UserDetailPage] 운전자 ${userId} 배차 이력 조회 시작`);
       // 실제 API 호출 - 관리자가 특정 운전자의 배차 이력 조회
-      const options = {};
-      if (dateRange.startDate) options.startDate = dateRange.startDate;
-      if (dateRange.endDate) options.endDate = dateRange.endDate;
-      
-      const history = await fetchSchedulesByDriver(userId, options);
+      const { driverService } = await import('../api/ServiceLayer/driverService');
+      const startDate = dateRange.startDate || null;
+      const endDate = dateRange.endDate || null;
+
+      const history = await driverService.getDriverDispatch(userId, startDate, endDate);
       setDispatchHistory(history || []);
-      
+
       // 배차 통계 계산
       const stats = {
         total: history?.length || 0,
@@ -161,7 +160,7 @@ const UserDetailPage = () => {
         cancelled: 0,
         delayed: 0
       };
-      
+
       history?.forEach(dispatch => {
         const st = String(dispatch.status ?? '').toUpperCase();
         if (st === 'COMPLETED') stats.completed++;
@@ -170,7 +169,7 @@ const UserDetailPage = () => {
         else if (st === 'DELAYED') stats.delayed++;
         // other statuses (RUNNING, IN_PROGRESS, etc.) are not included in the summary counts here
       });
-      
+
       setDispatchStats(stats);
       console.log("✅ 배차 이력 로드 완료:", history?.length || 0, "건");
     } catch (error) {
@@ -191,7 +190,7 @@ const UserDetailPage = () => {
   const loadWarningHistory = async (userId) => {
     try {
       console.log(`⚠️ [UserDetailPage] 운전자 ${userId} 경고 이력 조회 시작`);
-      
+
       const token = getToken();
       if (!token) {
         throw new Error('인증 토큰이 없습니다. 다시 로그인해주세요.');
@@ -201,10 +200,10 @@ const UserDetailPage = () => {
       const params = {};
       if (warningDateRange.startDate) params.startDate = warningDateRange.startDate;
       if (warningDateRange.endDate) params.endDate = warningDateRange.endDate;
-      
-      const response = await axios.get(`/api/admin/drivers/${userId}/events`, { 
+
+      const response = await axios.get(`/api/admin/drivers/${userId}/events`, {
         params,
-        headers: { 
+        headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
@@ -251,12 +250,12 @@ const UserDetailPage = () => {
   useEffect(() => {
     if (id) {
       setLoading(true);
-      
+
       // 이번달 날짜 범위를 기본값으로 설정 (자동 조회하지 않음)
       const thisMonthRange = getThisMonthDateRange();
       setPendingDateRange(thisMonthRange);
       setPendingWarningDateRange(thisMonthRange);
-      
+
       // 운전자 정보만 먼저 호출
       fetchUserData(id)
         .then((driverData) => {
@@ -278,20 +277,21 @@ const UserDetailPage = () => {
   // 자동 로딩을 제거하고 사용자가 직접 조회하도록 변경
 
   // 배차 이력 날짜 범위 변경 핸들러
-  const handleApplyDateRange = () => {
+  const handleApplyDateRange = async () => {
     const newRange = { ...pendingDateRange };
     setDateRange(newRange);
     setDispatchPage(1); // 페이지를 1페이지로 리셋
-    
+
     // 즉시 조회
     if (id) {
-      const options = {};
-      if (newRange.startDate) options.startDate = newRange.startDate;
-      if (newRange.endDate) options.endDate = newRange.endDate;
-      
-      fetchSchedulesByDriver(id, options).then(history => {
+      try {
+        const { driverService } = await import('../api/ServiceLayer/driverService');
+        const startDate = newRange.startDate || null;
+        const endDate = newRange.endDate || null;
+
+        const history = await driverService.getDriverDispatch(id, startDate, endDate);
         setDispatchHistory(history || []);
-        
+
         // 배차 통계 계산
         const stats = {
           total: history?.length || 0,
@@ -300,7 +300,7 @@ const UserDetailPage = () => {
           cancelled: 0,
           delayed: 0
         };
-        
+
         history?.forEach(dispatch => {
           const st = String(dispatch.status ?? '').toUpperCase();
           if (st === 'COMPLETED') stats.completed++;
@@ -308,13 +308,13 @@ const UserDetailPage = () => {
           else if (st === 'CANCELED' || st === 'CANCELLED') stats.cancelled++;
           else if (st === 'DELAYED') stats.delayed++;
         });
-        
+
         setDispatchStats(stats);
-      }).catch(error => {
+      } catch (error) {
         console.error("배차 이력 조회 실패:", error);
         setDispatchHistory([]);
         setDispatchStats({ total: 0, completed: 0, scheduled: 0, cancelled: 0, delayed: 0 });
-      });
+      }
     }
   };
 
@@ -323,17 +323,17 @@ const UserDetailPage = () => {
     const newRange = { ...pendingWarningDateRange };
     setWarningDateRange(newRange);
     setWarningPage(1); // 페이지를 1페이지로 리셋
-    
+
     // 즉시 조회
     if (id) {
       const token = getToken();
       const params = {};
       if (newRange.startDate) params.startDate = newRange.startDate;
       if (newRange.endDate) params.endDate = newRange.endDate;
-      
-      axios.get(`/api/admin/drivers/${id}/events`, { 
+
+      axios.get(`/api/admin/drivers/${id}/events`, {
         params,
-        headers: { 
+        headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
@@ -389,7 +389,7 @@ const UserDetailPage = () => {
   const getWarningTypeLabel = (type) => {
     const types = {
       "DROWSINESS": "졸음운전",
-      "ACCELERATION": "급가속", 
+      "ACCELERATION": "급가속",
       "BRAKING": "급제동",
       "SMOKING": "흡연",
       "SEATBELT_UNFASTENED": "안전벨트 미착용",
@@ -438,7 +438,7 @@ const UserDetailPage = () => {
         <IoArrowBack className="text-lg" />
         <span className="font-medium">뒤로가기</span>
       </button>
-      
+
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* 좌측 프로필 패널 */}
         <div className="lg:col-span-1">
@@ -448,7 +448,7 @@ const UserDetailPage = () => {
               <IoPersonCircle className="text-blue-500 text-7xl mx-auto mb-4 drop-shadow" />
               <div className="text-xl font-bold text-gray-900 mb-1">운전자 정보</div>
             </div>
-            
+
             {/* 운전자 기본 정보 */}
             <div className="border-b border-gray-100 pb-4 mb-4">
               <div className="flex items-center gap-3 mb-3">
@@ -524,7 +524,7 @@ const UserDetailPage = () => {
                 )}
               </div>
             </div>
-            
+
             {/* 날짜 필터 */}
             <div className="bg-gray-50 rounded-lg p-4 mb-6">
               <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
@@ -622,11 +622,10 @@ const UserDetailPage = () => {
                           <button
                             key={page}
                             onClick={() => setDispatchPage(page)}
-                            className={`px-3 py-1 text-sm border rounded ${
-                              page === dispatchPage
-                                ? 'bg-blue-600 text-white border-blue-600'
-                                : 'border-gray-300 hover:bg-gray-50'
-                            }`}
+                            className={`px-3 py-1 text-sm border rounded ${page === dispatchPage
+                              ? 'bg-blue-600 text-white border-blue-600'
+                              : 'border-gray-300 hover:bg-gray-50'
+                              }`}
                           >
                             {page}
                           </button>
@@ -658,28 +657,26 @@ const UserDetailPage = () => {
                     </div>
                     {/* 타입별 통계 */}
                     {Object.entries(warningStats.byType || {})
-                      .sort(([,a], [,b]) => b - a)
+                      .sort(([, a], [, b]) => b - a)
                       .map(([type, count], index) => (
-                        <div key={`warning-stat-${type}-${index}`} className={`px-2 py-1 rounded-full ${
-                          type === 'DROWSINESS' ? 'bg-red-50' :
+                        <div key={`warning-stat-${type}-${index}`} className={`px-2 py-1 rounded-full ${type === 'DROWSINESS' ? 'bg-red-50' :
                           type === 'ACCELERATION' ? 'bg-yellow-50' :
-                          type === 'BRAKING' ? 'bg-orange-50' :
-                          type === 'SMOKING' ? 'bg-purple-50' :
-                          type === 'SEATBELT_UNFASTENED' ? 'bg-blue-50' :
-                          type === 'PHONE_USAGE' ? 'bg-pink-50' :
-                          type === 'SPEEDING' ? 'bg-purple-50' :
-                          'bg-gray-50'
-                        }`}>
-                          <span className={`text-xs font-medium ${
-                            type === 'DROWSINESS' ? 'text-red-800' :
-                            type === 'ACCELERATION' ? 'text-yellow-800' :
-                            type === 'BRAKING' ? 'text-orange-800' :
-                            type === 'SMOKING' ? 'text-purple-800' :
-                            type === 'SEATBELT_UNFASTENED' ? 'text-blue-800' :
-                            type === 'PHONE_USAGE' ? 'text-pink-800' :
-                            type === 'SPEEDING' ? 'text-purple-800' :
-                            'text-gray-800'
+                            type === 'BRAKING' ? 'bg-orange-50' :
+                              type === 'SMOKING' ? 'bg-purple-50' :
+                                type === 'SEATBELT_UNFASTENED' ? 'bg-blue-50' :
+                                  type === 'PHONE_USAGE' ? 'bg-pink-50' :
+                                    type === 'SPEEDING' ? 'bg-purple-50' :
+                                      'bg-gray-50'
                           }`}>
+                          <span className={`text-xs font-medium ${type === 'DROWSINESS' ? 'text-red-800' :
+                            type === 'ACCELERATION' ? 'text-yellow-800' :
+                              type === 'BRAKING' ? 'text-orange-800' :
+                                type === 'SMOKING' ? 'text-purple-800' :
+                                  type === 'SEATBELT_UNFASTENED' ? 'text-blue-800' :
+                                    type === 'PHONE_USAGE' ? 'text-pink-800' :
+                                      type === 'SPEEDING' ? 'text-purple-800' :
+                                        'text-gray-800'
+                            }`}>
                             {getWarningTypeLabel(type)} {count}건
                           </span>
                         </div>
@@ -688,7 +685,7 @@ const UserDetailPage = () => {
                 )}
               </div>
             </div>
-            
+
             {/* 날짜 필터 */}
             <div className="bg-gray-50 rounded-lg p-4 mb-6">
               <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
@@ -721,7 +718,7 @@ const UserDetailPage = () => {
                 </div>
               </div>
             </div>
-            
+
             {warningHistory.length === 0 ? (
               <p className="text-gray-400 text-center py-8">경고 이력이 없습니다.</p>
             ) : (
@@ -751,16 +748,15 @@ const UserDetailPage = () => {
                         >
                           <div className="flex justify-between items-center">
                             <div className="flex items-center gap-3">
-                              <span className={`px-2 py-1 rounded text-xs font-bold ${
-                                eventType === 'DROWSINESS' ? 'bg-red-50 text-red-700' :
+                              <span className={`px-2 py-1 rounded text-xs font-bold ${eventType === 'DROWSINESS' ? 'bg-red-50 text-red-700' :
                                 eventType === 'ACCELERATION' ? 'bg-yellow-50 text-yellow-700' :
-                                eventType === 'BRAKING' ? 'bg-orange-50 text-orange-700' :
-                                eventType === 'SMOKING' ? 'bg-purple-50 text-purple-700' :
-                                eventType === 'SEATBELT_UNFASTENED' ? 'bg-blue-50 text-blue-700' :
-                                eventType === 'PHONE_USAGE' ? 'bg-pink-50 text-pink-700' :
-                                eventType === 'SPEEDING' ? 'bg-purple-50 text-purple-700' :
-                                'bg-gray-50 text-gray-700'
-                              }`}>{getWarningTypeLabel(eventType)}</span>
+                                  eventType === 'BRAKING' ? 'bg-orange-50 text-orange-700' :
+                                    eventType === 'SMOKING' ? 'bg-purple-50 text-purple-700' :
+                                      eventType === 'SEATBELT_UNFASTENED' ? 'bg-blue-50 text-blue-700' :
+                                        eventType === 'PHONE_USAGE' ? 'bg-pink-50 text-pink-700' :
+                                          eventType === 'SPEEDING' ? 'bg-purple-50 text-purple-700' :
+                                            'bg-gray-50 text-gray-700'
+                                }`}>{getWarningTypeLabel(eventType)}</span>
                               <div className="text-gray-700 text-sm">{warning.description}</div>
                             </div>
                             <div className="text-right text-xs text-gray-500">{timeLabel}</div>
@@ -791,11 +787,10 @@ const UserDetailPage = () => {
                           <button
                             key={page}
                             onClick={() => setWarningPage(page)}
-                            className={`px-3 py-1 text-sm border rounded ${
-                              page === warningPage
-                                ? 'bg-blue-600 text-white border-blue-600'
-                                : 'border-gray-300 hover:bg-gray-50'
-                            }`}
+                            className={`px-3 py-1 text-sm border rounded ${page === warningPage
+                              ? 'bg-blue-600 text-white border-blue-600'
+                              : 'border-gray-300 hover:bg-gray-50'
+                              }`}
                           >
                             {page}
                           </button>

@@ -1,38 +1,22 @@
-import React, { useState, useEffect } from "react";
-import { useScheduleAPI } from "../../hooks/useScheduleAPI";
-
+import { useMemo } from "react";
+import dayjs from "dayjs";
+import { useAvailableDrivers } from "../../hooks/QueryLayer/useDriver";
 const DriverSelector = ({ value, onChange, required = false, selectedDate, selectedTime }) => {
-  const { fetchAvailableDrivers } = useScheduleAPI();
-  const [drivers, setDrivers] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const { startTime, endTime } = useMemo(() => {
+    if (!selectedDate || !selectedTime) return { startTime: null, endTime: null };
+    // 시작 시점 객체 생성
+    const start = dayjs(`${selectedDate}T${selectedTime}`);
 
-  // 날짜/시간이 선택되었을 때 가용 운전자 조회
-  useEffect(() => {
-    if (selectedDate && selectedTime) {
-      loadAvailableDrivers();
-    } else {
-      setDrivers([]);
-    }
+    const end = start.add(3, "hour");
+
+    return {
+      startTime: start.format("YYYY-MM-DDTHH:mm:ss"),
+      endTime: end.format("YYYY-MM-DDTHH:mm:ss")
+    };
   }, [selectedDate, selectedTime]);
+  const { data: drivers = [], isLoading: loading, isError: error } = useAvailableDrivers(startTime, endTime);
 
-  const loadAvailableDrivers = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      // selectedDate와 selectedTime을 startTime, endTime 형식으로 변환
-      const startTime = `${selectedDate}T${selectedTime}:00`;
-      const endTime = `${selectedDate}T${selectedTime}:00`; // 임시로 같은 시간 사용
-      
-      const availableDrivers = await fetchAvailableDrivers(startTime, endTime);
-      setDrivers(availableDrivers);
-    } catch (err) {
-      setError("가용 운전자 조회에 실패했습니다.");
-      setDrivers([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+
 
   return (
     <div className="mb-4">

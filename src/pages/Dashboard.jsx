@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import dayjs from 'dayjs';
 import { IoCarSportOutline, IoStatsChartOutline, IoCheckmarkDoneOutline, IoClose } from "react-icons/io5";
-import { useDashboardData } from "../hooks/useDashboardData";
+import { useDashboardData } from "../components/Dashboard/useDashboardData";
 import WeeklyDispatchBar from "../components/Dashboard/charts/WeeklyDispatchBar";
 import HourlyDepartureColumn from "../components/Dashboard/charts/HourlyDepartureColumn";
 import { useNotificationContext } from "../Context/NotificationProvider";
