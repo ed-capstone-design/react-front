@@ -1,9 +1,5 @@
-//종류
-
 import { useState, useCallback } from "react";
 import { useSubscription } from "./useSubscription";
-
-//알림-전역->프로바이더로 제공
 
 export const useWebSocketNotification = (callback) => {
   const topic = `/user/queue/notifications`;

@@ -35,7 +35,6 @@ export const useDeleteUser = () => {
   return useMutation({
     mutationFn: userService.withdraw,
     onSuccess: () => {
-      // ✅ 훅의 역할: 데이터/상태 정리
       authManager.logout(); // 로컬 스토리지 비우기
       queryClient.removeQueries(); // React Query 캐시 비우기
     },

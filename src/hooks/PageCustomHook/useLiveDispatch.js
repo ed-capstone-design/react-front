@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { apiClient } from "../api/apiClient";
-import { authManager } from "../components/Token/authManager";
-import { useWebSocketContext } from "../Context/WebSocketProvider";
+import { apiClient } from "../../api/apiClient";
+import { authManager } from "../../components/Token/authManager";
+import { useWebSocketContext } from "../../Context/WebSocketProvider";
 
 // 구성 상수: 나중 1초 주기로 바뀔 때 EXPECTED_INTERVAL_MS만 1000으로 변경
 const EXPECTED_INTERVAL_MS = 10000; // 추후 1000 예정

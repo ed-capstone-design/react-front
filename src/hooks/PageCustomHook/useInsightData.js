@@ -1,8 +1,8 @@
 import { useMemo } from "react";
 import dayjs from "dayjs";
 import { useQueries } from "@tanstack/react-query";
-import { useDispatchList, DISPATCH_KEYS } from "./QueryLayer/useDispatch";
-import { dispatchService } from "../api/ServiceLayer/dispatchService";
+import { useDispatchList, DISPATCH_KEYS } from "../QueryLayer/useDispatch";
+import { dispatchService } from "../../api/ServiceLayer/dispatchService";
 
 export const useInsightData = () => {
   // 1. 날짜 범위 설정 (어제 ~ 내일)
@@ -12,7 +12,7 @@ export const useInsightData = () => {
       end: dayjs().add(1, "day").format("YYYY-MM-DD"),
       today: dayjs().format("YYYY-MM-DD"),
     }),
-    []
+    [],
   );
 
   // 2. 메인 배차 리스트 조회 (React Query)
@@ -29,7 +29,7 @@ export const useInsightData = () => {
     const todayData = dispatches.filter(
       (d) =>
         (d.dispatchDate || d.scheduledDepartureTime?.slice(0, 10)) ===
-        range.today
+        range.today,
     );
 
     // 운행 중 배차 리스트 (실시간 관제 대상)
@@ -41,7 +41,7 @@ export const useInsightData = () => {
       todayCompleted: todayData.filter((d) => d.status === "COMPLETED").length,
       todayDelayed: todayData.filter((d) => d.status === "DELAYED").length,
       todayRemaining: todayData.filter((d) =>
-        ["SCHEDULED", "RUNNING", "DELAYED"].includes(d.status)
+        ["SCHEDULED", "RUNNING", "DELAYED"].includes(d.status),
       ).length,
     };
 

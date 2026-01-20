@@ -29,7 +29,7 @@ class WebSockSession {
             console.error("[Session] STOMP 프로토콜 에러:", error.message);
             break;
           case "NETWORK":
-            console.warn("⚠️ [Session] 네트워크 불안정:", error.event);
+            console.warn("[Session] 네트워크 불안정:", error.event);
             break;
           default:
             console.error("Unknown Error", error);

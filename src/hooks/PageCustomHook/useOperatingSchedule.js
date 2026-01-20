@@ -3,9 +3,9 @@ import {
   useGetDispatches,
   useCreateDispatch,
   useCancelDispatch,
-} from "./QueryLayer/useDispatch";
-import { dispatchService } from "../api/ServiceLayer/dispatchService";
-import { useToast } from "../components/Toast/ToastProvider";
+} from "../QueryLayer/useDispatch";
+import { dispatchService } from "../../api/ServiceLayer/dispatchService";
+import { useToast } from "../../components/Toast/ToastProvider";
 import dayjs from "dayjs";
 
 export const useOperatingSchedule = () => {
@@ -83,7 +83,7 @@ export const useOperatingSchedule = () => {
       const data = await dispatchService.getDispatches(
         period.start,
         period.end,
-        statusFilter.length > 0 ? statusFilter.join(",") : undefined
+        statusFilter.length > 0 ? statusFilter.join(",") : undefined,
       );
       setPeriodSchedules(data);
     } catch (error) {
@@ -105,7 +105,7 @@ export const useOperatingSchedule = () => {
         const data = await dispatchService.getDispatches(
           period.start,
           period.end,
-          statusFilter.length > 0 ? statusFilter.join(",") : undefined
+          statusFilter.length > 0 ? statusFilter.join(",") : undefined,
         );
         setPeriodSchedules(data);
       } catch (error) {
@@ -137,7 +137,7 @@ export const useOperatingSchedule = () => {
         setLoading(false);
       }
     },
-    [createDispatchMutation, loadSchedules]
+    [createDispatchMutation, loadSchedules],
   );
 
   // 스케줄 수정 핸들러 (취소 후 재생성 방식)
@@ -147,21 +147,21 @@ export const useOperatingSchedule = () => {
         setLoading(true);
         console.log(
           "📝 [useOperatingSchedule] 스케줄 수정 시작 - 취소 후 재생성:",
-          { dispatchId, scheduleData }
+          { dispatchId, scheduleData },
         );
 
         // 1. 기존 배차 취소
         await cancelDispatchMutation.mutateAsync(dispatchId);
         console.log(
           "✅ [useOperatingSchedule] 기존 배차 취소 완료:",
-          dispatchId
+          dispatchId,
         );
 
         // 2. 새로운 배차 생성
         await createDispatchMutation.mutateAsync(scheduleData);
         console.log(
           "✅ [useOperatingSchedule] 새로운 배차 생성 완료:",
-          scheduleData
+          scheduleData,
         );
 
         toastRef.current.success("스케줄이 성공적으로 수정되었습니다.");
@@ -179,7 +179,7 @@ export const useOperatingSchedule = () => {
         setLoading(false);
       }
     },
-    [cancelDispatchMutation, createDispatchMutation, loadSchedules]
+    [cancelDispatchMutation, createDispatchMutation, loadSchedules],
   );
 
   // 수정 버튼 클릭 핸들러
@@ -202,7 +202,7 @@ export const useOperatingSchedule = () => {
         } catch (error) {
           console.error("스케줄 삭제 실패:", error);
           toastRef.current.error(
-            error.message || "스케줄 삭제에 실패했습니다."
+            error.message || "스케줄 삭제에 실패했습니다.",
           );
           return { success: false, error: error.message };
         } finally {
@@ -211,13 +211,13 @@ export const useOperatingSchedule = () => {
       }
       return { success: false };
     },
-    [cancelDispatchMutation, loadSchedules]
+    [cancelDispatchMutation, loadSchedules],
   );
 
   // 대기 중 상태 필터 변경
   const handlePendingStatusChange = useCallback((value) => {
     setPendingStatusFilter((prev) =>
-      prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]
+      prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value],
     );
   }, []);
 

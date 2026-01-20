@@ -2,7 +2,7 @@ import React from 'react';
 import axios from 'axios';
 import { useParams, useNavigate } from 'react-router-dom';
 import { IoArrowBack } from 'react-icons/io5';
-import useLiveDispatch from '../hooks/useLiveDispatch';
+import useLiveDispatch from '../hooks/PageCustomHook/useLiveDispatch';
 import KakaoMap from '../components/Map/KakaoMapContainer';
 import RealtimeMarkers from '../components/Map/RealtimeMarkers';
 import { useNotificationContext } from '../Context/NotificationProvider';

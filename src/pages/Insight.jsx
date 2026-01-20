@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useInsightData } from '../hooks/useInsightData';
+import { useInsightData } from '../hooks/PageCustomHook/useInsightData';
 import { useNotification, useReadNotification } from '../hooks/QueryLayer/useNotification';
 import KakaoMapContainer from '../components/Map/KakaoMapContainer';
 import RealtimeMarkers from '../components/Map/RealtimeMarkers';

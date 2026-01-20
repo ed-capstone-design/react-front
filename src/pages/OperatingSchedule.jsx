@@ -1,7 +1,7 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import AddSchedule from "../components/Schedule/AddSchedule";
-import { useOperatingSchedule } from "../hooks/useOperatingSchedule";
+import { useOperatingSchedule } from "../hooks/PageCustomHook/useOperatingSchedule";
 import { authManager } from "../components/Token/authManager";
 import axios from 'axios';
 
@@ -87,8 +87,8 @@ const OperatingSchedule = () => {
                 key={opt.value}
                 onClick={() => handlePendingStatusChange(opt.value)}
                 className={`px-2 py-1 text-xs rounded-full border transition-all duration-200 ${pendingStatusFilter.includes(opt.value)
-                    ? 'bg-blue-100 border-blue-300 text-blue-700 shadow-sm'
-                    : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+                  ? 'bg-blue-100 border-blue-300 text-blue-700 shadow-sm'
+                  : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
                   }`}
               >
                 {opt.label}
@@ -175,10 +175,10 @@ const OperatingSchedule = () => {
                         </td>
                         <td className="py-4 px-2 sm:px-3 text-sm">
                           <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${item.status === "COMPLETED" ? "bg-green-100 text-green-800" :
-                              item.status === "RUNNING" ? "bg-blue-100 text-blue-800" :
-                                item.status === "SCHEDULED" ? "bg-gray-100 text-gray-800" :
-                                  item.status === "DELAYED" ? "bg-orange-100 text-orange-800" :
-                                    "bg-red-100 text-red-800"
+                            item.status === "RUNNING" ? "bg-blue-100 text-blue-800" :
+                              item.status === "SCHEDULED" ? "bg-gray-100 text-gray-800" :
+                                item.status === "DELAYED" ? "bg-orange-100 text-orange-800" :
+                                  "bg-red-100 text-red-800"
                             }`}>
                             {item.status === "COMPLETED" ? "완료" :
                               item.status === "RUNNING" ? "운행중" :
