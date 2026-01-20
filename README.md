@@ -1,238 +1,171 @@
-# 운전의 진수 (Driver Management System)
+# 🚍 Corporate FMS Back-Office
 
-현대적인 SaaS 스타일의 버스/운전자/배차 관리 프론트엔드 애플리케이션입니다. React + Tailwind로 구성되어 있으며, Kakao 지도와 실시간 알림/운행 데이터 연동을 지원합니다.
+> **운수 기업의 실시간 차량 운행 관제를 위한 FMS 백오피스 시스템** > React & WebSocket을 기반으로 운전자 상태와 차량 위치를 실시간 시각화
 
-## 🧭 목차
-- 프로젝트 개요
-- 기술 스택
-- 실행 방법 (환경 변수 포함)
-- 데이터 관리 설계
-- 인증/토큰 흐름
-- 페이지별 구현 개요 (스크린샷 자리 표시 포함)
-- 지도 API & 구현 방식
-- 디렉터리 구조
-- 개발/품질 가이드 (Lint/빌드/테스트)
+![Service](https://img.shields.io/badge/Service-Corporate_FMS-darkblue?style=flat-square)
+![Tech](https://img.shields.io/badge/Tech-React_&_WebSocket-61DAFB?style=flat-square&logo=react&logoColor=white)
 
 ---
 
-## � 프로젝트 개요
-운전자, 차량, 배차(운행) 및 알림을 관리/모니터링하는 관리자 웹입니다. 오늘의 운행 현황, 실시간 운행 페이지, 알림 목록, 배차/운전자 상세/편집 등 운영에 필요한 화면들을 제공합니다.
+## 🚧 Refactoring Journey (v1.0 → v2.0)
 
-## �️ 기술 스택
-- Frontend: React 18, Vite/Cra 기반 빌드 (현재 package.json 기준 CRA)
-- Styling: Tailwind CSS
-- Routing: React Router v6
-- HTTP: Axios (+ 인터셉터)
-- State: React Context (Token, Notification 등)
-- Maps: Kakao Maps JavaScript API
+> **"기능 구현은 완료되었고, 현재는 구조 개선 중심으로 리팩토링을 진행 중입니다."**
 
-## 🚀 실행 방법
+이 프로젝트는 **v1.0에서 주요 기능 구현을 완료**했으나, 유지보수와 확장성 확보를 위해 **구조 및 책임 분리 중심의 v2.0 리팩토링**을 진행 중입니다.
 
-### 요구 사항
-- Node.js 16 이상 권장
-- npm 또는 yarn
-- Kakao Developers 발급 JS 키
-- 백엔드 API (기본: http://localhost:8080)
+- **v1.0 (Legacy):** 기능 구현 중심 (안정 버전) 👉 [Commit `e75d443`](https://github.com/ID/REPO/commit/e75d443)
 
-### 설치
+- **v2.0 (Current / Refactoring in Progress):** 아키텍처 재설계 및 코어 모듈 구축 완료, 화면 기능 연결 중
+  <details>
+  <summary>2.0 진행상태</summary>
+    아키텍처 재설계와 코어 모듈 구축 완료, 화면 단위 기능 연결 진행 중
+
+  ✅ HTTP 로직 6계층 구조 적용  
+   ✅ 도메인별 재사용 가능한 Custom Hooks(Auth, Map, Driver) 구축
+  ✅ 토큰 관리 및 인증 상태 단일 레이어(SSOT) 확보  
+   ✅ WebSocket 구조(Session / Client / Broker) 재설계  
+   ✅ 라우팅 구조 리팩토링 및 Guard 컴포넌트 적용  
+   ⚪ UI/페이지별 Page Hook 연결 진행 중  
+   ⚪ 세부 기능 최적화 및 에러 처리 진행 중
+  </details>
+
+🔗 [📄 리팩토링 상세 보고서 (Velog)](https://velog.io/@username/project-refactoring)
+
+---
+
+## 1. 프로젝트 개요 (Overview)
+
+본 프로젝트는 운수 회사의 차량 운영 효율과 안전을 책임지는 **Corporate FMS(Fleet Management System) 백오피스**입니다.
+
+현장의 모바일 앱(AI 영상 분석)과 OBD 장치(차량 제어 신호)에서 수집된 데이터를 **WebSocket**으로 수신하여, 관리자가 **실시간으로 차량 위치와 운전자의 위험 상태를 모니터링**하고 즉각 대응할 수 있는 시스템입니다.
+
+### 핵심 기능 (Key Features)
+
+- **🗺️ 실시간 위치 관제:** WebSocket 기반으로 차량의 현재 위치와 주행 상태를 지도 위에 지연 없이 시각화
+- **🚨 AI 위험 알림:** 운전자의 **졸음·이상행동** 감지 시, 관리자에게 즉시 **Toast 알림**을 전송하여 골든타임 확보
+- **👨🏻‍💻 주행 이력 분석:** 운행 종료 후 이동 경로(Route)를 지도에 재구성하고, **위험 이벤트 발생 지점을 아이콘**으로 시각화
+- **🚍 통합 리소스 관리:** 복잡한 배차 일정, 기사 정보, 차량 관리를 위한 직관적인 **CRUD 시스템** 제공
+
+---
+
+## 2. Tech Stack
+
+| 영역              | 기술 스택                                               |
+| :---------------- | :------------------------------------------------------ |
+| **Frontend**      | React `19.1`, React Router `7.6`                        |
+| **Data / State**  | TanStack React Query `5.90`, Axios `1.13` (Interceptor) |
+| **Real-time**     | WebSocket (SockJS `1.6`, STOMP `7.2`)                   |
+| **Visualization** | Kakao Maps API, Recharts `3.2`, Tailwind CSS `3.4`      |
+| **Utilities**     | dayjs (Timezone), jwt-decode (Auth)                     |
+
+---
+
+## 3. 주요 화면 (Screenshots)
+
+### 3.1 대시보드 & 운전자 관리
+
+|                           대시보드 (통계)                            |                                운전자 상세 조회                                |
+| :------------------------------------------------------------------: | :----------------------------------------------------------------------------: |
+| <img src="./public/img/대시보드.jpeg" width="100%" alt="대시보드" /> | <img src="./public/img/운전자 상세 조회.jpeg" width="100%" alt="운전자관리" /> |
+|                   금일/금주 배차 통계 및 알림 현황                   |                      운전자별 배차 경고 및 상세 정보 관리                      |
+
+### 3.2 실시간 관제 & 인사이트
+
+|                             실시간 위치 관제                              |                              운행 상세 모니터링                               |
+| :-----------------------------------------------------------------------: | :---------------------------------------------------------------------------: |
+| <img src="./public/img/인사이트 알림.jpeg" width="100%" alt="위치관제" /> | <img src="./public/img/실시간%20운전.jpeg" width="100%" alt="상세모니터링" /> |
+|                       전체 차량 위치 실시간 트래킹                        |                 **OBD 데이터** 및 **위험 이벤트** 초단위 관제                 |
+
+---
+
+## 🔥 Refactoring & Architecture
+
+초기 프로젝트는 기능 구현은 완료되었지만, **유지보수와 확장성이 거의 없는 스파게티 상태**였습니다.
+리팩토링의 핵심 목표는 **책임 중심 아키텍처 분리와 재사용성을 고려한 모듈화**였습니다.
+
+### 📊 v1.0 vs v2.0 아키텍처 비교
+
+| 구분           | Legacy (v1.0)                             | Refactoring (v2.0)                                                  | 개선 효과                                                   |
+| :------------- | :---------------------------------------- | :------------------------------------------------------------------ | :---------------------------------------------------------- |
+| **아키텍처**   | UI 파일 내 로직 혼재<br>(God Object 패턴) | **4-Layer Architecture**<br>(UI ↔ Hook ↔ Service ↔ API)             | 유지보수성 향상<br>테스트 용이성 확보                       |
+| **상태관리**   | `useState`, `props drilling` 산재         | **Server State (React Query)**<br>+ **Client State (Context)** 분리 | **SSOT(Single Source of Truth)** 확보<br>데이터 불일치 해결 |
+| **WebSocket**  | 단일 파일(551줄)이 모든 연결 처리         | **Session / Client / Broker** 분리                                  | 연결 안정성 강화<br>재구독 로직 간소화                      |
+| **인증(Auth)** | 페이지별 토큰 처리 중복                   | **Centralized Auth Manager**<br>(Axios Interceptor 통합)            | 보안 로직 일원화<br>토큰 만료 자동 갱신                     |
+| **코드 품질**  | 중복 코드 다수, 에러 처리 미흡            | **공통 에러 핸들링 & 훅 모듈화**                                    | 코드 라인 수(LOC) **35% 감소**                              |
+
+### 🛠️ Key Refactoring Points (주요 개선 사항)
+
+**1. 아키텍처 & 라우팅**
+
+- 라우팅 중복 제거, `Guard` 컴포넌트로 접근 권한 중앙화
+- 도메인별 Custom Hooks(Auth, Map, Driver)로 로직 분리 → 재사용성 ↑, 보일러플레이트 ↓
+
+**2. 인증 & 네트워크**
+
+- 토큰/인증 상태 단일 레이어(Context + Token Manager)로 통합 (SSOT)
+- 6계층 REST API 구조 적용, 단일 책임 원칙(SRP) 기반 설계 → 디버깅·재사용 용이
+
+**3. 실시간(WebSocket)**
+
+- 중복 연결/구독 방지, 네트워크 에러 시 자동 복구
+- Map/Set으로 구독 관리 → 이벤트 처리 속도 및 메모리 효율 개선
+
+**4. 성능 & 상태 최적화**
+
+- React Query로 서버 상태 캐싱, 불필요 호출 최소화
+- 권한 문제 발생 시 즉시 로그아웃·세션 정리
+
+---
+
+## 🛠️ Trouble Shooting
+
+### 1. 실시간 위치 동기화 및 렌더링 최적화
+
+- **문제:** 여러 차량이 동시에 위치 데이터를 전송할 때, 지도 리렌더링 부하로 인한 '끊김 현상' 및 위치 점프(Jumping) 발생
+- **해결:**
+  - **Jitter Buffer:** 데이터를 즉시 렌더링하지 않고, 큐(Queue)에 담아 일정 주기로 보간(Interpolation)하여 부드럽게 이동 처리
+  - **Throttle:** 렌더링 업데이트 주기를 제어하여 메인 스레드 부하 감소
+
+### 2. 클라이언트-서버 시간 동기화 (Timezone)
+
+- **문제:** 로컬 개발 환경과 AWS 배포 서버(UTC) 간의 시간 차이로 인해, 실시간 데이터의 타임스탬프가 어긋나는 현상
+- **해결:** `dayjs` 플러그인을 활용하여 모든 시간을 클라이언트 브라우저의 Timezone 기준으로 변환하는 유틸리티 함수 `formatTime()` 표준화 적용
+
+---
+
+## 🏃 Getting Started
+
+### 1. 레포지토리 클론
+
 ```bash
 git clone https://github.com/ed-capstone-design/react-front.git
 cd react-front
-npm install
+
 ```
 
-### 환경 변수 (.env)
-```env
-# Kakao 지도 API 키 (필수)
-REACT_APP_KAKAO_MAP_API_KEY=YOUR_KAKAO_JS_KEY
+### 2. 특정 커밋 체크아웃 (안정화 버전)
 
-# (선택) 서버 타임존 보정(분)
-REACT_APP_TZ_OFFSET_MINUTES=0
+> ⚠️ **현재 `main` 브랜치는 리팩토링 중입니다.** > 정상적으로 동작하는 v1.0(기능 구현 완료 커밋)를 확인하시려면 아래 커밋으로 이동해주세요.
 
-# (선택) 백엔드 API baseURL, 전역 axios.defaults.baseURL이 이미 8080으로 셋업되지만 필요 시 오버라이드
-# REACT_APP_API_BASE=http://localhost:8080
-```
-
-변경 후 개발 서버를 재시작해야 지도 스크립트 키가 반영됩니다.
-
-### 실행/빌드
 ```bash
-npm start   # 개발 서버 (http://localhost:3000)
-npm run build  # 프로덕션 빌드
-```
-
----
-
-## � 데이터 관리 설계
-
-### 1) API 클라이언트/설정
-- `src/api/setupAxios.js`: 앱 부팅 시점에 axios 기본값(baseURL, Authorization) 주입
-- `src/api/client.js`: 필요 시 사용할 수 있는 별도 axios 인스턴스 (baseURL만 지정)
-
-### 2) 토큰/사용자 정보 관리 (인증)
-- `src/components/Token/TokenProvider.jsx`
-  - accessToken/refreshToken을 localStorage에 저장하고, axios 인터셉터로 Authorization 헤더 자동 주입
-  - `/api/auth/refresh`로 Access Token 갱신, 401 응답에 대한 자동 재시도/로그아웃 처리
-  - `getUserInfoFromToken()` 유틸로 JWT에서 사용자 정보 파싱
-
-요약 흐름:
-- 로그인 성공 → access/refresh 저장 → Authorization 헤더 설정 → 사용자 정보 저장
-- 요청 중 401 → refresh 시도 성공 시 재요청, 실패 시 로그아웃 및 `/signin` 이동
-
-### 3) 날짜/시간 처리
-- `src/hooks/useDashboardData.js` 등: ISO/epoch/HH:mm 혼합 포맷을 정규화, 도착시간 다음날 보정 로직 포함
-- `REACT_APP_TZ_OFFSET_MINUTES`로 서버-클라이언트 타임존 차를 보정 가능
-
-### 4) 알림 관리
-- `src/components/Notification/NotificationProvider.jsx` (contexts 폴더)
-  - 알림 목록, 미읽음 카운트, 실시간 갱신 버전 관리
-  - 페이지에서 `useNotification()`으로 구독
-
----
-
-## 🔐 인증/토큰 흐름
-
-1) 로그인 시 서버가 `{ accessToken, refreshToken, userId, username, roles }` 형태 반환
-2) `TokenProvider.login()`이 토큰/유저정보 저장, axios Authorization 설정
-3) 모든 요청은 인터셉터가 최신 accessToken을 Authorization 헤더로 주입
-4) 401 발생 시 refresh 시도 → 성공 시 재시도, 실패 시 토큰 제거 후 `/signin` 이동
-
-필요 시 로컬 디버깅을 위해 `localStorage.setItem('DEBUG_AXIOS','1')` 설정하면 콘솔에 요청/토큰 로그가 출력됩니다.
-
----
-
-## 📄 페이지별 구현 개요 (스크린샷 자리 표시)
-
-> 아래 각 섹션에는 나중에 실제 스크린샷(이미지)을 추가하세요. `docs/` 폴더에 이미지를 넣고 상대경로로 연결하면 됩니다.
-
-### 대시보드 (`src/pages/Dashboard.jsx`)
-- 오늘의 운행현황: 예정/운행중/완료 탭 및 리스트
-- 주간/시간대 분포 차트
-- 데이터 소스: `useDashboardData`
-
-스크린샷: ![dashboard](docs/images/dashboard.png)
-
-### 운전자 목록/상세 (`src/components/Driver/*`, `src/pages/Drivers.jsx`)
-- 카드/리스트/모달 구성
-- 실시간 상태 뱃지 표시
-
-스크린샷: ![drivers](docs/images/drivers.png)
-
-### 배차 운영 스케줄 (`src/pages/OperatingSchedule.jsx`)
-- 날짜/시간 통합 정규화, 도착 다음날 보정
-- 배차 추가/수정 모달 구성
-
-스크린샷: ![schedule](docs/images/schedule.png)
-
-### 실시간 운행 (`src/pages/RealtimeOperation.jsx`)
-- Kakao 지도 + 현재 위치 마커
-- OBD/KPI 카드, 운행 이벤트 리스트
-- 알림 수신 시 이벤트 자동 갱신
-
-스크린샷: ![realtime](docs/images/realtime.png)
-
-### 알림 목록 (`src/pages/Notifications.jsx`)
-- 우선순위/타입 필터링, 읽음 처리
-- 요약 위젯(`AlertSummaryWidget`)
-
-스크린샷: ![notifications](docs/images/notifications.png)
-
-### 프로필/설정 (`src/pages/MyPage.jsx` & `src/components/Profile/*`)
-- 기본 정보/비밀번호 변경 폼
-
-스크린샷: ![mypage](docs/images/mypage.png)
-
----
-
-## � 지도 API & 구현 방식
-
-### Kakao 지도 연동 구조
-- `src/components/Map/KakaoMapContainer.jsx`
-  - Kakao JS SDK를 동적으로 로드하고, 지도 객체를 생성
-  - 자식 컴포넌트에 `map` prop을 주입(React.cloneElement)
-  - 예시 사용:
-    ```jsx
-    <KakaoMapContainer center={{lat, lng}} height="480px">
-      <RealtimeMarkers drivers={[{ lat, lng, label: '현위치' }]} />
-    </KakaoMapContainer>
-    ```
-- `src/components/Map/RealtimeMarkers.jsx`
-  - 전달받은 `drivers` 배열을 순회하며 커스텀 오버레이 생성
-  - `map` 변경/언마운트 시 정리(cleanup)
-
-주의:
-- `.env`의 `REACT_APP_KAKAO_MAP_API_KEY`가 없으면 안내 박스를 렌더링하고 지도는 생성되지 않습니다.
-
----
-
-## 📁 디렉터리 구조
-
-> 실제 구조를 요약하여 핵심만 정리했습니다.
+git checkout e75d44334332ef5f0d5e22342e478179de605248
 
 ```
-src/
-  api/
-    client.js           # axios 인스턴스
-    setupAxios.js       # 전역 axios 기본값/헤더 주입
-  components/
-    Map/
-      KakaoMapContainer.jsx
-      RealtimeMarkers.jsx
-    Notification/
-      NotificationProvider.jsx
-      NotificationCountProvider.jsx
-      AlertSummaryWidget.jsx
-      contexts/
-    Token/
-      TokenProvider.jsx
-    ...
-  hooks/
-    useDashboardData.js
-    useOperatingSchedule.js
-    useLiveDispatch.js
-    ...
-  pages/
-    Dashboard.jsx
-    Drivers.jsx
-    OperatingSchedule.jsx
-    RealtimeOperation.jsx
-    Notifications.jsx
-    Auth.jsx / Signin.jsx / Signup.jsx
-    ...
-  utils/
-    apiUtils.js
+
+### 3. 패키지 설치 및 실행
+
+```bash
+npm install
+npm start
+
 ```
 
----
-
-## 🧪 개발/품질 가이드
-
-### Lint/Format
-- ESLint/Prettier 설정(CRA 기본 + 프로젝트 규칙)을 따릅니다.
-
-### 환경별 설정
-- 개발: `npm start` — http://localhost:3000
-- API 기본 주소: `http://localhost:8080` (setupAxios/TokenProvider에서 기본값 주입)
-
-### 트러블슈팅 체크리스트
-- 지도 마커가 보이지 않음
-  - `<KakaoMapContainer>` 안에 마커 컴포넌트를 children으로 렌더링했는지 확인
-  - `REACT_APP_KAKAO_MAP_API_KEY` 설정/재시작 여부 확인
-  - 좌표가 문자열이면 Number 변환 필요 (`Number(lat)`, `Number(lng)`)
-- 401 응답 반복
-  - refresh 토큰 유효성 확인 (서버 재시작 시 무효화 가능)
-  - 실패 시 자동 로그아웃 후 `/signin` 리다이렉트
+- 브라우저 접속: `http://localhost:3000`
+- Node.js 권장 버전: `v18+`
 
 ---
 
-## 라이선스 & 기여
+## 📬 Contact
 
-- 라이선스: MIT (필요 시 조직 정책에 맞춰 변경)
-- 기여: PR/이슈 템플릿은 추후 추가 예정
-
----
-
-## 부록
-
-- 추가 심화 문서는 `docs/` 폴더에 정리합니다.
-- 스크린샷은 `docs/images/`에 저장 후 본 README에서 참조하세요.
+- 📝 **Dev Log:** [https://velog.io/@yun0-0514](https://velog.io/@yun0-0514/series)
+- 📧 **Email:** [ypy2141@naver.com](mailto:ypy2141@naver.com)
