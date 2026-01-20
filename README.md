@@ -13,7 +13,7 @@
 
 이 프로젝트는 **v1.0에서 주요 기능 구현을 완료**했으나, 유지보수와 확장성 확보를 위해 **구조 및 책임 분리 중심의 v2.0 리팩토링**을 진행 중입니다.
 
-- **v1.0 (Legacy):** 기능 구현 중심 (안정 버전) 👉 [Commit `e75d443`](https://github.com/ID/REPO/commit/e75d443)
+- **v1.0 (Legacy):** 기능 구현 중심 (안정 버전) 👉 [Commit `e75d443`](https://github.com/ed-capstone-design/react-front/tree/e75d44334332ef5f0d5e22342e478179de605248)
 
 - **v2.0 (Current / Refactoring in Progress):** 아키텍처 재설계 및 코어 모듈 구축 완료, 화면 기능 연결 중
   <details>
@@ -97,7 +97,7 @@
 
 **1. 아키텍처 & 라우팅**
 
-- 라우팅 중복 제거, `Guard` 컴포넌트로 접근 권한 중앙화
+- 라우팅 중복 제거, `RoutesComponents` 컴포넌트로 접근 권한 중앙화
 - 도메인별 Custom Hooks(Auth, Map, Driver)로 로직 분리 → 재사용성 ↑, 보일러플레이트 ↓
 
 **2. 인증 & 네트워크**
