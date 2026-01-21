@@ -29,7 +29,7 @@
    ⚪ 세부 기능 최적화 및 에러 처리 진행 중
   </details>
 
-🔗 [📄 리팩토링 상세 보고서 (Velog)](https://velog.io/@username/project-refactoring)
+🔗 [📄 리팩토링 상세 보고서 (Velog)](https://velog.io/@yun0-0514/Engineering-%EC%8B%A4%EC%8B%9C%EA%B0%84-%EB%8D%B0%EC%9D%B4%ED%84%B0-%EA%B4%80%EC%A0%9C%EB%A5%BC-%EC%9C%84%ED%95%9C-FMS-%ED%81%B4%EB%9D%BC%EC%9D%B4%EC%96%B8%ED%8A%B8-%EC%95%84%ED%82%A4%ED%85%8D%EC%B2%98-%EC%9E%AC%EC%84%A4%EA%B3%84-%EB%A6%AC%ED%8F%AC%ED%8A%B8)
 
 ---
 
