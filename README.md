@@ -1,6 +1,7 @@
 # 🚍 Corporate FMS Back-Office
 
-> **운수 기업의 실시간 차량 운행 관제를 위한 FMS 백오피스 시스템** > React & WebSocket을 기반으로 운전자 상태와 차량 위치를 실시간 시각화
+> **운수 기업의 실시간 차량 운행 관제를 위한 FMS 백오피스 시스템**
+> React & WebSocket을 기반으로 운전자 상태와 차량 위치를 실시간 시각화
 
 ![Service](https://img.shields.io/badge/Service-Corporate_FMS-darkblue?style=flat-square)
 ![Tech](https://img.shields.io/badge/Tech-React_&_WebSocket-61DAFB?style=flat-square&logo=react&logoColor=white)
