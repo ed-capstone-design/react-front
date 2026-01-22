@@ -13,7 +13,7 @@
 
 이 프로젝트는 **v1.0에서 주요 기능 구현을 완료**했으나, 유지보수와 확장성 확보를 위해 **구조 및 책임 분리 중심의 v2.0 리팩토링**을 진행 중입니다.
 
-- **v1.0 (Legacy):** 기능 구현 중심 (안정 버전) 👉 [Commit `e75d443`](https://github.com/ed-capstone-design/react-front/tree/e75d44334332ef5f0d5e22342e478179de605248)
+- **v1.0 (Legacy):** 기능 구현 중심 (안정 버전) 👉 [Commit `e75d44334332ef5f0d5e22342e478179de605248`](https://github.com/ed-capstone-design/react-front/tree/e75d44334332ef5f0d5e22342e478179de605248)
 
 - **v2.0 (Current / Refactoring in Progress):** 아키텍처 재설계 및 코어 모듈 구축 완료, 화면 기능 연결 중
   <details>
@@ -115,6 +115,8 @@
 - React Query로 서버 상태 캐싱, 불필요 호출 최소화
 - 권한 문제 발생 시 즉시 로그아웃·세션 정리
 
+🔗 [📄 리팩토링 상세 보고서 (Velog)](https://velog.io/@yun0-0514/Engineering-%EC%8B%A4%EC%8B%9C%EA%B0%84-%EB%8D%B0%EC%9D%B4%ED%84%B0-%EA%B4%80%EC%A0%9C%EB%A5%BC-%EC%9C%84%ED%95%9C-FMS-%ED%81%B4%EB%9D%BC%EC%9D%B4%EC%96%B8%ED%8A%B8-%EC%95%84%ED%82%A4%ED%85%8D%EC%B2%98-%EC%9E%AC%EC%84%A4%EA%B3%84-%EB%A6%AC%ED%8F%AC%ED%8A%B8)
+
 ---
 
 ## 🛠️ Trouble Shooting
@@ -167,5 +169,5 @@ npm start
 
 ## 📬 Contact
 
-- 📝 **Dev Log:** [https://velog.io/@yun0-0514](https://velog.io/@yun0-0514/series)
+- 📝 **Dev Log:** [https://velog.io/@yun0-0514](https://velog.io/@yun0-0514/series/%EC%BA%A1%EC%8A%A4%ED%86%A4%EB%94%94%EC%9E%90%EC%9D%B8-%EB%A6%AC%ED%8C%A9%ED%86%A0%EB%A7%81)
 - 📧 **Email:** [ypy2141@naver.com](mailto:ypy2141@naver.com)
